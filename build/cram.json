@@ -1,0 +1,13 @@
+{
+	"packages": {
+		"lode": {
+			"location": "node_modules/lode",
+			"config": { "loader": "curl/loader/cjsm11" }
+		},
+		"rave": {
+			"location": "src",
+			"config": { "loader": "curl/loader/cjsm11" }
+		}
+	},
+	"main": "rave/pipeline"
+}

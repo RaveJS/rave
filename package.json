@@ -1,0 +1,29 @@
+{
+  "name": "rave",
+  "version": "0.0.1",
+  "description": "Web apps are all the rave.",
+  "main": "rave",
+  "scripts": {},
+  "keywords": [
+    "module",
+    "package",
+    "bower",
+    "npm",
+    "amd",
+    "node",
+    "commonjs",
+    "es6"
+  ],
+  "author": "unscriptable <john@unscriptable.com>",
+  "license": "MIT",
+  "dependencies": {
+    "cram": "~0.8",
+    "lode": "~0",
+    "es6-module-loader": "git://github.com/ModuleLoader/es6-module-loader#v0.4.3"
+  },
+	"scripts": {
+		"cram": "node node_modules/cram/cram.js --config ./build/cram.json --output ./build/temp/_pipeline.js",
+		"concat": "node build/concat.js",
+		"build": "npm run cram && npm run concat"
+	}
+}

@@ -1,0 +1,27 @@
+{
+  "name": "rave",
+  "version": "0.0.1",
+  "authors": [
+    "unscriptable <john@unscriptable.com>"
+  ],
+  "description": "Web apps are all the rave.",
+  "main": "rave",
+  "keywords": [
+    "module",
+    "package",
+    "bower",
+    "npm",
+    "amd",
+    "node",
+    "commonjs",
+    "es6"
+  ],
+  "license": "MIT",
+  "ignore": [
+    "**/.*",
+    "node_modules",
+    "bower_components",
+    "test",
+    "tests"
+  ]
+}
