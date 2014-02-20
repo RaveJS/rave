@@ -32,7 +32,7 @@ context = {
 
 loader = new Loader({});
 legacy = legacyAccessors(loader);
-define = simpleDefine(loader);
+define = simpleDefine(legacy);
 define.amd = {};
 
 function boot (context) {
@@ -75,6 +75,11 @@ function getCurrentScript () {
 	return matches && matches[0];
 }
 
+function getPathFromUrl (url) {
+	var last = url.lastIndexOf('/');
+	return url.slice(0, last) + '/';
+}
+
 function mergeBrowserOptions (context) {
 	var el = document.documentElement, i, attr, prop;
 	for (i = 0; i < el.attributes.length; i++) {
@@ -88,15 +93,14 @@ function mergeBrowserOptions (context) {
 
 function simpleDefine (loader) {
 	// TODO: have this return {id, deps, factory} instead of eagerly instantiating
-	var _global, _require;
+	var _global;
 	// temporary work-around for es6-module-loader which throws when
 	// accessing loader.global
 	try { _global = loader.global } catch (ex) { _global = global; }
-	_require = legacy.get(loader);
 	return function (id, deps, factory) {
 		var scoped, modules, i, len, isCjs, result;
 		scoped = {
-			require: _require,
+			require: loader.get,
 			exports: {},
 			global: _global
 		};
@@ -115,7 +119,7 @@ function simpleDefine (loader) {
 		}
 		// eager instantiation.
 		result = factory.apply(null, modules);
-		return isCjs ? scoped.module.exports : result;
+		loader.set(id, isCjs ? scoped.module.exports : result);
 	};
 }
 
@@ -123,24 +127,24 @@ function legacyAccessors (loader) {
 	// TODO: remove this when we add __es5Module to pipelines?
 	var get = loader.get;
 	var set = loader.set;
-	return {
-		get: function (id) {
-			var value = get.call(loader, id);
-			return value && value.__es5Module ? value.__es5Module : value;
-		},
+	var legacy = beget(loader);
 
-		set: function (id, module) {
-			var value = Object(module) === module ? module : {
-				// for real ES6 modules to consume this module
-				'default': module,
-				// for modules transpiled from ES6
-				__es5Module: module
-			};
-			// TODO: spec is ambiguous whether Module is a constructor or factory
-			set.call(loader, id, new Module(value));
-		}
+	legacy.get = function (id) {
+		var value = get.call(loader, id);
+		return value && value.__es5Module ? value.__es5Module : value;
+	};
+	legacy.set = function (id, module) {
+		var value = typeof module === 'object' ? module : {
+			// for real ES6 modules to consume this module
+			'default': module,
+			// for modules transpiled from ES6
+			__es5Module: module
+		};
+		// TODO: spec is ambiguous whether Module is a constructor or factory
+		set.call(loader, id, new Module(value));
 	};
 
+	return legacy;
 }
 
 // TODO: we could probably use lode/lib/beget instead of this
