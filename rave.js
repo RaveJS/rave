@@ -1359,12 +1359,10 @@
 /** @author Brian Cavalier */
 /** @author John Hann */
 (function (exports, global) {
-var rave, amdEval, document, defaultMain,
+var rave, document, defaultMain,
 	context, loader, legacy, define;
 
-rave = exports;
-
-amdEval = Function('define', 'return eval(arguments[1])');
+rave = exports || {};
 
 document = global.document;
 
@@ -1385,7 +1383,7 @@ rave.baseUrl = document
 	: __dirname;
 
 context = {
-	lodeMain: defaultMain,
+	raveMain: defaultMain,
 	baseUrl: rave.baseUrl,
 	loader: loader,
 	packages: { rave: rave.scriptUrl }
@@ -1402,7 +1400,7 @@ function boot (context) {
 		var pipeline = legacy.get('rave/pipeline');
 		// extend loader
 		pipeline(context).applyTo(loader);
-		loader.import(context.lodeMain).then(go, failLoudly);
+		loader.import(context.raveMain).then(go, failLoudly);
 	}
 	catch (ex) {
 		failLoudly(ex);
@@ -1508,7 +1506,7 @@ function legacyAccessors (loader) {
 	return legacy;
 }
 
-// TODO: we could probably use lode/lib/beget instead of this
+// TODO: we could probably use rave/lib/beget instead of this
 function Begetter () {}
 function beget (base) {
 	var obj;
@@ -1520,10 +1518,7 @@ function beget (base) {
 
 
 
-;define('lode/pipeline/locateAsIs', ['require', 'exports', 'module'], function (require, exports, module, define) {/** @license MIT License (c) copyright 2014 original authors */
-/** @author Brian Cavalier */
-/** @author John Hann */
-module.exports = locateAsIs;
+;define('rave/pipeline/locateAsIs', ['require', 'exports', 'module'], function (require, exports, module, define) {module.exports = locateAsIs;
 
 function locateAsIs (load) {
 	return load.name;
@@ -1532,10 +1527,7 @@ function locateAsIs (load) {
 });
 
 
-;define('lode/lib/overrideIf', ['require', 'exports', 'module'], function (require, exports, module, define) {/** @license MIT License (c) copyright 2014 original authors */
-/** @author Brian Cavalier */
-/** @author John Hann */
-module.exports = overrideIf;
+;define('rave/lib/overrideIf', ['require', 'exports', 'module'], function (require, exports, module, define) {module.exports = overrideIf;
 
 function overrideIf (predicate, base, props) {
 	for (var p in props) {
@@ -1555,10 +1547,7 @@ function choice (predicate, a, b) {
 });
 
 
-;define('lode/lib/beget', ['require', 'exports', 'module'], function (require, exports, module, define) {/** @license MIT License (c) copyright 2014 original authors */
-/** @author Brian Cavalier */
-/** @author John Hann */
-module.exports = beget;
+;define('rave/lib/beget', ['require', 'exports', 'module'], function (require, exports, module, define) {module.exports = beget;
 
 function Begetter () {}
 function beget (base) {
@@ -1572,10 +1561,7 @@ function beget (base) {
 });
 
 
-;define('lode/lib/path', ['require', 'exports', 'module'], function (require, exports, module, define) {/** @license MIT License (c) copyright 2014 original authors */
-/** @author Brian Cavalier */
-/** @author John Hann */
-var absUrlRx, findDotsRx;
+;define('rave/lib/path', ['require', 'exports', 'module'], function (require, exports, module, define) {var absUrlRx, findDotsRx;
 
 absUrlRx = /^\/|^[^:]+:\/\//;
 findDotsRx = /(\.)(\.?)(?:$|\/([^\.\/]+.*)?)/g;
@@ -1709,7 +1695,7 @@ function splitDirAndFile (url) {
 });
 
 
-;define('lode/lib/fetchText', ['require', 'exports', 'module'], function (require, exports, module, define) {module.exports = fetchText;
+;define('rave/lib/fetchText', ['require', 'exports', 'module'], function (require, exports, module, define) {module.exports = fetchText;
 
 function fetchText (url, callback, errback) {
 	var xhr;
@@ -1736,10 +1722,7 @@ function fetchText (url, callback, errback) {
 });
 
 
-;define('lode/lib/Thenable', ['require', 'exports', 'module'], function (require, exports, module, define) {/** @license MIT License (c) copyright 2014 original authors */
-/** @author Brian Cavalier */
-/** @author John Hann */
-module.exports = Thenable;
+;define('rave/lib/Thenable', ['require', 'exports', 'module'], function (require, exports, module, define) {module.exports = Thenable;
 
 function Thenable (resolver) {
 	var then, nextFulfill, nextReject;
@@ -1809,10 +1792,7 @@ function failLoud (ex) {
 });
 
 
-;define('lode/lib/addSourceUrl', ['require', 'exports', 'module'], function (require, exports, module, define) {/** @license MIT License (c) copyright 2014 original authors */
-/** @author Brian Cavalier */
-/** @author John Hann */
-module.exports = addSourceUrl;
+;define('rave/lib/addSourceUrl', ['require', 'exports', 'module'], function (require, exports, module, define) {module.exports = addSourceUrl;
 
 function addSourceUrl (url, source) {
 	return source
@@ -1824,10 +1804,7 @@ function addSourceUrl (url, source) {
 });
 
 
-;define('lode/lib/findRequires', ['require', 'exports', 'module'], function (require, exports, module, define) {/** @license MIT License (c) copyright 2014 original authors */
-/** @author Brian Cavalier */
-/** @author John Hann */
-module.exports = findRequires;
+;define('rave/lib/findRequires', ['require', 'exports', 'module'], function (require, exports, module, define) {module.exports = findRequires;
 
 var removeCommentsRx, findRValueRequiresRx;
 
@@ -1864,10 +1841,7 @@ function findRequires (source) {
 });
 
 
-;define('lode/lib/nodeFactory', ['require', 'exports', 'module'], function (require, exports, module, define) {/** @license MIT License (c) copyright 2014 original authors */
-/** @author Brian Cavalier */
-/** @author John Hann */
-module.exports = nodeFactory;
+;define('rave/lib/nodeFactory', ['require', 'exports', 'module'], function (require, exports, module, define) {module.exports = nodeFactory;
 
 var nodeEval = new Function(
 	'require', 'exports', 'module', 'global',
@@ -1912,10 +1886,7 @@ function nodeFactory (loader, load) {
 });
 
 
-;define('lode/lib/globalFactory', ['require', 'exports', 'module'], function (require, exports, module, define) {/** @license MIT License (c) copyright 2014 original authors */
-/** @author Brian Cavalier */
-/** @author John Hann */
-module.exports = globalFactory;
+;define('rave/lib/globalFactory', ['require', 'exports', 'module'], function (require, exports, module, define) {module.exports = globalFactory;
 
 var globalEval = new Function('return eval(arguments[0]);');
 
@@ -1928,10 +1899,7 @@ function globalFactory (loader, load) {
 });
 
 
-;define('lode/pipeline/normalizeCjs', ['require', 'exports', 'module', 'lode/lib/path'], function (require, exports, module, $cram_r0, define) {/** @license MIT License (c) copyright 2014 original authors */
-/** @author Brian Cavalier */
-/** @author John Hann */
-var path = $cram_r0;
+;define('rave/pipeline/normalizeCjs', ['require', 'exports', 'module', 'rave/lib/path'], function (require, exports, module, $cram_r0, define) {var path = $cram_r0;
 
 module.exports = normalizeCjs;
 
@@ -1944,10 +1912,7 @@ function normalizeCjs (name, refererName, refererUrl) {
 });
 
 
-;define('lode/pipeline/fetchAsText', ['require', 'exports', 'module', 'lode/lib/fetchText', 'lode/lib/Thenable'], function (require, exports, module, $cram_r0, $cram_r1, define) {/** @license MIT License (c) copyright 2014 original authors */
-/** @author Brian Cavalier */
-/** @author John Hann */
-module.exports = fetchAsText;
+;define('rave/pipeline/fetchAsText', ['require', 'exports', 'module', 'rave/lib/fetchText', 'rave/lib/Thenable'], function (require, exports, module, $cram_r0, $cram_r1, define) {module.exports = fetchAsText;
 
 var fetchText = $cram_r0;
 var Thenable = $cram_r1;
@@ -1962,15 +1927,12 @@ function fetchAsText (load) {
 });
 
 
-;define('lode/pipeline/translateAsIs', ['require', 'exports', 'module', 'lode/lib/addSourceUrl'], function (require, exports, module, $cram_r0, define) {/** @license MIT License (c) copyright 2014 original authors */
-/** @author Brian Cavalier */
-/** @author John Hann */
-module.exports = translateAsIs;
+;define('rave/pipeline/translateAsIs', ['require', 'exports', 'module', 'rave/lib/addSourceUrl'], function (require, exports, module, $cram_r0, define) {module.exports = translateAsIs;
 
 var addSourceUrl = $cram_r0;
 
 function translateAsIs (load) {
-	var options = load.metadata.lode;
+	var options = load.metadata.rave;
 	return options.debug
 		? addSourceUrl(load.address, load.source)
 		: load.source;
@@ -1979,10 +1941,7 @@ function translateAsIs (load) {
 });
 
 
-;define('lode/pipeline/instantiateScript', ['require', 'exports', 'module', 'lode/lib/globalFactory'], function (require, exports, module, $cram_r0, define) {/** @license MIT License (c) copyright 2014 original authors */
-/** @author Brian Cavalier */
-/** @author John Hann */
-module.exports = instantiateScript;
+;define('rave/pipeline/instantiateScript', ['require', 'exports', 'module', 'rave/lib/globalFactory'], function (require, exports, module, $cram_r0, define) {module.exports = instantiateScript;
 
 var globalFactory = $cram_r0;
 
@@ -1998,10 +1957,7 @@ function instantiateScript (load) {
 });
 
 
-;define('lode/pipeline/instantiateNode', ['require', 'exports', 'module', 'lode/lib/findRequires', 'lode/lib/nodeFactory'], function (require, exports, module, $cram_r0, $cram_r1, define) {/** @license MIT License (c) copyright 2014 original authors */
-/** @author Brian Cavalier */
-/** @author John Hann */
-var findRequires = $cram_r0;
+;define('rave/pipeline/instantiateNode', ['require', 'exports', 'module', 'rave/lib/findRequires', 'rave/lib/nodeFactory'], function (require, exports, module, $cram_r0, $cram_r1, define) {var findRequires = $cram_r0;
 var nodeFactory = $cram_r1;
 
 module.exports = instantiateNode;
@@ -2009,7 +1965,7 @@ module.exports = instantiateNode;
 function instantiateNode (load) {
 	var loader, deps, factory;
 
-	loader = load.metadata.lode.loader;
+	loader = load.metadata.rave.loader;
 	deps = findRequires(load.source);
 	factory = nodeFactory(loader, load);
 
@@ -2024,17 +1980,14 @@ function instantiateNode (load) {
 });
 
 
-;define('lode/pipeline/locatePackage', ['require', 'exports', 'module', 'lode/lib/path'], function (require, exports, module, $cram_r0, define) {/** @license MIT License (c) copyright 2014 original authors */
-/** @author Brian Cavalier */
-/** @author John Hann */
-module.exports = locatePackage;
+;define('rave/pipeline/locatePackage', ['require', 'exports', 'module', 'rave/lib/path'], function (require, exports, module, $cram_r0, define) {module.exports = locatePackage;
 
 var path = $cram_r0;
 
 function locatePackage (load) {
 	var options, parts, packageName, moduleName, descriptor, location, ext;
 
-	options = load.metadata.lode;
+	options = load.metadata.rave;
 
 	// Note: name should be normalized before it reaches this locate function.
 	parts = load.name.split('#');
@@ -2067,13 +2020,10 @@ function locatePackage (load) {
 });
 
 
-;define('lode/lib/package', ['require', 'exports', 'module', 'lode/lib/path'], function (require, exports, module, $cram_r0, define) {/** @license MIT License (c) copyright 2014 original authors */
-/** @author Brian Cavalier */
-/** @author John Hann */
-var path = $cram_r0;
+;define('rave/lib/package', ['require', 'exports', 'module', 'rave/lib/path'], function (require, exports, module, $cram_r0, define) {var path = $cram_r0;
 
 /**
- * @module lode/lib/package
+ * @module rave/lib/package
  * Functions for CommonJS-style module packages
  */
 module.exports = {
@@ -2137,10 +2087,7 @@ function fromObject (obj, name) {
 });
 
 
-;define('lode/pipeline/translateWrapObjectLiteral', ['require', 'exports', 'module', 'lode/pipeline/translateAsIs'], function (require, exports, module, $cram_r0, define) {/** @license MIT License (c) copyright 2014 original authors */
-/** @author Brian Cavalier */
-/** @author John Hann */
-module.exports = translateWrapObjectLiteral;
+;define('rave/pipeline/translateWrapObjectLiteral', ['require', 'exports', 'module', 'rave/pipeline/translateAsIs'], function (require, exports, module, $cram_r0, define) {module.exports = translateWrapObjectLiteral;
 
 var translateAsIs = $cram_r0;
 
@@ -2153,10 +2100,7 @@ function translateWrapObjectLiteral (load) {
 });
 
 
-;define('rave/pipeline', ['require', 'exports', 'module', 'lode/pipeline/normalizeCjs', 'lode/pipeline/locatePackage', 'lode/pipeline/locateAsIs', 'lode/pipeline/fetchAsText', 'lode/pipeline/translateAsIs', 'lode/pipeline/translateWrapObjectLiteral', 'lode/pipeline/instantiateNode', 'lode/pipeline/instantiateScript', 'lode/lib/overrideIf', 'lode/lib/package', 'lode/lib/beget'], function (require, exports, module, $cram_r0, $cram_r1, $cram_r2, $cram_r3, $cram_r4, $cram_r5, $cram_r6, $cram_r7, $cram_r8, $cram_r9, $cram_r10, define) {/** @license MIT License (c) copyright 2014 original authors */
-/** @author Brian Cavalier */
-/** @author John Hann */
-var normalizeCjs = $cram_r0;
+;define('rave/src/pipeline', ['require', 'exports', 'module', 'rave/pipeline/normalizeCjs', 'rave/pipeline/locatePackage', 'rave/pipeline/locateAsIs', 'rave/pipeline/fetchAsText', 'rave/pipeline/translateAsIs', 'rave/pipeline/translateWrapObjectLiteral', 'rave/pipeline/instantiateNode', 'rave/pipeline/instantiateScript', 'rave/lib/overrideIf', 'rave/lib/package', 'rave/lib/beget'], function (require, exports, module, $cram_r0, $cram_r1, $cram_r2, $cram_r3, $cram_r4, $cram_r5, $cram_r6, $cram_r7, $cram_r8, $cram_r9, $cram_r10, define) {var normalizeCjs = $cram_r0;
 var locatePackage = $cram_r1;
 var locateAsIs = $cram_r2;
 var fetchAsText = $cram_r3;
@@ -2168,9 +2112,9 @@ var overrideIf = $cram_r8;
 var pkg = $cram_r9;
 var beget = $cram_r10;
 
-module.exports = _lodePipeline;
+module.exports = _ravePipeline;
 
-function _lodePipeline (context) {
+function _ravePipeline (context) {
 	var modulePipeline, jsonPipeline;
 
 	context = beget(context);
@@ -2196,24 +2140,24 @@ function _lodePipeline (context) {
 
 	return {
 		applyTo: function (loader) {
-			overrideIf(createLodePredicate(context), loader, modulePipeline);
+			overrideIf(createRavePredicate(context), loader, modulePipeline);
 			overrideIf(isJsonFile, loader, jsonPipeline);
 		}
 	};
 }
 
-function createLodePredicate (context) {
+function createRavePredicate (context) {
 	return function (arg) {
 		var moduleId, packageId;
 		// Pipeline functions typically receive an object with a normalized name,
 		// but the normalize function takes an unnormalized name and a normalized
 		// referrer name.
 		moduleId = getModuleId(arg);
-		// check if this is the lode-main module
-		if (moduleId === context.lodeMain) return true;
+		// check if this is the rave-main module
+		if (moduleId === context.raveMain) return true;
 		if (moduleId.charAt(0) === '.') moduleId = arguments[1];
 		packageId = moduleId.split('/')[0];
-		return packageId === 'lode';
+		return packageId === 'rave';
 	};
 }
 
@@ -2230,7 +2174,7 @@ function getModuleId (arg) {
 
 function withContext (context, func) {
 	return function (load) {
-		load.metadata.lode = context;
+		load.metadata.rave = context;
 		return func.call(this, load);
 	};
 }
@@ -2245,7 +2189,7 @@ if (typeof exports === 'undefined') {
 }
 
 }(
-	typeof exports !== 'undefined' && exports || {},
+	typeof exports !== 'undefined' ? exports : void 0,
 	global = typeof global !== 'undefined' && global
 		|| typeof window !== 'undefined' && window
 		|| typeof self !== 'undefined' && self

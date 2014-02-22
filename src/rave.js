@@ -1,9 +1,10 @@
-var rave, amdEval, document, defaultMain,
+/** @license MIT License (c) copyright 2014 original authors */
+/** @author Brian Cavalier */
+/** @author John Hann */
+var rave, document, defaultMain,
 	context, loader, legacy, define;
 
-rave = exports;
-
-amdEval = Function('define', 'return eval(arguments[1])');
+rave = exports || {};
 
 document = global.document;
 
@@ -24,7 +25,7 @@ rave.baseUrl = document
 	: __dirname;
 
 context = {
-	lodeMain: defaultMain,
+	raveMain: defaultMain,
 	baseUrl: rave.baseUrl,
 	loader: loader,
 	packages: { rave: rave.scriptUrl }
@@ -41,7 +42,7 @@ function boot (context) {
 		var pipeline = legacy.get('rave/pipeline');
 		// extend loader
 		pipeline(context).applyTo(loader);
-		loader.import(context.lodeMain).then(go, failLoudly);
+		loader.import(context.raveMain).then(go, failLoudly);
 	}
 	catch (ex) {
 		failLoudly(ex);
@@ -147,7 +148,7 @@ function legacyAccessors (loader) {
 	return legacy;
 }
 
-// TODO: we could probably use lode/lib/beget instead of this
+// TODO: we could probably use rave/lib/beget instead of this
 function Begetter () {}
 function beget (base) {
 	var obj;

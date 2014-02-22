@@ -1,21 +1,21 @@
 /** @license MIT License (c) copyright 2014 original authors */
 /** @author Brian Cavalier */
 /** @author John Hann */
-var normalizeCjs = require('lode/pipeline/normalizeCjs');
-var locatePackage = require('lode/pipeline/locatePackage');
-var locateAsIs = require('lode/pipeline/locateAsIs');
-var fetchAsText = require('lode/pipeline/fetchAsText');
-var translateAsIs = require('lode/pipeline/translateAsIs');
-var translateWrapObjectLiteral = require('lode/pipeline/translateWrapObjectLiteral');
-var instantiateNode = require('lode/pipeline/instantiateNode');
-var instantiateScript = require('lode/pipeline/instantiateScript');
-var overrideIf = require('lode/lib/overrideIf');
-var pkg = require('lode/lib/package');
-var beget = require('lode/lib/beget');
+var normalizeCjs = require('../pipeline/normalizeCjs');
+var locatePackage = require('../pipeline/locatePackage');
+var locateAsIs = require('../pipeline/locateAsIs');
+var fetchAsText = require('../pipeline/fetchAsText');
+var translateAsIs = require('../pipeline/translateAsIs');
+var translateWrapObjectLiteral = require('../pipeline/translateWrapObjectLiteral');
+var instantiateNode = require('../pipeline/instantiateNode');
+var instantiateScript = require('../pipeline/instantiateScript');
+var overrideIf = require('../lib/overrideIf');
+var pkg = require('../lib/package');
+var beget = require('../lib/beget');
 
-module.exports = _lodePipeline;
+module.exports = _ravePipeline;
 
-function _lodePipeline (context) {
+function _ravePipeline (context) {
 	var modulePipeline, jsonPipeline;
 
 	context = beget(context);
@@ -41,24 +41,24 @@ function _lodePipeline (context) {
 
 	return {
 		applyTo: function (loader) {
-			overrideIf(createLodePredicate(context), loader, modulePipeline);
+			overrideIf(createRavePredicate(context), loader, modulePipeline);
 			overrideIf(isJsonFile, loader, jsonPipeline);
 		}
 	};
 }
 
-function createLodePredicate (context) {
+function createRavePredicate (context) {
 	return function (arg) {
 		var moduleId, packageId;
 		// Pipeline functions typically receive an object with a normalized name,
 		// but the normalize function takes an unnormalized name and a normalized
 		// referrer name.
 		moduleId = getModuleId(arg);
-		// check if this is the lode-main module
-		if (moduleId === context.lodeMain) return true;
+		// check if this is the rave-main module
+		if (moduleId === context.raveMain) return true;
 		if (moduleId.charAt(0) === '.') moduleId = arguments[1];
 		packageId = moduleId.split('/')[0];
-		return packageId === 'lode';
+		return packageId === 'rave';
 	};
 }
 
@@ -75,7 +75,7 @@ function getModuleId (arg) {
 
 function withContext (context, func) {
 	return function (load) {
-		load.metadata.lode = context;
+		load.metadata.rave = context;
 		return func.call(this, load);
 	};
 }
