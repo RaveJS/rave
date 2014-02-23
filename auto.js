@@ -30,7 +30,8 @@ function autoConfigure (context) {
 	Promise.all(processors).then(done);
 
 	function done (metadatas) {
-		context = setRavePackages(context, metadatas);
+		context = gatherAppMetadata(context, metadatas);
+		context = normalizeRavePackage(context);
 		return configureLoader(context)
 			.then(initRaveExtensions)
 			.then(function () {
@@ -44,8 +45,34 @@ function autoConfigure (context) {
 	}
 }
 
-function setRavePackages (context, metadatas) {
-	var url;
+function gatherAppMetadata (context, metadatas) {
+	// TODO: if no main modules found, look for one in a conventional place
+	// TODO: warn if multiple main modules were found, but only the first was run
+	var i, meta, first;
+	context.metadata = [];
+	for (i = 0; i < metadatas.length; i++) {
+		meta = metadatas[i];
+		// skip missing metadata files
+		if (meta) {
+			// save metadata
+			context.metadata.push(meta);
+			if (!first) first = meta;
+		}
+	}
+	if (first) {
+		context.app = {
+			name: first.name,
+			main: first.main,
+			metadata: first
+		};
+	}
+	else {
+		logNoMetadata(context);
+	}
+	return context;
+}
+
+function normalizeRavePackage (context) {
 	context.packages.rave = pkg.normalizeDescriptor(context.packages.rave);
 	context.packages.rave.uid = context.packages.rave.name = 'rave';
 	return context;
@@ -63,7 +90,7 @@ function initRaveExtensions (context) {
 	promises = [];
 	for (name in context.packages) {
 		pkg = context.packages[name];
-		// TODO: remove this if we no longer have versioned and unversioned packages
+		// packages are keyed by versioned and unversioned names
 		if (!(pkg.name in seen)) {
 			seen[pkg.name] = true;
 			if (pkg.metadata && pkg.metadata.rave) {
@@ -77,9 +104,7 @@ function initRaveExtensions (context) {
 }
 
 function runRaveExtension (context, raveExtension) {
-	// friggin es6 loader doesn't run normalize on dynamic import!!!!
-	var normalized = context.loader.normalize(raveExtension, '');
-	return context.loader.import(normalized)
+	return require.async(raveExtension)
 		.then(function (extension) {
 			if (extension.pipeline) {
 				extension.pipeline(context).applyTo(context.loader);
@@ -88,24 +113,13 @@ function runRaveExtension (context, raveExtension) {
 }
 
 function initApplication (context, metadatas) {
-	var i, meta, mainModule, atLeastOne = false;
-	for (i = 0; i < metadatas.length; i++) {
-		meta = metadatas[i];
-		atLeastOne |= meta;
-		if (meta && meta.main) {
-			// TODO: implement main modules
-			mainModule = path.joinPaths(meta.name, meta.main);
-			return runMain(context, mainModule)
-				.then(function () { return context; });
-		}
+	var mainModule;
+	mainModule = context.app.main;
+	if (mainModule) {
+		mainModule = path.joinPaths(context.app.name, mainModule);
+		return runMain(context, mainModule)
+			.then(function () { return context; });
 	}
-	// TODO: if no main modules found, look for one in a conventional place
-	// TODO: warn if multiple main modules were found, but only the first was run
-	if (!atLeastOne) logNoMetadata(context);
-}
-
-function logNoMetadata (context) {
-	console.error('Did not find any metadata files', context.raveMeta);
 }
 
 function runMain (context, mainModule) {
@@ -118,4 +132,8 @@ function runMain (context, mainModule) {
 				main.main(beget(context));
 			}
 		});
+}
+
+function logNoMetadata (context) {
+	console.error('Did not find any metadata files', context.raveMeta);
 }
