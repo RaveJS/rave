@@ -63,8 +63,6 @@ function initRaveExtensions (context) {
 	promises = [];
 	for (name in context.packages) {
 		pkg = context.packages[name];
-		// TODO: remove this when the rave package is no longer a string
-		if (typeof pkg !== 'object') continue;
 		// TODO: remove this if we no longer have versioned and unversioned packages
 		if (!(pkg.name in seen)) {
 			seen[pkg.name] = true;
@@ -103,7 +101,7 @@ function initApplication (context, metadatas) {
 	}
 	// TODO: if no main modules found, look for one in a conventional place
 	// TODO: warn if multiple main modules were found, but only the first was run
-	if (atLeastOne) logNoMetadata(context);
+	if (!atLeastOne) logNoMetadata(context);
 }
 
 function logNoMetadata (context) {
@@ -111,9 +109,7 @@ function logNoMetadata (context) {
 }
 
 function runMain (context, mainModule) {
-	// friggin es6 loader doesn't run normalize on dynamic import!!!!
-	var normalized = context.loader.normalize(mainModule, '');
-	return context.loader.import(normalized)
+	return require.async(mainModule)
 		.then(function (main) {
 			if (typeof main === 'function') {
 				main(beget(context));

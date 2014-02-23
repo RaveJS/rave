@@ -24,7 +24,7 @@ function instantiateAmd (load) {
 		defineArgs.depsList = scopedVars.slice(0, arity);
 	}
 
-	factory = amdFactory(this, defineArgs, load);
+	factory = amdFactory(loader, defineArgs, load);
 
 	// remove "require", "exports", "module"
 	deps = (defineArgs.depsList || []).concat(defineArgs.requires || []);

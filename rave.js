@@ -1382,14 +1382,14 @@ rave.baseUrl = document
 	? getPathFromUrl(document.location.href)
 	: __dirname;
 
-context = {
+context = mergeBrowserOptions({
 	raveMain: defaultMain,
 	baseUrl: rave.baseUrl,
-	loader: loader,
+	loader: new Loader({}),
 	packages: { rave: rave.scriptUrl }
-};
+});
 
-loader = new Loader({});
+loader = context.loader;
 legacy = legacyAccessors(loader);
 define = simpleDefine(legacy);
 define.amd = {};
@@ -1397,7 +1397,7 @@ define.amd = {};
 function boot (context) {
 	try {
 		// apply pipeline to loader
-		var pipeline = legacy.get('rave/pipeline');
+		var pipeline = legacy.get('rave/src/pipeline');
 		// extend loader
 		pipeline(context).applyTo(loader);
 		loader.import(context.raveMain).then(go, failLoudly);
@@ -1408,7 +1408,7 @@ function boot (context) {
 	function go (main) {
 		var childContext = beget(context);
 		if (!main) failLoudly(new Error('No main module.'));
-		else if (typeof main.main === 'function') main(childContext);
+		else if (typeof main.main === 'function') main.main(childContext);
 		else if (typeof main === 'function') main(childContext);
 	}
 	function failLoudly (ex) {
@@ -1483,7 +1483,7 @@ function simpleDefine (loader) {
 }
 
 function legacyAccessors (loader) {
-	// TODO: remove this when we add __es5Module to pipelines?
+	// TODO: could we use rave/lib/legacy instead of this?
 	var get = loader.get;
 	var set = loader.set;
 	var legacy = beget(loader);
@@ -1506,7 +1506,7 @@ function legacyAccessors (loader) {
 	return legacy;
 }
 
-// TODO: we could probably use rave/lib/beget instead of this
+// TODO: could we use rave/lib/beget instead of this?
 function Begetter () {}
 function beget (base) {
 	var obj;
@@ -1722,76 +1722,6 @@ function fetchText (url, callback, errback) {
 });
 
 
-;define('rave/lib/Thenable', ['require', 'exports', 'module'], function (require, exports, module, define) {module.exports = Thenable;
-
-function Thenable (resolver) {
-	var then, nextFulfill, nextReject;
-
-	then = push;
-	resolver(fulfill, reject);
-
-	return {
-		then: function (onFulfill, onReject) {
-			return then(onFulfill, onReject);
-		}
-	};
-
-	function push (onFulfill, onReject) {
-		return new Thenable(function (childFulfill, childReject) {
-			nextFulfill = function (value) {
-				tryBoth(value, onFulfill, onReject)
-					&& tryBoth(value, childFulfill, childReject);
-			};
-			nextReject = function (ex) {
-				tryBoth(ex, onReject, failLoud)
-					 && tryBoth(ex, childReject, failLoud);
-			};
-		});
-	}
-
-	function fulfill (value) {
-		then = fulfiller(value);
-		if (nextFulfill) nextFulfill(value);
-	}
-
-	function reject (ex) {
-		then = rejecter(ex);
-		if (nextReject) nextReject(ex);
-	}
-}
-
-function fulfiller (value) {
-	return function (onFulfill, onReject) {
-		onFulfill(value);
-		return this;
-	};
-}
-
-function rejecter (value) {
-	return function (onFulfill, onReject) {
-		onReject(value);
-		return this;
-	};
-}
-
-function tryBoth (value, first, second) {
-	try {
-		first(value);
-		return true;
-	}
-	catch (ex) {
-		second(ex);
-	}
-}
-
-function failLoud (ex) {
-	throw ex;
-}
-
-
-});
-
-
 ;define('rave/lib/addSourceUrl', ['require', 'exports', 'module'], function (require, exports, module, define) {module.exports = addSourceUrl;
 
 function addSourceUrl (url, source) {
@@ -1841,51 +1771,6 @@ function findRequires (source) {
 });
 
 
-;define('rave/lib/nodeFactory', ['require', 'exports', 'module'], function (require, exports, module, define) {module.exports = nodeFactory;
-
-var nodeEval = new Function(
-	'require', 'exports', 'module', 'global',
-	'eval(arguments[4]);'
-);
-
-var global;
-
-if (typeof global === 'undefined') {
-	global = window;
-}
-
-function nodeFactory (loader, load) {
-	var source, module, require;
-
-	source = load.source;
-	module = { id: load.name, uri: load.address, exports: {} };
-	require = function (id) {
-		var abs, imports;
-		abs = loader.normalize(id, module.id);
-		imports = loader.get(abs);
-		return '__es5Module' in imports ? imports['__es5Module'] : imports;
-	};
-
-	return function () {
-		// TODO: use loader.global when es6-module-loader implements it
-		var g = global, exports;
-		nodeEval(require, module.exports, module, g, source);
-		exports = module.exports;
-		if (typeof exports !== 'object') {
-			exports = {
-				// for real ES6 modules to consume this module
-				'default': exports,
-				// for es5 modules
-				'__es5Module': exports
-			};
-		}
-		return exports;
-	};
-}
-
-});
-
-
 ;define('rave/lib/globalFactory', ['require', 'exports', 'module'], function (require, exports, module, define) {module.exports = globalFactory;
 
 var globalEval = new Function('return eval(arguments[0]);');
@@ -1895,6 +1780,23 @@ function globalFactory (loader, load) {
 		return globalEval(load.source);
 	};
 }
+
+});
+
+
+;define('rave/lib/legacy', ['require', 'exports', 'module'], function (require, exports, module, define) {module.exports = {
+	fromLoader: function (value) {
+		return value && value.__es5Module ? value.__es5Module : value;
+	},
+	toLoader: function (module) {
+		return typeof module === 'object' ? module : {
+			// for real ES6 modules to consume this module
+			'default': module,
+			// for modules transpiled from ES5
+			__es5Module: module
+		};
+	}
+};
 
 });
 
@@ -1912,13 +1814,12 @@ function normalizeCjs (name, refererName, refererUrl) {
 });
 
 
-;define('rave/pipeline/fetchAsText', ['require', 'exports', 'module', 'rave/lib/fetchText', 'rave/lib/Thenable'], function (require, exports, module, $cram_r0, $cram_r1, define) {module.exports = fetchAsText;
+;define('rave/pipeline/fetchAsText', ['require', 'exports', 'module', 'rave/lib/fetchText'], function (require, exports, module, $cram_r0, define) {module.exports = fetchAsText;
 
 var fetchText = $cram_r0;
-var Thenable = $cram_r1;
 
 function fetchAsText (load) {
-	return Thenable(function(resolve, reject) {
+	return new Promise(function(resolve, reject) {
 		fetchText(load.address, resolve, reject);
 	});
 
@@ -1950,29 +1851,6 @@ function instantiateScript (load) {
 	return {
 		execute: function () {
 			return new Module(factory());
-		}
-	};
-}
-
-});
-
-
-;define('rave/pipeline/instantiateNode', ['require', 'exports', 'module', 'rave/lib/findRequires', 'rave/lib/nodeFactory'], function (require, exports, module, $cram_r0, $cram_r1, define) {var findRequires = $cram_r0;
-var nodeFactory = $cram_r1;
-
-module.exports = instantiateNode;
-
-function instantiateNode (load) {
-	var loader, deps, factory;
-
-	loader = load.metadata.rave.loader;
-	deps = findRequires(load.source);
-	factory = nodeFactory(loader, load);
-
-	return {
-		deps: deps,
-		execute: function () {
-			return new Module(factory.apply(this, arguments));
 		}
 	};
 }
@@ -2063,6 +1941,7 @@ function normalizeDescriptor (thing, name) {
 	if (!descriptor.name) throw new Error('Package requires a name: ' + thing);
 	descriptor.main = descriptor.main.replace(/\.js$/, '');
 	descriptor.location = path.ensureEndSlash(descriptor.location);
+	descriptor.deps = {};
 
 	return descriptor;
 }
@@ -2087,6 +1966,55 @@ function fromObject (obj, name) {
 });
 
 
+;define('rave/lib/nodeFactory', ['require', 'exports', 'module', 'rave/lib/legacy'], function (require, exports, module, $cram_r0, define) {module.exports = nodeFactory;
+
+var legacy = $cram_r0;
+
+var nodeEval = new Function(
+	'require', 'exports', 'module', 'global',
+	'eval(arguments[4]);'
+);
+
+var global;
+
+if (typeof global === 'undefined') {
+	global = window;
+}
+
+function nodeFactory (loader, load) {
+	var source, module, require;
+
+	source = load.source;
+	module = { id: load.name, uri: load.address, exports: {} };
+	require = function (id) {
+		var abs, imports;
+		abs = loader.normalize(id, module.id);
+		imports = loader.get(abs);
+		return legacy.fromLoader(imports);
+	};
+
+	// Implement CommonJS 2.0 async, just like Montage Require:
+	// https://github.com/montagejs/mr
+	require.async = function (id) {
+		id = loader.normalize(id, load.name);
+		return loader.import(id).then(function (value) {
+			return legacy.fromLoader(value);
+		});
+	};
+
+
+	return function () {
+		// TODO: use loader.global when es6-module-loader implements it
+		var g = global, exports;
+		nodeEval(require, module.exports, module, g, source);
+		exports = module.exports;
+		return legacy.toLoader(exports);
+	};
+}
+
+});
+
+
 ;define('rave/pipeline/translateWrapObjectLiteral', ['require', 'exports', 'module', 'rave/pipeline/translateAsIs'], function (require, exports, module, $cram_r0, define) {module.exports = translateWrapObjectLiteral;
 
 var translateAsIs = $cram_r0;
@@ -2095,6 +2023,29 @@ function translateWrapObjectLiteral (load) {
 	// The \n allows for a comment on the last line!
 	load.source = '(' + load.source + '\n)';
 	return translateAsIs(load);
+}
+
+});
+
+
+;define('rave/pipeline/instantiateNode', ['require', 'exports', 'module', 'rave/lib/findRequires', 'rave/lib/nodeFactory'], function (require, exports, module, $cram_r0, $cram_r1, define) {var findRequires = $cram_r0;
+var nodeFactory = $cram_r1;
+
+module.exports = instantiateNode;
+
+function instantiateNode (load) {
+	var loader, deps, factory;
+
+	loader = load.metadata.rave.loader;
+	deps = findRequires(load.source);
+	factory = nodeFactory(loader, load);
+
+	return {
+		deps: deps,
+		execute: function () {
+			return new Module(factory.apply(this, arguments));
+		}
+	};
 }
 
 });

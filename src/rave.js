@@ -24,14 +24,14 @@ rave.baseUrl = document
 	? getPathFromUrl(document.location.href)
 	: __dirname;
 
-context = {
+context = mergeBrowserOptions({
 	raveMain: defaultMain,
 	baseUrl: rave.baseUrl,
-	loader: loader,
+	loader: new Loader({}),
 	packages: { rave: rave.scriptUrl }
-};
+});
 
-loader = new Loader({});
+loader = context.loader;
 legacy = legacyAccessors(loader);
 define = simpleDefine(legacy);
 define.amd = {};
@@ -39,7 +39,7 @@ define.amd = {};
 function boot (context) {
 	try {
 		// apply pipeline to loader
-		var pipeline = legacy.get('rave/pipeline');
+		var pipeline = legacy.get('rave/src/pipeline');
 		// extend loader
 		pipeline(context).applyTo(loader);
 		loader.import(context.raveMain).then(go, failLoudly);
@@ -50,7 +50,7 @@ function boot (context) {
 	function go (main) {
 		var childContext = beget(context);
 		if (!main) failLoudly(new Error('No main module.'));
-		else if (typeof main.main === 'function') main(childContext);
+		else if (typeof main.main === 'function') main.main(childContext);
 		else if (typeof main === 'function') main(childContext);
 	}
 	function failLoudly (ex) {
@@ -125,7 +125,7 @@ function simpleDefine (loader) {
 }
 
 function legacyAccessors (loader) {
-	// TODO: remove this when we add __es5Module to pipelines?
+	// TODO: could we use rave/lib/legacy instead of this?
 	var get = loader.get;
 	var set = loader.set;
 	var legacy = beget(loader);
@@ -148,7 +148,7 @@ function legacyAccessors (loader) {
 	return legacy;
 }
 
-// TODO: we could probably use rave/lib/beget instead of this
+// TODO: could we use rave/lib/beget instead of this?
 function Begetter () {}
 function beget (base) {
 	var obj;

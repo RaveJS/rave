@@ -1,17 +1,17 @@
 /** @license MIT License (c) copyright 2014 original authors */
 /** @author Brian Cavalier */
 /** @author John Hann */
-var normalizeCjs = require('../pipeline/normalizeCjs');
-var locatePackage = require('../pipeline/locatePackage');
-var locateAsIs = require('../pipeline/locateAsIs');
-var fetchAsText = require('../pipeline/fetchAsText');
-var translateAsIs = require('../pipeline/translateAsIs');
-var translateWrapObjectLiteral = require('../pipeline/translateWrapObjectLiteral');
-var instantiateNode = require('../pipeline/instantiateNode');
-var instantiateScript = require('../pipeline/instantiateScript');
-var overrideIf = require('../lib/overrideIf');
-var pkg = require('../lib/package');
-var beget = require('../lib/beget');
+var normalizeCjs = require('rave/pipeline/normalizeCjs');
+var locatePackage = require('rave/pipeline/locatePackage');
+var locateAsIs = require('rave/pipeline/locateAsIs');
+var fetchAsText = require('rave/pipeline/fetchAsText');
+var translateAsIs = require('rave/pipeline/translateAsIs');
+var translateWrapObjectLiteral = require('rave/pipeline/translateWrapObjectLiteral');
+var instantiateNode = require('rave/pipeline/instantiateNode');
+var instantiateScript = require('rave/pipeline/instantiateScript');
+var overrideIf = require('rave/lib/overrideIf');
+var pkg = require('rave/lib/package');
+var beget = require('rave/lib/beget');
 
 module.exports = _ravePipeline;
 
