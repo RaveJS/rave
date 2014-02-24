@@ -63,7 +63,8 @@ function gatherAppMetadata (context, metadatas) {
 	if (first) {
 		context.app = {
 			name: first.name,
-			main: first.main,
+			// TODO: get main from the app's package descriptor, instead
+			main: path.joinPaths(first.name, first.main),
 			metadata: first
 		};
 	}
@@ -117,7 +118,6 @@ function initApplication (context, metadatas) {
 	var mainModule;
 	mainModule = context.app.main;
 	if (mainModule) {
-		mainModule = path.joinPaths(context.app.name, mainModule);
 		return runMain(context, mainModule)
 			.then(function () { return context; });
 	}
