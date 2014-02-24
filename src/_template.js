@@ -1,4 +1,12 @@
 /*===loader===*/
+
+// es6-module-loader doesn't export to the current scope in node
+var Loader, Module;
+if (typeof exports !== 'undefined') {
+	if (typeof Loader === 'undefined') Loader = exports.Loader;
+	if (typeof Module === 'undefined') Module = exports.Module;
+}
+
 /** RaveJS */
 /** @license MIT License (c) copyright 2014 original authors */
 /** @author Brian Cavalier */
@@ -8,10 +16,8 @@
 
 /*===pipeline===*/
 
-// auto-start if we've been loaded in a browser
-if (typeof exports === 'undefined') {
-	rave.boot(context);
-}
+// start!
+rave.boot(context);
 
 }(
 	typeof exports !== 'undefined' ? exports : void 0,

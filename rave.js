@@ -1354,6 +1354,14 @@
 
 })();
 
+
+// es6-module-loader doesn't export to the current scope in node
+var Loader, Module;
+if (typeof exports !== 'undefined') {
+	if (typeof Loader === 'undefined') Loader = exports.Loader;
+	if (typeof Module === 'undefined') Module = exports.Module;
+}
+
 /** RaveJS */
 /** @license MIT License (c) copyright 2014 original authors */
 /** @author Brian Cavalier */
@@ -1372,6 +1380,7 @@ defaultMain = 'rave/auto';
 rave.boot = boot;
 rave.getCurrentScript = getCurrentScript;
 rave.mergeBrowserOptions = mergeBrowserOptions;
+rave.mergeNodeOptions = mergeNodeOptions;
 rave.simpleDefine = simpleDefine;
 rave.legacyAccessors = legacyAccessors;
 
@@ -1382,7 +1391,7 @@ rave.baseUrl = document
 	? getPathFromUrl(document.location.href)
 	: __dirname;
 
-context = mergeBrowserOptions({
+context = (document ? mergeBrowserOptions : mergeNodeOptions)({
 	raveMain: defaultMain,
 	baseUrl: rave.baseUrl,
 	loader: new Loader({}),
@@ -1448,6 +1457,11 @@ function mergeBrowserOptions (context) {
 	}
 	return context;
 	function camelize (m, l) { return l.toUpperCase();}
+}
+
+function mergeNodeOptions (context) {
+	// TODO
+	return context;
 }
 
 function simpleDefine (loader) {
@@ -1898,6 +1912,53 @@ function locatePackage (load) {
 });
 
 
+;define('rave/lib/nodeFactory', ['require', 'exports', 'module', 'rave/lib/legacy'], function (require, exports, module, $cram_r0, define) {module.exports = nodeFactory;
+
+var legacy = $cram_r0;
+
+var nodeEval = new Function(
+	'require', 'exports', 'module', 'global',
+	'eval(arguments[4]);'
+);
+
+var _global;
+
+_global = typeof global !== 'undefined' ? global : window;
+
+function nodeFactory (loader, load) {
+	var source, module, require;
+
+	source = load.source;
+	module = { id: load.name, uri: load.address, exports: {} };
+	require = function (id) {
+		var abs, imports;
+		abs = loader.normalize(id, module.id);
+		imports = loader.get(abs);
+		return legacy.fromLoader(imports);
+	};
+
+	// Implement CommonJS 2.0 async, just like Montage Require:
+	// https://github.com/montagejs/mr
+	require.async = function (id) {
+		id = loader.normalize(id, load.name);
+		return loader.import(id).then(function (value) {
+			return legacy.fromLoader(value);
+		});
+	};
+
+
+	return function () {
+		// TODO: use loader.global when es6-module-loader implements it
+		var exports;
+		nodeEval(require, module.exports, module, _global, source);
+		exports = module.exports;
+		return legacy.toLoader(exports);
+	};
+}
+
+});
+
+
 ;define('rave/lib/package', ['require', 'exports', 'module', 'rave/lib/path'], function (require, exports, module, $cram_r0, define) {var path = $cram_r0;
 
 /**
@@ -1960,55 +2021,6 @@ function fromObject (obj, name) {
 		main: obj.main || 'main', // or index?
 		location: obj.location || '',
 		name: obj.name || name
-	};
-}
-
-});
-
-
-;define('rave/lib/nodeFactory', ['require', 'exports', 'module', 'rave/lib/legacy'], function (require, exports, module, $cram_r0, define) {module.exports = nodeFactory;
-
-var legacy = $cram_r0;
-
-var nodeEval = new Function(
-	'require', 'exports', 'module', 'global',
-	'eval(arguments[4]);'
-);
-
-var global;
-
-if (typeof global === 'undefined') {
-	global = window;
-}
-
-function nodeFactory (loader, load) {
-	var source, module, require;
-
-	source = load.source;
-	module = { id: load.name, uri: load.address, exports: {} };
-	require = function (id) {
-		var abs, imports;
-		abs = loader.normalize(id, module.id);
-		imports = loader.get(abs);
-		return legacy.fromLoader(imports);
-	};
-
-	// Implement CommonJS 2.0 async, just like Montage Require:
-	// https://github.com/montagejs/mr
-	require.async = function (id) {
-		id = loader.normalize(id, load.name);
-		return loader.import(id).then(function (value) {
-			return legacy.fromLoader(value);
-		});
-	};
-
-
-	return function () {
-		// TODO: use loader.global when es6-module-loader implements it
-		var g = global, exports;
-		nodeEval(require, module.exports, module, g, source);
-		exports = module.exports;
-		return legacy.toLoader(exports);
 	};
 }
 
@@ -2134,10 +2146,8 @@ function withContext (context, func) {
 
 
 
-// auto-start if we've been loaded in a browser
-if (typeof exports === 'undefined') {
-	rave.boot(context);
-}
+// start!
+rave.boot(context);
 
 }(
 	typeof exports !== 'undefined' ? exports : void 0,

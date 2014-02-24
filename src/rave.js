@@ -14,6 +14,7 @@ defaultMain = 'rave/auto';
 rave.boot = boot;
 rave.getCurrentScript = getCurrentScript;
 rave.mergeBrowserOptions = mergeBrowserOptions;
+rave.mergeNodeOptions = mergeNodeOptions;
 rave.simpleDefine = simpleDefine;
 rave.legacyAccessors = legacyAccessors;
 
@@ -24,7 +25,7 @@ rave.baseUrl = document
 	? getPathFromUrl(document.location.href)
 	: __dirname;
 
-context = mergeBrowserOptions({
+context = (document ? mergeBrowserOptions : mergeNodeOptions)({
 	raveMain: defaultMain,
 	baseUrl: rave.baseUrl,
 	loader: new Loader({}),
@@ -90,6 +91,11 @@ function mergeBrowserOptions (context) {
 	}
 	return context;
 	function camelize (m, l) { return l.toUpperCase();}
+}
+
+function mergeNodeOptions (context) {
+	// TODO
+	return context;
 }
 
 function simpleDefine (loader) {
