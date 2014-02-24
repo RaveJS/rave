@@ -24,7 +24,7 @@ function autoConfigure (context) {
 
 	for (i = 0; i < howMany; i++) {
 		processors.push(
-			metadata.crawl(context, urls[i]).then(void 0, logMissing)
+			metadata.crawl(context, urls[i])['catch'](logMissing)
 		);
 	}
 	Promise.all(processors).then(done);
