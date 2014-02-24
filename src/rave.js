@@ -40,7 +40,7 @@ define.amd = {};
 function boot (context) {
 	try {
 		// apply pipeline to loader
-		var pipeline = legacy.get('rave/src/browser');
+		var pipeline = legacy.get('rave/pipeline/browser');
 		// extend loader
 		pipeline(context).applyTo(loader);
 		loader.import(context.raveMain).then(go, failLoudly);

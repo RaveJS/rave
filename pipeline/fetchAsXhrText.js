@@ -9,5 +9,4 @@ function fetchAsXhrText (load) {
 	return new Promise(function(resolve, reject) {
 		fetchText(load.address, resolve, reject);
 	});
-
 }

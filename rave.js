@@ -1406,7 +1406,7 @@ define.amd = {};
 function boot (context) {
 	try {
 		// apply pipeline to loader
-		var pipeline = legacy.get('rave/src/browser');
+		var pipeline = legacy.get('rave/pipeline/browser');
 		// extend loader
 		pipeline(context).applyTo(loader);
 		loader.import(context.raveMain).then(go, failLoudly);
@@ -2063,7 +2063,7 @@ function instantiateNode (load) {
 });
 
 
-;define('rave/src/browser', ['require', 'exports', 'module', 'rave/pipeline/normalizeCjs', 'rave/pipeline/locatePackage', 'rave/pipeline/locateAsIs', 'rave/pipeline/fetchAsXhrText', 'rave/pipeline/translateAsIs', 'rave/pipeline/translateWrapObjectLiteral', 'rave/pipeline/instantiateNode', 'rave/pipeline/instantiateScript', 'rave/lib/overrideIf', 'rave/lib/package', 'rave/lib/beget'], function (require, exports, module, $cram_r0, $cram_r1, $cram_r2, $cram_r3, $cram_r4, $cram_r5, $cram_r6, $cram_r7, $cram_r8, $cram_r9, $cram_r10, define) {var normalizeCjs = $cram_r0;
+;define('rave/pipeline/browser', ['require', 'exports', 'module', 'rave/pipeline/normalizeCjs', 'rave/pipeline/locatePackage', 'rave/pipeline/locateAsIs', 'rave/pipeline/fetchAsXhrText', 'rave/pipeline/translateAsIs', 'rave/pipeline/translateWrapObjectLiteral', 'rave/pipeline/instantiateNode', 'rave/pipeline/instantiateScript', 'rave/lib/overrideIf', 'rave/lib/package', 'rave/lib/beget'], function (require, exports, module, $cram_r0, $cram_r1, $cram_r2, $cram_r3, $cram_r4, $cram_r5, $cram_r6, $cram_r7, $cram_r8, $cram_r9, $cram_r10, define) {var normalizeCjs = $cram_r0;
 var locatePackage = $cram_r1;
 var locateAsIs = $cram_r2;
 var fetchAsText = $cram_r3;
@@ -2141,6 +2141,12 @@ function withContext (context, func) {
 		return func.call(this, load);
 	};
 }
+
+});
+
+
+;define('rave/src/browser', ['require', 'exports', 'module', 'rave/pipeline/browser'], function (require, exports, module, $cram_r0, define) {var pipeline = $cram_r0;
+module.exports = pipeline;
 
 });
 
