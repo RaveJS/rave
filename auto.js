@@ -27,7 +27,8 @@ function autoConfigure (context) {
 			metadata.crawl(context, urls[i])['catch'](logMissing)
 		);
 	}
-	Promise.all(processors).then(done);
+	// TODO: consider returning this promise to rave.js to handle rejections
+	Promise.all(processors).then(done)['catch'](failHard);
 
 	function done (metadatas) {
 		context = gatherAppMetadata(context, metadatas);
@@ -136,4 +137,8 @@ function runMain (context, mainModule) {
 
 function logNoMetadata (context) {
 	console.error('Did not find any metadata files', context.raveMeta);
+}
+
+function failHard (ex) {
+	setTimeout(function () { throw ex; }, 0);
 }
