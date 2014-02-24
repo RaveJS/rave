@@ -14,7 +14,7 @@ if (typeof exports !== 'undefined') {
 (function (exports, global) {
 /*===rave===*/
 
-/*===pipeline===*/
+/*===browser===*/
 
 // start!
 rave.boot(context);

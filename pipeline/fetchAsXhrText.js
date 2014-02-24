@@ -1,11 +1,11 @@
 /** @license MIT License (c) copyright 2014 original authors */
 /** @author Brian Cavalier */
 /** @author John Hann */
-module.exports = fetchAsText;
+module.exports = fetchAsXhrText;
 
-var fetchText = require('../lib/fetchText');
+var fetchText = require('../lib/fetchXhrText');
 
-function fetchAsText (load) {
+function fetchAsXhrText (load) {
 	return new Promise(function(resolve, reject) {
 		fetchText(load.address, resolve, reject);
 	});

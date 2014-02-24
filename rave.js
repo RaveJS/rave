@@ -1406,7 +1406,7 @@ define.amd = {};
 function boot (context) {
 	try {
 		// apply pipeline to loader
-		var pipeline = legacy.get('rave/src/pipeline');
+		var pipeline = legacy.get('rave/src/browser');
 		// extend loader
 		pipeline(context).applyTo(loader);
 		loader.import(context.raveMain).then(go, failLoudly);
@@ -1709,7 +1709,7 @@ function splitDirAndFile (url) {
 });
 
 
-;define('rave/lib/fetchText', ['require', 'exports', 'module'], function (require, exports, module, define) {module.exports = fetchText;
+;define('rave/lib/fetchXhrText', ['require', 'exports', 'module'], function (require, exports, module, define) {module.exports = fetchText;
 
 function fetchText (url, callback, errback) {
 	var xhr;
@@ -1731,7 +1731,7 @@ function fetchText (url, callback, errback) {
 		}
 	};
 	xhr.send(null);
-};
+}
 
 });
 
@@ -1828,11 +1828,11 @@ function normalizeCjs (name, refererName, refererUrl) {
 });
 
 
-;define('rave/pipeline/fetchAsText', ['require', 'exports', 'module', 'rave/lib/fetchText'], function (require, exports, module, $cram_r0, define) {module.exports = fetchAsText;
+;define('rave/pipeline/fetchAsXhrText', ['require', 'exports', 'module', 'rave/lib/fetchXhrText'], function (require, exports, module, $cram_r0, define) {module.exports = fetchAsXhrText;
 
 var fetchText = $cram_r0;
 
-function fetchAsText (load) {
+function fetchAsXhrText (load) {
 	return new Promise(function(resolve, reject) {
 		fetchText(load.address, resolve, reject);
 	});
@@ -2063,7 +2063,7 @@ function instantiateNode (load) {
 });
 
 
-;define('rave/src/pipeline', ['require', 'exports', 'module', 'rave/pipeline/normalizeCjs', 'rave/pipeline/locatePackage', 'rave/pipeline/locateAsIs', 'rave/pipeline/fetchAsText', 'rave/pipeline/translateAsIs', 'rave/pipeline/translateWrapObjectLiteral', 'rave/pipeline/instantiateNode', 'rave/pipeline/instantiateScript', 'rave/lib/overrideIf', 'rave/lib/package', 'rave/lib/beget'], function (require, exports, module, $cram_r0, $cram_r1, $cram_r2, $cram_r3, $cram_r4, $cram_r5, $cram_r6, $cram_r7, $cram_r8, $cram_r9, $cram_r10, define) {var normalizeCjs = $cram_r0;
+;define('rave/src/browser', ['require', 'exports', 'module', 'rave/pipeline/normalizeCjs', 'rave/pipeline/locatePackage', 'rave/pipeline/locateAsIs', 'rave/pipeline/fetchAsXhrText', 'rave/pipeline/translateAsIs', 'rave/pipeline/translateWrapObjectLiteral', 'rave/pipeline/instantiateNode', 'rave/pipeline/instantiateScript', 'rave/lib/overrideIf', 'rave/lib/package', 'rave/lib/beget'], function (require, exports, module, $cram_r0, $cram_r1, $cram_r2, $cram_r3, $cram_r4, $cram_r5, $cram_r6, $cram_r7, $cram_r8, $cram_r9, $cram_r10, define) {var normalizeCjs = $cram_r0;
 var locatePackage = $cram_r1;
 var locateAsIs = $cram_r2;
 var fetchAsText = $cram_r3;

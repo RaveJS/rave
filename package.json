@@ -21,7 +21,7 @@
     "es6-module-loader": "git://github.com/ModuleLoader/es6-module-loader#v0.4.3"
   },
 	"scripts": {
-		"cram": "node node_modules/cram/cram.js --config ./build/cram.json --output ./build/temp/pipeline.js",
+		"cram": "node node_modules/cram/cram.js --config ./build/cram.json --output ./build/temp/browser.js",
 		"concat": "node build/concat.js",
 		"build": "npm run cram && npm run concat"
 	}
