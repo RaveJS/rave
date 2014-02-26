@@ -1,0 +1,40 @@
+{
+  "name": "experiments",
+  "version": "0.1.6",
+  "description": "This is an experiment.",
+  "main": "displayMetadata",
+  "ignore": [
+    "node_modules",
+    "bower_components"
+  ],
+  "licenses": [
+    {
+      "type": "MIT",
+      "url": "http://www.opensource.org/licenses/mit-license.php"
+    }
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/unscriptable/scratch"
+  },
+  "dependencies": {
+    "curl": "~0.8",
+    "when": "~2"
+  },
+  "maintainers": [
+    {
+      "name": "John Hann",
+      "web": "http://unscriptable.com"
+    }
+  ],
+  "contributors": [
+    {
+      "name": "John Hann",
+      "web": "http://unscriptable.com"
+    },
+    {
+      "name": "Brian Cavalier",
+      "web": "http://hovercraftstudios.com"
+    }
+  ]
+}

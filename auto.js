@@ -14,28 +14,32 @@ module.exports = {
 var defaultMeta = 'bower.json,package.json';
 
 function autoConfigure (context) {
-	var urls, processors, howMany, i;
+	var urls;
 
 	if (!context.raveMeta) context.raveMeta = defaultMeta;
 
 	urls = context.raveMeta.split(/\s*,\s*/);
-	howMany = urls.length;
-	processors = [];
 
-	for (i = 0; i < howMany; i++) {
-		processors.push(
-			metadata.crawl(context, urls[i]).then(void 0, logMissing)
-		);
-	}
-	Promise.all(processors).then(done);
+	// TODO: consider returning this promise to rave.js to handle rejections
+	return pmap(urls, function (url) {
+		return metadata.crawl(context, url)['catch'](logMissing)
+	}).then(done)['catch'](failHard);
 
 	function done (metadatas) {
 		context = gatherAppMetadata(context, metadatas);
 		context = normalizeRavePackage(context);
 		return configureLoader(context)
-			.then(initRaveExtensions)
-			.then(function () {
-				return initApplication(context, metadatas);
+			.then(function (context) {
+				return gatherExtensions(context);
+			})
+			.then(function (extensions) {
+				return applyPipelines(context, extensions);
+			})
+			.then(function (extensions) {
+				return applyFirstMain(context, extensions);
+			})
+			.then(function (alreadyRanMain) {
+				return !alreadyRanMain && initApplication(context);
 			});
 	}
 
@@ -62,7 +66,8 @@ function gatherAppMetadata (context, metadatas) {
 	if (first) {
 		context.app = {
 			name: first.name,
-			main: first.main,
+			// TODO: get main from the app's package descriptor, instead
+			main: path.joinPaths(first.name, first.main),
 			metadata: first
 		};
 	}
@@ -84,7 +89,7 @@ function configureLoader (context) {
 	return Promise.resolve(context);
 }
 
-function initRaveExtensions (context) {
+function gatherExtensions (context) {
 	var seen, name, pkg, promises;
 	seen = {};
 	promises = [];
@@ -94,29 +99,75 @@ function initRaveExtensions (context) {
 		if (!(pkg.name in seen)) {
 			seen[pkg.name] = true;
 			if (pkg.metadata && pkg.metadata.rave) {
-				promises.push(
-					runRaveExtension(context, path.joinPaths(pkg.name, pkg.metadata.rave))
-				);
+				promises.push(initExtension(context, pkg.name, pkg.metadata.rave));
 			}
 		}
 	}
-	return Promise.all(promises).then(function () { return context; });
+	return Promise.all(promises);
 }
 
-function runRaveExtension (context, raveExtension) {
-	return require.async(raveExtension)
-		.then(function (extension) {
-			if (extension.pipeline) {
-				extension.pipeline(context).applyTo(context.loader);
-			}
+function initExtension (context, packageName, moduleName) {
+	return fetchExtension(path.joinPaths(packageName, moduleName))
+		.then(extractExtensionCtor)
+		.then(function (api) {
+			return createExtensionApi(context, api);
+		})
+		.then(function (api) {
+			return { name: packageName, api: api };
 		});
 }
 
-function initApplication (context, metadatas) {
+function fetchExtension (extModuleName) {
+	return require.async(extModuleName);
+}
+
+function extractExtensionCtor (extModule) {
+	var create;
+	if (extModule) {
+		create = typeof extModule === 'function' &&  extModule
+			|| typeof extModule.create === 'function' && extModule.create;
+	}
+	if (!create) {
+		throw new Error('Rave extension has incompatible API.');
+	}
+	return create;
+}
+
+function createExtensionApi (context, extension) {
+	return extension(beget(context));
+}
+
+function applyPipelines (context, extensions) {
+	return pmap(extensions, function (extension) {
+		var api = extension.api;
+		if (api.pipeline) {
+			return api.pipeline(context.loader);
+		}
+	}).then(function () {
+		return extensions;
+	});
+}
+
+function applyFirstMain (context, extensions) {
+	var appliedMain, api;
+	map(extensions, function (extension) {
+		var api = extension.api;
+		if (api.main) {
+			if (appliedMain) {
+				throw new Error('Found multiple extensions with main().');
+			}
+			appliedMain = Promise.resolve(api.main(beget(context))).then(function () {
+				return true;
+			});
+		}
+	});
+	return Promise.resolve(appliedMain);
+}
+
+function initApplication (context) {
 	var mainModule;
 	mainModule = context.app.main;
 	if (mainModule) {
-		mainModule = path.joinPaths(context.app.name, mainModule);
 		return runMain(context, mainModule)
 			.then(function () { return context; });
 	}
@@ -136,4 +187,22 @@ function runMain (context, mainModule) {
 
 function logNoMetadata (context) {
 	console.error('Did not find any metadata files', context.raveMeta);
+}
+
+function failHard (ex) {
+	setTimeout(function () { throw ex; }, 0);
+}
+
+function pmap (array, f) {
+	return Promise.all(map(array, function (x) {
+		return Promise.resolve(x).then(f);
+	}));
+}
+
+function map (array, f) {
+	var r = [];
+	for (var i = 0; i < array.length; ++i) {
+		r[i] = f(array[i]);
+	}
+	return r;
 }
