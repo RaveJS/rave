@@ -33,10 +33,12 @@ function autoConfigure (context) {
 				return gatherExtensions(context);
 			})
 			.then(function (extensions) {
-				return applyPipelines(context, extensions);
+				// TODO: remove || [] when Promise shim is fixed
+				return applyPipelines(context, extensions || []);
 			})
 			.then(function (extensions) {
-				return applyFirstMain(context, extensions);
+				// TODO: remove || [] when Promise shim is fixed
+				return applyFirstMain(context, extensions || []);
 			})
 			.then(function (alreadyRanMain) {
 				return !alreadyRanMain && initApplication(context);
