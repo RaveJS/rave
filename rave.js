@@ -1367,46 +1367,52 @@ if (typeof exports !== 'undefined') {
 /** @author Brian Cavalier */
 /** @author John Hann */
 (function (exports, global) {
-var rave, document, defaultMain,
-	context, loader, legacy, define;
-
-rave = exports || {};
+var document, defaultMain,
+	environ, loader, context, legacy, define;
 
 document = global.document;
 
 defaultMain = 'rave/auto';
 
 // export testable functions
-rave.boot = boot;
-rave.getCurrentScript = getCurrentScript;
-rave.mergeBrowserOptions = mergeBrowserOptions;
-rave.mergeNodeOptions = mergeNodeOptions;
-rave.simpleDefine = simpleDefine;
-rave.legacyAccessors = legacyAccessors;
+if (exports) {
+	exports.boot = boot;
+	exports.getCurrentScript = getCurrentScript;
+	exports.mergeBrowserOptions = mergeBrowserOptions;
+	exports.mergeNodeOptions = mergeNodeOptions;
+	exports.simpleDefine = simpleDefine;
+	exports.legacyAccessors = legacyAccessors;
+	exports.getEnviron = getEnviron;
+	exports.getEnvironPipeline = getEnvironPipeline;
+}
 
-// initialize
-rave.scriptUrl = getCurrentScript();
-rave.scriptPath = getPathFromUrl(rave.scriptUrl);
-rave.baseUrl = document
-	? getPathFromUrl(document.location.href)
-	: __dirname;
+// sniff platform
+environ = getEnviron();
 
-context = (document ? mergeBrowserOptions : mergeNodeOptions)({
-	raveMain: defaultMain,
-	baseUrl: rave.baseUrl,
-	loader: new Loader({}),
-	packages: { rave: rave.scriptUrl }
-});
-
-loader = context.loader;
+// create loader and browser-AMD environment
+loader = new Loader({});
 legacy = legacyAccessors(loader);
-define = simpleDefine(legacy);
+define = environ === 'node'
+	? function () {}
+	: simpleDefine(legacy);
 define.amd = {};
 
+// create a base context from user options
+context = (environ === 'node' ? mergeNodeOptions : mergeBrowserOptions)({
+	raveMain: defaultMain,
+	environ: environ,
+	baseUrl: environ === 'node'
+		? __dirname
+		: getPathFromUrl(document.location.href),
+	loader: loader,
+	packages: { rave: getCurrentScript() }
+});
+
 function boot (context) {
+	var pipeline;
 	try {
-		// apply pipeline to loader
-		var pipeline = legacy.get('rave/pipeline/browser');
+		// find appropriate pipeline
+		pipeline = getEnvironPipeline(environ);
 		// extend loader
 		pipeline(context).applyTo(loader);
 		loader.import(context.raveMain).then(go, failLoudly);
@@ -1465,7 +1471,6 @@ function mergeNodeOptions (context) {
 }
 
 function simpleDefine (loader) {
-	// TODO: have this return {id, deps, factory} instead of eagerly instantiating
 	var _global;
 	// temporary work-around for es6-module-loader which throws when
 	// accessing loader.global
@@ -1528,6 +1533,29 @@ function beget (base) {
 	obj = new Begetter();
 	Begetter.prototype = null;
 	return obj;
+}
+
+function getEnvironPipeline (environ) {
+	if (environ === 'node') {
+		return require('rave/pipeline/node');
+	}
+	else {
+		return legacy.get('rave/pipeline/browser');
+	}
+}
+
+function getEnviron () {
+	var platform;
+	if (typeof require === 'function') {
+		try { var fs = require('fs') } catch (ex) {}
+		if (fs) {
+			platform = 'node';
+		}
+	}
+	if (!platform) {
+		platform = 'browser';
+	}
+	return platform;
 }
 
 
@@ -1836,7 +1864,6 @@ function fetchAsXhrText (load) {
 	return new Promise(function(resolve, reject) {
 		fetchText(load.address, resolve, reject);
 	});
-
 }
 
 });
@@ -2075,9 +2102,9 @@ var overrideIf = $cram_r8;
 var pkg = $cram_r9;
 var beget = $cram_r10;
 
-module.exports = _ravePipeline;
+module.exports = browserPipeline;
 
-function _ravePipeline (context) {
+function browserPipeline (context) {
 	var modulePipeline, jsonPipeline;
 
 	context = beget(context);
@@ -2153,7 +2180,7 @@ module.exports = pipeline;
 
 
 // start!
-rave.boot(context);
+boot(context);
 
 }(
 	typeof exports !== 'undefined' ? exports : void 0,

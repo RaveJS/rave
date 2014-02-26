@@ -17,7 +17,7 @@ if (typeof exports !== 'undefined') {
 /*===browser===*/
 
 // start!
-rave.boot(context);
+boot(context);
 
 }(
 	typeof exports !== 'undefined' ? exports : void 0,
