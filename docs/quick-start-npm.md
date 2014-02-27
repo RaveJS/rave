@@ -51,5 +51,6 @@ function write (msg) {
 }
 ```
 
-That's it! Launch your favorite web server and open the index.html page
+That's it! No file watchers, no build steps, and no transpiling.
+Just launch your favorite web server and open the index.html page
 in a browser.
