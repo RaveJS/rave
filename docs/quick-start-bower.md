@@ -1,4 +1,4 @@
-## Quick start using bower
+## Quick start using Bower
 
 First, create a folder for your app:
 
@@ -7,7 +7,7 @@ mkdir myApp
 cd myApp
 ```
 
-Initialize the app to use bower:
+Initialize the app to use Bower:
 
 ```bash
 bower init
@@ -37,7 +37,7 @@ Now, create an index.html file.  This is enough code to get started:
 The `data-rave-meta="bower.json"` and `data-debug` attributes are optional,
 but are a good starting point until you fully understand how RaveJS works.
 
-Lastly, create the main module.  When using bower, AMD is the default
+Lastly, create the main module.  When using Bower, AMD is the default
 module format.  Here's a simple main module to get you started:
 
 ```js

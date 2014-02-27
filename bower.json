@@ -1,27 +1,42 @@
 {
-  "name": "rave",
-  "version": "0.0.2",
-  "authors": [
-    "unscriptable <john@unscriptable.com>"
-  ],
-  "description": "Web apps are all the rave.",
-  "main": "rave",
-  "keywords": [
-    "module",
-    "package",
-    "bower",
-    "npm",
-    "amd",
-    "node",
-    "commonjs",
-    "es6"
-  ],
-  "license": "MIT",
-  "ignore": [
-    "**/.*",
-    "node_modules",
-    "bower_components",
-    "test",
-    "tests"
-  ]
+	"name": "rave",
+	"version": "0.0.3",
+	"description": "Web apps are all the rave.",
+	"main": "rave",
+	"keywords": [
+		"module",
+		"package",
+		"bower",
+		"npm",
+		"amd",
+		"node",
+		"commonjs",
+		"es6"
+	],
+	"repository": {
+		"type": "git",
+		"url": "http://github.com/RaveJS/rave.git"
+	},
+	"authors": [
+		"John Hann (http://unscriptable.com)",
+		"Brian Cavalier (http://hovercraftstudios.com)"
+	],
+	"contributors": [
+		{
+			"name": "John Hann",
+			"web": "http://unscriptable.com"
+		},
+		{
+			"name": "Brian Cavalier",
+			"web": "http://hovercraftstudios.com"
+		}
+	],
+	"license": "MIT",
+	"ignore": [
+		"**/.*",
+		"node_modules",
+		"bower_components",
+		"test",
+		"tests"
+	]
 }
