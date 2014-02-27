@@ -1,11 +1,6 @@
 /*===loader===*/
 
-// es6-module-loader doesn't export to the current scope in node
-var Loader, Module;
-if (typeof exports !== 'undefined') {
-	if (typeof Loader === 'undefined') Loader = exports.Loader;
-	if (typeof Module === 'undefined') Module = exports.Module;
-}
+/*===patches===*/
 
 /** RaveJS */
 /** @license MIT License (c) copyright 2014 original authors */
