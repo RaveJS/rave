@@ -19,17 +19,17 @@ function fetchAsText (load) {
 }
 
 function getFetchText (env) {
-	if (env === 'node') return require.async('../lib/fetchNodeText');
-	else return Promise.resolve(fetchXhrText);
+	return Promise.resolve(
+		env === 'node'
+			? (require)('../lib/fetchNodeText')
+			: fetchXhrText
+	);
 }
 
 function detectEnv () {
-	try {
-		// try to get the fs module since we're going to use it
-		global.require('fs');
-		return 'node';
-	}
-	catch (ex) {
-		return 'browser';
-	}
+	var test
+	// try to get the fs module since we're going to use it
+	// we're using parens to hide `require` from cram.js
+	try { test = (require)('fs'); } catch (ex) {}
+	return test ? 'node' : 'browser';
 }

@@ -171,7 +171,7 @@ function beget (base) {
 
 function getEnvironPipeline (environ) {
 	if (environ === 'node') {
-		return require('rave/pipeline/node');
+		return (require)('./pipeline/node');
 	}
 	else {
 		return legacy.get('rave/pipeline/browser');

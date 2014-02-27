@@ -3,10 +3,11 @@
 /** @author John Hann */
 var fs = require('fs');
 
-var eml, template, browser, rave, built;
+var template, eml, emlPatch, browser, rave, built;
 
-eml = fs.readFileSync('./node_modules/es6-module-loader/lib/es6-module-loader.js');
 template = fs.readFileSync('./src/_template.js');
+eml = fs.readFileSync('./node_modules/es6-module-loader/lib/es6-module-loader.js');
+emlPatch = fs.readFileSync('./src/patches.js');
 browser = fs.readFileSync('./build/temp/browser.js');
 rave = fs.readFileSync('./src/rave.js');
 
@@ -15,6 +16,7 @@ rave = removeLicenses(String(rave));
 
 built = String(template)
 	.replace(/\/\*===loader===\*\//, eml)
+	.replace(/\/\*===patches===\*\//, emlPatch)
 	.replace(/\/\*===rave===\*\//, rave)
 	.replace(/\/\*===browser===\*\//, browser);
 
