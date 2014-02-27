@@ -1,25 +1,41 @@
 {
-  "name": "rave",
-  "version": "0.0.1",
-  "description": "Web apps are all the rave.",
-  "main": "rave",
-  "scripts": {},
-  "keywords": [
-    "module",
-    "package",
-    "bower",
-    "npm",
-    "amd",
-    "node",
-    "commonjs",
-    "es6"
-  ],
-  "author": "unscriptable <john@unscriptable.com>",
-  "license": "MIT",
-  "devDependencies": {
-    "cram": "~0.8",
-    "es6-module-loader": "git://github.com/ModuleLoader/es6-module-loader#v0.4.3"
-  },
+	"name": "rave",
+	"version": "0.0.3",
+	"description": "Web apps are all the rave.",
+	"main": "rave",
+	"keywords": [
+		"module",
+		"package",
+		"bower",
+		"npm",
+		"amd",
+		"node",
+		"commonjs",
+		"es6"
+	],
+	"repository": {
+		"type": "git",
+		"url": "http://github.com/RaveJS/rave.git"
+	},
+	"authors": [
+		"John Hann (http://unscriptable.com)",
+		"Brian Cavalier (http://hovercraftstudios.com)"
+	],
+	"contributors": [
+		{
+			"name": "John Hann",
+			"web": "http://unscriptable.com"
+		},
+		{
+			"name": "Brian Cavalier",
+			"web": "http://hovercraftstudios.com"
+		}
+	],
+	"license": "MIT",
+	"devDependencies": {
+		"cram": "~0.8",
+		"es6-module-loader": "git://github.com/ModuleLoader/es6-module-loader#v0.4.3"
+	},
 	"scripts": {
 		"cram": "node node_modules/cram/cram.js --config ./build/cram.json --output ./build/temp/browser.js",
 		"concat": "node build/concat.js",
