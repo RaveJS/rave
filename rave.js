@@ -1513,8 +1513,12 @@ function mergeBrowserOptions (context) {
 }
 
 function mergeNodeOptions (context) {
-	// TODO
-	return context;
+	var args = process.argv.slice(2);
+	return args.reduce(function (context, arg) {
+		var parts = arg.split('=');
+		context[parts[0]] = parts.length > 1 ? parts[1] : true;
+		return context;
+	}, context);
 }
 
 function simpleDefine (loader) {
@@ -1815,9 +1819,9 @@ function fetchText (url, callback, errback) {
 
 function addSourceUrl (url, source) {
 	return source
-		+ '\n/*\n//@ sourceURL='
+		+ '\n//# sourceURL='
 		+ url.replace(/\s/g, '%20')
-		+ '\n*/\n';
+		+ '\n';
 }
 
 });
@@ -1908,11 +1912,9 @@ function normalizeCjs (name, refererName, refererUrl) {
 // pre-load browser fetcher so it will be built in to rave.js
 var fetchXhrText = $cram_r0;
 
-var env = detectEnv();
-
 function fetchAsText (load) {
 	// get fetchText on first use
-	var fetcher = getFetchText(env);
+	var fetcher = getFetchText(load.metadata.rave.environ);
 	return Promise.resolve(fetcher).then(function (fetchText) {
 		return new Promise(function(resolve, reject) {
 			fetchText(load.address, resolve, reject);
@@ -1926,14 +1928,6 @@ function getFetchText (env) {
 			? (require)('../lib/fetchNodeText')
 			: fetchXhrText
 	);
-}
-
-function detectEnv () {
-	var test
-	// try to get the fs module since we're going to use it
-	// we're using parens to hide `require` from cram.js
-	try { test = (require)('fs'); } catch (ex) {}
-	return test ? 'node' : 'browser';
 }
 
 });
@@ -2023,10 +2017,11 @@ var _global;
 _global = typeof global !== 'undefined' ? global : window;
 
 function nodeFactory (loader, load) {
-	var source, module, require;
+	var name, source, module, require, exec;
 
+	name = load.name;
 	source = load.source;
-	module = { id: load.name, uri: load.address, exports: {} };
+	module = { id: name, uri: load.address, exports: {} };
 	require = function (id) {
 		var abs, imports;
 		abs = loader.normalize(id, module.id);
