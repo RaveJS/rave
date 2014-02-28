@@ -1709,6 +1709,18 @@ function splitDirAndFile (url) {
 });
 
 
+;define('rave/lib/addSourceUrl', ['require', 'exports', 'module'], function (require, exports, module, define) {module.exports = addSourceUrl;
+
+function addSourceUrl (url, source) {
+	return source
+		+ '\n//# sourceURL='
+		+ url.replace(/\s/g, '%20')
+		+ '\n';
+}
+
+});
+
+
 ;define('rave/lib/fetchText', ['require', 'exports', 'module'], function (require, exports, module, define) {module.exports = fetchText;
 
 function fetchText (url, callback, errback) {
@@ -1731,18 +1743,6 @@ function fetchText (url, callback, errback) {
 		}
 	};
 	xhr.send(null);
-};
-
-});
-
-
-;define('rave/lib/addSourceUrl', ['require', 'exports', 'module'], function (require, exports, module, define) {module.exports = addSourceUrl;
-
-function addSourceUrl (url, source) {
-	return source
-		+ '\n/*\n//@ sourceURL='
-		+ url.replace(/\s/g, '%20')
-		+ '\n*/\n';
 }
 
 });
@@ -1815,6 +1815,20 @@ function globalFactory (loader, load) {
 });
 
 
+;define('rave/pipeline/translateAsIs', ['require', 'exports', 'module', 'rave/lib/addSourceUrl'], function (require, exports, module, $cram_r0, define) {module.exports = translateAsIs;
+
+var addSourceUrl = $cram_r0;
+
+function translateAsIs (load) {
+	var options = load.metadata.rave;
+	return options.debug
+		? addSourceUrl(load.address, load.source)
+		: load.source;
+}
+
+});
+
+
 ;define('rave/pipeline/normalizeCjs', ['require', 'exports', 'module', 'rave/lib/path'], function (require, exports, module, $cram_r0, define) {var path = $cram_r0;
 
 module.exports = normalizeCjs;
@@ -1837,20 +1851,6 @@ function fetchAsText (load) {
 		fetchText(load.address, resolve, reject);
 	});
 
-}
-
-});
-
-
-;define('rave/pipeline/translateAsIs', ['require', 'exports', 'module', 'rave/lib/addSourceUrl'], function (require, exports, module, $cram_r0, define) {module.exports = translateAsIs;
-
-var addSourceUrl = $cram_r0;
-
-function translateAsIs (load) {
-	var options = load.metadata.rave;
-	return options.debug
-		? addSourceUrl(load.address, load.source)
-		: load.source;
 }
 
 });
@@ -1926,10 +1926,11 @@ var _global;
 _global = typeof global !== 'undefined' ? global : window;
 
 function nodeFactory (loader, load) {
-	var source, module, require;
+	var name, source, module, require, exec;
 
+	name = load.name;
 	source = load.source;
-	module = { id: load.name, uri: load.address, exports: {} };
+	module = { id: name, uri: load.address, exports: {} };
 	require = function (id) {
 		var abs, imports;
 		abs = loader.normalize(id, module.id);
