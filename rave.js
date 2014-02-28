@@ -1541,6 +1541,15 @@ function locateAsIs (load) {
 });
 
 
+;define('rave/pipeline/translateAsIs', ['require', 'exports', 'module'], function (require, exports, module, define) {module.exports = translateAsIs;
+
+function translateAsIs (load) {
+	return load.source;
+}
+
+});
+
+
 ;define('rave/lib/overrideIf', ['require', 'exports', 'module'], function (require, exports, module, define) {module.exports = overrideIf;
 
 function overrideIf (predicate, base, props) {
@@ -1709,18 +1718,6 @@ function splitDirAndFile (url) {
 });
 
 
-;define('rave/lib/addSourceUrl', ['require', 'exports', 'module'], function (require, exports, module, define) {module.exports = addSourceUrl;
-
-function addSourceUrl (url, source) {
-	return source
-		+ '\n//# sourceURL='
-		+ url.replace(/\s/g, '%20')
-		+ '\n';
-}
-
-});
-
-
 ;define('rave/lib/fetchText', ['require', 'exports', 'module'], function (require, exports, module, define) {module.exports = fetchText;
 
 function fetchText (url, callback, errback) {
@@ -1785,6 +1782,18 @@ function findRequires (source) {
 });
 
 
+;define('rave/lib/addSourceUrl', ['require', 'exports', 'module'], function (require, exports, module, define) {module.exports = addSourceUrl;
+
+function addSourceUrl (url, source) {
+	return source
+		+ '\n//# sourceURL='
+		+ url.replace(/\s/g, '%20')
+		+ '\n';
+}
+
+});
+
+
 ;define('rave/lib/globalFactory', ['require', 'exports', 'module'], function (require, exports, module, define) {module.exports = globalFactory;
 
 var globalEval = new Function('return eval(arguments[0]);');
@@ -1815,28 +1824,14 @@ function globalFactory (loader, load) {
 });
 
 
-;define('rave/pipeline/translateAsIs', ['require', 'exports', 'module', 'rave/lib/addSourceUrl'], function (require, exports, module, $cram_r0, define) {module.exports = translateAsIs;
+;define('rave/pipeline/translateWrapObjectLiteral', ['require', 'exports', 'module', 'rave/pipeline/translateAsIs'], function (require, exports, module, $cram_r0, define) {module.exports = translateWrapObjectLiteral;
 
-var addSourceUrl = $cram_r0;
+var translateAsIs = $cram_r0;
 
-function translateAsIs (load) {
-	var options = load.metadata.rave;
-	return options.debug
-		? addSourceUrl(load.address, load.source)
-		: load.source;
-}
-
-});
-
-
-;define('rave/pipeline/normalizeCjs', ['require', 'exports', 'module', 'rave/lib/path'], function (require, exports, module, $cram_r0, define) {var path = $cram_r0;
-
-module.exports = normalizeCjs;
-
-var reduceLeadingDots = path.reduceLeadingDots;
-
-function normalizeCjs (name, refererName, refererUrl) {
-	return reduceLeadingDots(String(name), refererName || '');
+function translateWrapObjectLiteral (load) {
+	// The \n allows for a comment on the last line!
+	load.source = '(' + load.source + '\n)';
+	return translateAsIs(load);
 }
 
 });
@@ -1856,17 +1851,14 @@ function fetchAsText (load) {
 });
 
 
-;define('rave/pipeline/instantiateScript', ['require', 'exports', 'module', 'rave/lib/globalFactory'], function (require, exports, module, $cram_r0, define) {module.exports = instantiateScript;
+;define('rave/pipeline/normalizeCjs', ['require', 'exports', 'module', 'rave/lib/path'], function (require, exports, module, $cram_r0, define) {var path = $cram_r0;
 
-var globalFactory = $cram_r0;
+module.exports = normalizeCjs;
 
-function instantiateScript (load) {
-	var factory = globalFactory(this, load);
-	return {
-		execute: function () {
-			return new Module(factory());
-		}
-	};
+var reduceLeadingDots = path.reduceLeadingDots;
+
+function normalizeCjs (name, refererName, refererUrl) {
+	return reduceLeadingDots(String(name), refererName || '');
 }
 
 });
@@ -1907,6 +1899,30 @@ function locatePackage (load) {
 	}
 
 	return path.joinPaths(location, path.ensureExt(moduleName, ext));
+}
+
+});
+
+
+;define('rave/pipeline/instantiateScript', ['require', 'exports', 'module', 'rave/lib/globalFactory', 'rave/lib/addSourceUrl'], function (require, exports, module, $cram_r0, $cram_r1, define) {module.exports = instantiateScript;
+
+var globalFactory = $cram_r0;
+var addSourceUrl = $cram_r1;
+
+function instantiateScript (load) {
+
+	// if debugging, add sourceURL
+	if (load.metadata.rave.debug) {
+		load.source = addSourceUrl(load.address, load.source);
+	}
+
+	var factory = globalFactory(this, load);
+	return {
+		execute: function () {
+			return new Module(factory());
+		}
+	};
+
 }
 
 });
@@ -2028,21 +2044,9 @@ function fromObject (obj, name) {
 });
 
 
-;define('rave/pipeline/translateWrapObjectLiteral', ['require', 'exports', 'module', 'rave/pipeline/translateAsIs'], function (require, exports, module, $cram_r0, define) {module.exports = translateWrapObjectLiteral;
-
-var translateAsIs = $cram_r0;
-
-function translateWrapObjectLiteral (load) {
-	// The \n allows for a comment on the last line!
-	load.source = '(' + load.source + '\n)';
-	return translateAsIs(load);
-}
-
-});
-
-
-;define('rave/pipeline/instantiateNode', ['require', 'exports', 'module', 'rave/lib/findRequires', 'rave/lib/nodeFactory'], function (require, exports, module, $cram_r0, $cram_r1, define) {var findRequires = $cram_r0;
+;define('rave/pipeline/instantiateNode', ['require', 'exports', 'module', 'rave/lib/findRequires', 'rave/lib/nodeFactory', 'rave/lib/addSourceUrl'], function (require, exports, module, $cram_r0, $cram_r1, $cram_r2, define) {var findRequires = $cram_r0;
 var nodeFactory = $cram_r1;
+var addSourceUrl = $cram_r2;
 
 module.exports = instantiateNode;
 
@@ -2051,6 +2055,12 @@ function instantiateNode (load) {
 
 	loader = load.metadata.rave.loader;
 	deps = findRequires(load.source);
+
+	// if debugging, add sourceURL
+	if (load.metadata.rave.debug) {
+		load.source = addSourceUrl(load.address, load.source);
+	}
+
 	factory = nodeFactory(loader, load);
 
 	return {

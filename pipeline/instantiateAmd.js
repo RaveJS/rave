@@ -4,6 +4,7 @@
 var findRequires = require('../lib/findRequires');
 var captureAmdArgs = require('../lib/captureAmdArgs');
 var amdFactory = require('../lib/amdFactory');
+var addSourceUrl = require('../lib/addSourceUrl');
 
 module.exports = instantiateAmd;
 
@@ -13,6 +14,11 @@ function instantiateAmd (load) {
 	var loader, defineArgs, arity, factory, deps, i;
 
 	loader = load.metadata.rave.loader;
+
+	// if debugging, add sourceURL
+	if (load.metadata.rave.debug) {
+		load.source = addSourceUrl(load.address, load.source);
+	}
 
 	// the safest way to capture the many define() variations is to run it
 	defineArgs = captureOrThrow(load);
