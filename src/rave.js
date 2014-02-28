@@ -100,8 +100,12 @@ function mergeBrowserOptions (context) {
 }
 
 function mergeNodeOptions (context) {
-	// TODO
-	return context;
+	var args = process.argv.slice(2);
+	return args.reduce(function (context, arg) {
+		var parts = arg.split('=');
+		context[parts[0]] = parts.length > 1 ? parts[1] : true;
+		return context;
+	}, context);
 }
 
 function simpleDefine (loader) {
