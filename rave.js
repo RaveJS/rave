@@ -1837,6 +1837,19 @@ function translateWrapObjectLiteral (load) {
 });
 
 
+;define('rave/pipeline/normalizeCjs', ['require', 'exports', 'module', 'rave/lib/path'], function (require, exports, module, $cram_r0, define) {var path = $cram_r0;
+
+module.exports = normalizeCjs;
+
+var reduceLeadingDots = path.reduceLeadingDots;
+
+function normalizeCjs (name, refererName, refererUrl) {
+	return reduceLeadingDots(String(name), refererName || '');
+}
+
+});
+
+
 ;define('rave/pipeline/fetchAsText', ['require', 'exports', 'module', 'rave/lib/fetchText'], function (require, exports, module, $cram_r0, define) {module.exports = fetchAsText;
 
 var fetchText = $cram_r0;
@@ -1846,19 +1859,6 @@ function fetchAsText (load) {
 		fetchText(load.address, resolve, reject);
 	});
 
-}
-
-});
-
-
-;define('rave/pipeline/normalizeCjs', ['require', 'exports', 'module', 'rave/lib/path'], function (require, exports, module, $cram_r0, define) {var path = $cram_r0;
-
-module.exports = normalizeCjs;
-
-var reduceLeadingDots = path.reduceLeadingDots;
-
-function normalizeCjs (name, refererName, refererUrl) {
-	return reduceLeadingDots(String(name), refererName || '');
 }
 
 });
@@ -1928,54 +1928,6 @@ function instantiateScript (load) {
 });
 
 
-;define('rave/lib/nodeFactory', ['require', 'exports', 'module', 'rave/lib/legacy'], function (require, exports, module, $cram_r0, define) {module.exports = nodeFactory;
-
-var legacy = $cram_r0;
-
-var nodeEval = new Function(
-	'require', 'exports', 'module', 'global',
-	'eval(arguments[4]);'
-);
-
-var _global;
-
-_global = typeof global !== 'undefined' ? global : window;
-
-function nodeFactory (loader, load) {
-	var name, source, module, require, exec;
-
-	name = load.name;
-	source = load.source;
-	module = { id: name, uri: load.address, exports: {} };
-	require = function (id) {
-		var abs, imports;
-		abs = loader.normalize(id, module.id);
-		imports = loader.get(abs);
-		return legacy.fromLoader(imports);
-	};
-
-	// Implement CommonJS 2.0 async, just like Montage Require:
-	// https://github.com/montagejs/mr
-	require.async = function (id) {
-		id = loader.normalize(id, load.name);
-		return loader.import(id).then(function (value) {
-			return legacy.fromLoader(value);
-		});
-	};
-
-
-	return function () {
-		// TODO: use loader.global when es6-module-loader implements it
-		var exports;
-		nodeEval(require, module.exports, module, _global, source);
-		exports = module.exports;
-		return legacy.toLoader(exports);
-	};
-}
-
-});
-
-
 ;define('rave/lib/package', ['require', 'exports', 'module', 'rave/lib/path'], function (require, exports, module, $cram_r0, define) {var path = $cram_r0;
 
 /**
@@ -2038,6 +1990,89 @@ function fromObject (obj, name) {
 		main: obj.main || 'main', // or index?
 		location: obj.location || '',
 		name: obj.name || name
+	};
+}
+
+});
+
+
+;define('rave/lib/createRequire', ['require', 'exports', 'module', 'rave/lib/legacy'], function (require, exports, module, $cram_r0, define) {module.exports = createRequire;
+
+var legacy = $cram_r0;
+
+function createRequire (loader, refId) {
+
+	var require = function (id) { return syncRequire(id); };
+
+	// Implement proposed require.async, just like Montage Require:
+	// https://github.com/montagejs/mr, but with an added `names`
+	// parameter.
+	require.async = function (id) {
+		var abs, args;
+		abs = loader.normalize(id, refId);
+		args = arguments;
+		return loader.import(abs).then(function (value) {
+			return args.length > 1
+				? getNamedExports(args[1], value)
+				: legacy.fromLoader(value);
+		});
+	};
+
+	require.named = syncRequire;
+
+	return require;
+
+	function syncRequire (id, names) {
+		var abs, value;
+		abs = loader.normalize(id, refId);
+		value = loader.get(abs);
+		return arguments.length > 1
+			? getNamedExports(names, value)
+			: legacy.fromLoader(value);
+	}
+}
+
+function getNamedExports (names, obj) {
+	var exports = {};
+	// if names is omitted, return all exportable values
+	if (typeof names === 'undefined') names = obj;
+	for (var key in names) {
+		exports[key] = obj[key];
+	}
+	return exports;
+}
+
+});
+
+
+;define('rave/lib/nodeFactory', ['require', 'exports', 'module', 'rave/lib/legacy', 'rave/lib/createRequire'], function (require, exports, module, $cram_r0, $cram_r1, define) {module.exports = nodeFactory;
+
+var legacy = $cram_r0;
+var createRequire = $cram_r1;
+
+var nodeEval = new Function(
+	'require', 'exports', 'module', 'global',
+	'eval(arguments[4]);'
+);
+
+var _global;
+
+_global = typeof global !== 'undefined' ? global : window;
+
+function nodeFactory (loader, load) {
+	var name, source, module, require;
+
+	name = load.name;
+	source = load.source;
+	module = { id: name, uri: load.address, exports: {} };
+	require = createRequire(loader, name);
+
+	return function () {
+		// TODO: use loader.global when es6-module-loader implements it
+		var exports;
+		nodeEval(require, module.exports, module, _global, source);
+		exports = module.exports;
+		return legacy.toLoader(exports);
 	};
 }
 
