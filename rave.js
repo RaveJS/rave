@@ -1837,19 +1837,6 @@ function translateWrapObjectLiteral (load) {
 });
 
 
-;define('rave/pipeline/normalizeCjs', ['require', 'exports', 'module', 'rave/lib/path'], function (require, exports, module, $cram_r0, define) {var path = $cram_r0;
-
-module.exports = normalizeCjs;
-
-var reduceLeadingDots = path.reduceLeadingDots;
-
-function normalizeCjs (name, refererName, refererUrl) {
-	return reduceLeadingDots(String(name), refererName || '');
-}
-
-});
-
-
 ;define('rave/pipeline/fetchAsText', ['require', 'exports', 'module', 'rave/lib/fetchText'], function (require, exports, module, $cram_r0, define) {module.exports = fetchAsText;
 
 var fetchText = $cram_r0;
@@ -1859,6 +1846,19 @@ function fetchAsText (load) {
 		fetchText(load.address, resolve, reject);
 	});
 
+}
+
+});
+
+
+;define('rave/pipeline/normalizeCjs', ['require', 'exports', 'module', 'rave/lib/path'], function (require, exports, module, $cram_r0, define) {var path = $cram_r0;
+
+module.exports = normalizeCjs;
+
+var reduceLeadingDots = path.reduceLeadingDots;
+
+function normalizeCjs (name, refererName, refererUrl) {
+	return reduceLeadingDots(String(name), refererName || '');
 }
 
 });
@@ -2012,9 +2012,7 @@ function createRequire (loader, refId) {
 		abs = loader.normalize(id, refId);
 		args = arguments;
 		return loader.import(abs).then(function (value) {
-			return args.length > 1
-				? getNamedExports(args[1], value)
-				: legacy.fromLoader(value);
+			return getExports(args[1], value);
 		});
 	};
 
@@ -2026,20 +2024,23 @@ function createRequire (loader, refId) {
 		var abs, value;
 		abs = loader.normalize(id, refId);
 		value = loader.get(abs);
-		return arguments.length > 1
-			? getNamedExports(names, value)
-			: legacy.fromLoader(value);
+		return getExports(names, value);
 	}
 }
 
-function getNamedExports (names, obj) {
-	var exports = {};
-	// if names is omitted, return all exportable values
-	if (typeof names === 'undefined') names = obj;
-	for (var key in names) {
-		exports[key] = obj[key];
+function getExports (names, value) {
+	var exports, i;
+	// only attempt to get names if an array-like object was supplied
+	if (Object(names) === names && names.hasOwnProperty('length')) {
+		exports = {};
+		for (i = 0; i < names.length; i++) {
+			exports[names[i]] = value[names[i]];
+		}
+		return exports;
 	}
-	return exports;
+	else {
+		return legacy.fromLoader(value);
+	}
 }
 
 });
