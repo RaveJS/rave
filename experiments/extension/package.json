@@ -39,6 +39,6 @@
   ],
   "dependencies": {
     "rest": "~1.0",
-    "rave-text-byext": "~0.1.0"
+    "rave-text-byext": ""
   }
 }

@@ -17,15 +17,6 @@ function writeModuleInfo () {
 	write('Module: ' + module.id + ', ' + module.uri, 'div');
 }
 
-//var template = require('./template.html');
-//function writeModuleInfo () {
-//	var text;
-//	text = template.replace(/\$\{([^\}]+)\}/g, function (m, token) {
-//		return module[token];
-//	});
-//	write(text, 'div');
-//}
-
 function write (msg, tagType) {
 	callbacks.call(domReady).then(function () {
 		var doc = document;
