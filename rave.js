@@ -1570,20 +1570,6 @@ function choice (predicate, a, b) {
 });
 
 
-;define('rave/lib/beget', ['require', 'exports', 'module'], function (require, exports, module, define) {module.exports = beget;
-
-function Begetter () {}
-function beget (base) {
-	var obj;
-	Begetter.prototype = base;
-	obj = new Begetter();
-	Begetter.prototype = null;
-	return obj;
-}
-
-});
-
-
 ;define('rave/lib/createFileExtFilter', ['require', 'exports', 'module'], function (require, exports, module, define) {module.exports = createFileExtFilter;
 
 /**
@@ -1622,6 +1608,20 @@ function toHashmap (it) {
 		}
 	}
 	return map;
+}
+
+});
+
+
+;define('rave/lib/beget', ['require', 'exports', 'module'], function (require, exports, module, define) {module.exports = beget;
+
+function Begetter () {}
+function beget (base) {
+	var obj;
+	Begetter.prototype = base;
+	obj = new Begetter();
+	Begetter.prototype = null;
+	return obj;
 }
 
 });
@@ -1934,6 +1934,21 @@ function locatePackage (load) {
 });
 
 
+;define('rave/lib/globalFactory', ['require', 'exports', 'module', 'rave/lib/legacy'], function (require, exports, module, $cram_r0, define) {module.exports = globalFactory;
+
+var legacy = $cram_r0;
+
+var globalEval = new Function('return eval(arguments[0]);');
+
+function globalFactory (loader, load) {
+	return function () {
+		return legacy.toLoader(globalEval(load.source));
+	};
+}
+
+});
+
+
 ;define('rave/lib/package', ['require', 'exports', 'module', 'rave/lib/path'], function (require, exports, module, $cram_r0, define) {var path = $cram_r0;
 
 /**
@@ -1996,21 +2011,6 @@ function fromObject (obj, name) {
 		main: obj.main || 'main', // or index?
 		location: obj.location || '',
 		name: obj.name || name
-	};
-}
-
-});
-
-
-;define('rave/lib/globalFactory', ['require', 'exports', 'module', 'rave/lib/legacy'], function (require, exports, module, $cram_r0, define) {module.exports = globalFactory;
-
-var legacy = $cram_r0;
-
-var globalEval = new Function('return eval(arguments[0]);');
-
-function globalFactory (loader, load) {
-	return function () {
-		return legacy.toLoader(globalEval(load.source));
 	};
 }
 
