@@ -10,6 +10,7 @@ var translateWrapObjectLiteral = require('rave/pipeline/translateWrapObjectLiter
 var instantiateNode = require('rave/pipeline/instantiateNode');
 var instantiateScript = require('rave/pipeline/instantiateScript');
 var overrideIf = require('rave/lib/overrideIf');
+var createFileExtFilter = require('rave/lib/createFileExtFilter');
 var pkg = require('rave/lib/package');
 var beget = require('rave/lib/beget');
 
@@ -42,7 +43,7 @@ function _ravePipeline (context) {
 	return {
 		applyTo: function (loader) {
 			overrideIf(createRavePredicate(context), loader, modulePipeline);
-			overrideIf(isJsonFile, loader, jsonPipeline);
+			overrideIf(createFileExtFilter('json'), loader, jsonPipeline);
 		}
 	};
 }
@@ -53,24 +54,13 @@ function createRavePredicate (context) {
 		// Pipeline functions typically receive an object with a normalized name,
 		// but the normalize function takes an unnormalized name and a normalized
 		// referrer name.
-		moduleId = getModuleId(arg);
+		moduleId = typeof arg === 'object' ? arg.name : arg;
 		// check if this is the rave-main module
 		if (moduleId === context.raveMain) return true;
 		if (moduleId.charAt(0) === '.') moduleId = arguments[1];
 		packageId = moduleId.split('/')[0];
 		return packageId === 'rave';
 	};
-}
-
-function isJsonFile (arg) {
-	var moduleId, ext;
-	moduleId = getModuleId(arg);
-	ext = moduleId.split('.').pop();
-	return ext === 'json';
-}
-
-function getModuleId (arg) {
-	return typeof arg === 'object' ? arg.name : arg;
 }
 
 function withContext (context, func) {

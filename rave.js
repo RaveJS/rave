@@ -1570,6 +1570,49 @@ function choice (predicate, a, b) {
 });
 
 
+;define('rave/lib/createFileExtFilter', ['require', 'exports', 'module'], function (require, exports, module, define) {module.exports = createFileExtFilter;
+
+/**
+ * Creates a filter for a loader pipeline based on file extensions.
+ * @param {string|Array<string>|Object} extensions may be a single string
+ *   containing a comma-separated list of file extensions, an array of file
+ *   extensions, or an Object literal whose keys are file extensions.
+ * @returns {function(Object|string): boolean}
+ */
+function createFileExtFilter (extensions) {
+	var map = toHashmap(extensions);
+	return function (load) {
+		var name = typeof load === 'object' ? load.name : load;
+		var dot = name ? name.lastIndexOf('.') : -1;
+		var slash = name ? name.lastIndexOf('/') : -1;
+		return dot > slash && map.hasOwnProperty(name.slice(dot + 1));
+	}
+}
+
+function toHashmap (it) {
+	var map = {}, i;
+	if (!it) {
+		throw new TypeError('Invalid type passed to createFileExtFilter.');
+	}
+	if (typeof it === 'string') {
+		it = it.split(/\s*,\s*/);
+	}
+	if (it.length) {
+		for (i = 0; i < it.length; i++) {
+			map[it[i]] = 1;
+		}
+	}
+	else {
+		for (i in it) {
+			map[i] = 1;
+		}
+	}
+	return map;
+}
+
+});
+
+
 ;define('rave/lib/beget', ['require', 'exports', 'module'], function (require, exports, module, define) {module.exports = beget;
 
 function Begetter () {}
@@ -1782,18 +1825,6 @@ function findRequires (source) {
 });
 
 
-;define('rave/lib/addSourceUrl', ['require', 'exports', 'module'], function (require, exports, module, define) {module.exports = addSourceUrl;
-
-function addSourceUrl (url, source) {
-	return source
-		+ '\n//# sourceURL='
-		+ url.replace(/\s/g, '%20')
-		+ '\n';
-}
-
-});
-
-
 ;define('rave/lib/globalFactory', ['require', 'exports', 'module'], function (require, exports, module, define) {module.exports = globalFactory;
 
 var globalEval = new Function('return eval(arguments[0]);');
@@ -1802,6 +1833,18 @@ function globalFactory (loader, load) {
 	return function () {
 		return globalEval(load.source);
 	};
+}
+
+});
+
+
+;define('rave/lib/addSourceUrl', ['require', 'exports', 'module'], function (require, exports, module, define) {module.exports = addSourceUrl;
+
+function addSourceUrl (url, source) {
+	return source
+		+ '\n//# sourceURL='
+		+ url.replace(/\s/g, '%20')
+		+ '\n';
 }
 
 });
@@ -1837,6 +1880,19 @@ function translateWrapObjectLiteral (load) {
 });
 
 
+;define('rave/pipeline/normalizeCjs', ['require', 'exports', 'module', 'rave/lib/path'], function (require, exports, module, $cram_r0, define) {var path = $cram_r0;
+
+module.exports = normalizeCjs;
+
+var reduceLeadingDots = path.reduceLeadingDots;
+
+function normalizeCjs (name, refererName, refererUrl) {
+	return reduceLeadingDots(String(name), refererName || '');
+}
+
+});
+
+
 ;define('rave/pipeline/fetchAsText', ['require', 'exports', 'module', 'rave/lib/fetchText'], function (require, exports, module, $cram_r0, define) {module.exports = fetchAsText;
 
 var fetchText = $cram_r0;
@@ -1846,19 +1902,6 @@ function fetchAsText (load) {
 		fetchText(load.address, resolve, reject);
 	});
 
-}
-
-});
-
-
-;define('rave/pipeline/normalizeCjs', ['require', 'exports', 'module', 'rave/lib/path'], function (require, exports, module, $cram_r0, define) {var path = $cram_r0;
-
-module.exports = normalizeCjs;
-
-var reduceLeadingDots = path.reduceLeadingDots;
-
-function normalizeCjs (name, refererName, refererUrl) {
-	return reduceLeadingDots(String(name), refererName || '');
 }
 
 });
@@ -2110,7 +2153,7 @@ function instantiateNode (load) {
 });
 
 
-;define('rave/src/pipeline', ['require', 'exports', 'module', 'rave/pipeline/normalizeCjs', 'rave/pipeline/locatePackage', 'rave/pipeline/locateAsIs', 'rave/pipeline/fetchAsText', 'rave/pipeline/translateAsIs', 'rave/pipeline/translateWrapObjectLiteral', 'rave/pipeline/instantiateNode', 'rave/pipeline/instantiateScript', 'rave/lib/overrideIf', 'rave/lib/package', 'rave/lib/beget'], function (require, exports, module, $cram_r0, $cram_r1, $cram_r2, $cram_r3, $cram_r4, $cram_r5, $cram_r6, $cram_r7, $cram_r8, $cram_r9, $cram_r10, define) {var normalizeCjs = $cram_r0;
+;define('rave/src/pipeline', ['require', 'exports', 'module', 'rave/pipeline/normalizeCjs', 'rave/pipeline/locatePackage', 'rave/pipeline/locateAsIs', 'rave/pipeline/fetchAsText', 'rave/pipeline/translateAsIs', 'rave/pipeline/translateWrapObjectLiteral', 'rave/pipeline/instantiateNode', 'rave/pipeline/instantiateScript', 'rave/lib/overrideIf', 'rave/lib/createFileExtFilter', 'rave/lib/package', 'rave/lib/beget'], function (require, exports, module, $cram_r0, $cram_r1, $cram_r2, $cram_r3, $cram_r4, $cram_r5, $cram_r6, $cram_r7, $cram_r8, $cram_r9, $cram_r10, $cram_r11, define) {var normalizeCjs = $cram_r0;
 var locatePackage = $cram_r1;
 var locateAsIs = $cram_r2;
 var fetchAsText = $cram_r3;
@@ -2119,8 +2162,9 @@ var translateWrapObjectLiteral = $cram_r5;
 var instantiateNode = $cram_r6;
 var instantiateScript = $cram_r7;
 var overrideIf = $cram_r8;
-var pkg = $cram_r9;
-var beget = $cram_r10;
+var createFileExtFilter = $cram_r9;
+var pkg = $cram_r10;
+var beget = $cram_r11;
 
 module.exports = _ravePipeline;
 
@@ -2151,7 +2195,7 @@ function _ravePipeline (context) {
 	return {
 		applyTo: function (loader) {
 			overrideIf(createRavePredicate(context), loader, modulePipeline);
-			overrideIf(isJsonFile, loader, jsonPipeline);
+			overrideIf(createFileExtFilter('json'), loader, jsonPipeline);
 		}
 	};
 }
@@ -2162,24 +2206,13 @@ function createRavePredicate (context) {
 		// Pipeline functions typically receive an object with a normalized name,
 		// but the normalize function takes an unnormalized name and a normalized
 		// referrer name.
-		moduleId = getModuleId(arg);
+		moduleId = typeof arg === 'object' ? arg.name : arg;
 		// check if this is the rave-main module
 		if (moduleId === context.raveMain) return true;
 		if (moduleId.charAt(0) === '.') moduleId = arguments[1];
 		packageId = moduleId.split('/')[0];
 		return packageId === 'rave';
 	};
-}
-
-function isJsonFile (arg) {
-	var moduleId, ext;
-	moduleId = getModuleId(arg);
-	ext = moduleId.split('.').pop();
-	return ext === 'json';
-}
-
-function getModuleId (arg) {
-	return typeof arg === 'object' ? arg.name : arg;
 }
 
 function withContext (context, func) {
