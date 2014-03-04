@@ -1570,6 +1570,20 @@ function choice (predicate, a, b) {
 });
 
 
+;define('rave/lib/beget', ['require', 'exports', 'module'], function (require, exports, module, define) {module.exports = beget;
+
+function Begetter () {}
+function beget (base) {
+	var obj;
+	Begetter.prototype = base;
+	obj = new Begetter();
+	Begetter.prototype = null;
+	return obj;
+}
+
+});
+
+
 ;define('rave/lib/createFileExtFilter', ['require', 'exports', 'module'], function (require, exports, module, define) {module.exports = createFileExtFilter;
 
 /**
@@ -1608,20 +1622,6 @@ function toHashmap (it) {
 		}
 	}
 	return map;
-}
-
-});
-
-
-;define('rave/lib/beget', ['require', 'exports', 'module'], function (require, exports, module, define) {module.exports = beget;
-
-function Begetter () {}
-function beget (base) {
-	var obj;
-	Begetter.prototype = base;
-	obj = new Begetter();
-	Begetter.prototype = null;
-	return obj;
 }
 
 });
@@ -1825,19 +1825,6 @@ function findRequires (source) {
 });
 
 
-;define('rave/lib/globalFactory', ['require', 'exports', 'module'], function (require, exports, module, define) {module.exports = globalFactory;
-
-var globalEval = new Function('return eval(arguments[0]);');
-
-function globalFactory (loader, load) {
-	return function () {
-		return globalEval(load.source);
-	};
-}
-
-});
-
-
 ;define('rave/lib/addSourceUrl', ['require', 'exports', 'module'], function (require, exports, module, define) {module.exports = addSourceUrl;
 
 function addSourceUrl (url, source) {
@@ -1947,30 +1934,6 @@ function locatePackage (load) {
 });
 
 
-;define('rave/pipeline/instantiateScript', ['require', 'exports', 'module', 'rave/lib/globalFactory', 'rave/lib/addSourceUrl'], function (require, exports, module, $cram_r0, $cram_r1, define) {module.exports = instantiateScript;
-
-var globalFactory = $cram_r0;
-var addSourceUrl = $cram_r1;
-
-function instantiateScript (load) {
-
-	// if debugging, add sourceURL
-	if (load.metadata.rave.debug) {
-		load.source = addSourceUrl(load.address, load.source);
-	}
-
-	var factory = globalFactory(this, load);
-	return {
-		execute: function () {
-			return new Module(factory());
-		}
-	};
-
-}
-
-});
-
-
 ;define('rave/lib/package', ['require', 'exports', 'module', 'rave/lib/path'], function (require, exports, module, $cram_r0, define) {var path = $cram_r0;
 
 /**
@@ -2039,6 +2002,21 @@ function fromObject (obj, name) {
 });
 
 
+;define('rave/lib/globalFactory', ['require', 'exports', 'module', 'rave/lib/legacy'], function (require, exports, module, $cram_r0, define) {module.exports = globalFactory;
+
+var legacy = $cram_r0;
+
+var globalEval = new Function('return eval(arguments[0]);');
+
+function globalFactory (loader, load) {
+	return function () {
+		return legacy.toLoader(globalEval(load.source));
+	};
+}
+
+});
+
+
 ;define('rave/lib/createRequire', ['require', 'exports', 'module', 'rave/lib/legacy'], function (require, exports, module, $cram_r0, define) {module.exports = createRequire;
 
 var legacy = $cram_r0;
@@ -2084,6 +2062,30 @@ function getExports (names, value) {
 	else {
 		return legacy.fromLoader(value);
 	}
+}
+
+});
+
+
+;define('rave/pipeline/instantiateScript', ['require', 'exports', 'module', 'rave/lib/globalFactory', 'rave/lib/addSourceUrl'], function (require, exports, module, $cram_r0, $cram_r1, define) {module.exports = instantiateScript;
+
+var globalFactory = $cram_r0;
+var addSourceUrl = $cram_r1;
+
+function instantiateScript (load) {
+
+	// if debugging, add sourceURL
+	if (load.metadata.rave.debug) {
+		load.source = addSourceUrl(load.address, load.source);
+	}
+
+	var factory = globalFactory(this, load);
+	return {
+		execute: function () {
+			return new Module(factory());
+		}
+	};
+
 }
 
 });
