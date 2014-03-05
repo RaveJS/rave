@@ -53,6 +53,8 @@ function captureOrThrow (load) {
 		return captureAmdArgs(load.source);
 	}
 	catch (ex) {
-		throw new Error('Error while capturing AMD define: ' + load.name);
+		ex.message = 'Error while capturing AMD define: '
+			+ load.name + '. ' + ex.message;
+		throw ex;
 	}
 }
