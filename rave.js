@@ -1639,6 +1639,7 @@ module.exports = {
 	joinPaths: joinPaths,
 	ensureEndSlash: ensureEndSlash,
 	ensureExt: ensureExt,
+	removeExt: removeExt,
 	reduceLeadingDots: reduceLeadingDots,
 	splitDirAndFile: splitDirAndFile
 };
@@ -1695,8 +1696,18 @@ function ensureEndSlash (path) {
  * @returns {string} a url with an extension.
  */
 function ensureExt (path, ext) {
-	var hasExt = path.indexOf('.') > path.indexOf('/');
+	var hasExt = path.lastIndexOf('.') > path.lastIndexOf('/');
 	return hasExt ? path : path + ext;
+}
+
+/**
+ * REmoves a file extension from a path.
+ * @param {string} path
+ * @returns {string} path without a file extension.
+ */
+function removeExt (path) {
+	var dotPos = path.lastIndexOf('.'), slashPos = path.lastIndexOf('/');
+	return dotPos > slashPos ? path.slice(0, dotPos) : path;
 }
 
 /**
@@ -1934,21 +1945,6 @@ function locatePackage (load) {
 });
 
 
-;define('rave/lib/globalFactory', ['require', 'exports', 'module', 'rave/lib/legacy'], function (require, exports, module, $cram_r0, define) {module.exports = globalFactory;
-
-var legacy = $cram_r0;
-
-var globalEval = new Function('return eval(arguments[0]);');
-
-function globalFactory (loader, load) {
-	return function () {
-		return legacy.toLoader(globalEval(load.source));
-	};
-}
-
-});
-
-
 ;define('rave/lib/package', ['require', 'exports', 'module', 'rave/lib/path'], function (require, exports, module, $cram_r0, define) {var path = $cram_r0;
 
 /**
@@ -2017,6 +2013,21 @@ function fromObject (obj, name) {
 });
 
 
+;define('rave/lib/globalFactory', ['require', 'exports', 'module', 'rave/lib/legacy'], function (require, exports, module, $cram_r0, define) {module.exports = globalFactory;
+
+var legacy = $cram_r0;
+
+var globalEval = new Function('return eval(arguments[0]);');
+
+function globalFactory (loader, load) {
+	return function () {
+		return legacy.toLoader(globalEval(load.source));
+	};
+}
+
+});
+
+
 ;define('rave/lib/createRequire', ['require', 'exports', 'module', 'rave/lib/legacy'], function (require, exports, module, $cram_r0, define) {module.exports = createRequire;
 
 var legacy = $cram_r0;
@@ -2028,7 +2039,7 @@ function createRequire (loader, refId) {
 	// Implement proposed require.async, just like Montage Require:
 	// https://github.com/montagejs/mr, but with an added `names`
 	// parameter.
-	require.async = function (id) {
+	require.ensure = require.async = function (id) {
 		var abs, args;
 		abs = loader.normalize(id, refId);
 		args = arguments;
