@@ -4,29 +4,24 @@
 module.exports = locatePackage;
 
 var path = require('../lib/path');
+var metadata = require('../lib/metadata');
 
 function locatePackage (load) {
-	var options, parts, packageName, moduleName, descriptor, location, ext;
+	var options, parts, packageName, modulePath, moduleName, descriptor,
+		location, ext;
 
 	options = load.metadata.rave;
 
-	// Note: name should be normalized before it reaches this locate function.
-	parts = load.name.split('#');
-	if (parts.length > 1) {
-		packageName = parts.shift(); // this is the package uid
-		parts = load.name.split('/').slice(1); // pull off package name
-	}
-	else {
-		parts = load.name.split('/');
-		packageName = parts.shift();
-	}
-
 	if (!options.packages) throw new Error('Packages not provided: ' + load.name);
+
+	parts = metadata.parseUid(load.name);
+	packageName = parts.pkgUid || parts.pkgName;
+	modulePath = parts.modulePath;
 
 	descriptor = options.packages[packageName];
 	if (!descriptor) throw new Error('Package not found: ' + load.name);
 
-	moduleName = parts.join('/') || descriptor.main;
+	moduleName = modulePath || descriptor.main;
 	location = descriptor.location;
 	ext = options.defaultExt || '.js';
 
