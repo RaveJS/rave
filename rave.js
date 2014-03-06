@@ -1532,6 +1532,15 @@ function beget (base) {
 
 
 
+;define('rave/pipeline/translateAsIs', ['require', 'exports', 'module'], function (require, exports, module, define) {module.exports = translateAsIs;
+
+function translateAsIs (load) {
+	return load.source;
+}
+
+});
+
+
 ;define('rave/pipeline/locateAsIs', ['require', 'exports', 'module'], function (require, exports, module, define) {module.exports = locateAsIs;
 
 function locateAsIs (load) {
@@ -1541,10 +1550,35 @@ function locateAsIs (load) {
 });
 
 
-;define('rave/pipeline/translateAsIs', ['require', 'exports', 'module'], function (require, exports, module, define) {module.exports = translateAsIs;
+;define('rave/lib/overrideIf', ['require', 'exports', 'module'], function (require, exports, module, define) {module.exports = overrideIf;
 
-function translateAsIs (load) {
-	return load.source;
+function overrideIf (predicate, base, props) {
+	for (var p in props) {
+		if (p in base) {
+			base[p] = choice(predicate, props[p], base[p]);
+		}
+	}
+}
+
+function choice (predicate, a, b) {
+	return function () {
+		var f = predicate.apply(this, arguments) ? a : b;
+		return f.apply(this, arguments);
+	};
+}
+
+});
+
+
+;define('rave/lib/beget', ['require', 'exports', 'module'], function (require, exports, module, define) {module.exports = beget;
+
+function Begetter () {}
+function beget (base) {
+	var obj;
+	Begetter.prototype = base;
+	obj = new Begetter();
+	Begetter.prototype = null;
+	return obj;
 }
 
 });
@@ -1588,40 +1622,6 @@ function toHashmap (it) {
 		}
 	}
 	return map;
-}
-
-});
-
-
-;define('rave/lib/beget', ['require', 'exports', 'module'], function (require, exports, module, define) {module.exports = beget;
-
-function Begetter () {}
-function beget (base) {
-	var obj;
-	Begetter.prototype = base;
-	obj = new Begetter();
-	Begetter.prototype = null;
-	return obj;
-}
-
-});
-
-
-;define('rave/lib/overrideIf', ['require', 'exports', 'module'], function (require, exports, module, define) {module.exports = overrideIf;
-
-function overrideIf (predicate, base, props) {
-	for (var p in props) {
-		if (p in base) {
-			base[p] = choice(predicate, props[p], base[p]);
-		}
-	}
-}
-
-function choice (predicate, a, b) {
-	return function () {
-		var f = predicate.apply(this, arguments) ? a : b;
-		return f.apply(this, arguments);
-	};
 }
 
 });
@@ -1848,6 +1848,19 @@ function addSourceUrl (url, source) {
 });
 
 
+;define('rave/pipeline/translateWrapObjectLiteral', ['require', 'exports', 'module', 'rave/pipeline/translateAsIs'], function (require, exports, module, $cram_r0, define) {module.exports = translateWrapObjectLiteral;
+
+var translateAsIs = $cram_r0;
+
+function translateWrapObjectLiteral (load) {
+	// The \n allows for a comment on the last line!
+	load.source = '(' + load.source + '\n)';
+	return translateAsIs(load);
+}
+
+});
+
+
 ;define('rave/lib/legacy', ['require', 'exports', 'module'], function (require, exports, module, define) {module.exports = {
 	fromLoader: function (value) {
 		return value && value.__es5Module ? value.__es5Module : value;
@@ -1861,19 +1874,6 @@ function addSourceUrl (url, source) {
 		};
 	}
 };
-
-});
-
-
-;define('rave/pipeline/translateWrapObjectLiteral', ['require', 'exports', 'module', 'rave/pipeline/translateAsIs'], function (require, exports, module, $cram_r0, define) {module.exports = translateWrapObjectLiteral;
-
-var translateAsIs = $cram_r0;
-
-function translateWrapObjectLiteral (load) {
-	// The \n allows for a comment on the last line!
-	load.source = '(' + load.source + '\n)';
-	return translateAsIs(load);
-}
 
 });
 
