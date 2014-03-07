@@ -2,7 +2,7 @@
 
 ## What is RaveJS?
 
-RaveJS is next-generation modular architecture, today.  RaveJS
+RaveJS is next-generation modular JavaScript architecture.  RaveJS
 is designed on EcmaScript and *de facto* standards.  It's open and
 is designed to integrate with *everything*.
 
@@ -25,14 +25,19 @@ or (soon) ES6 format.  RaveJS makes it all work seamlessly.
 ## Is it extensible?
 
 Very. RaveJS extensions allow third-parties to provide new capabilities
-to RaveJS or your application.  Install extensions easily through NPM
+to RaveJS or to your application.  Install extensions easily through NPM
 (`npm install --save <name-of-rave-extension>`) or Bower
 (`bower install --save <name-of-rave-extension>`).
 
 RaveJS extensions are easy to create and easy to find on NPM and
-Bower by searching for "rave-extension" (available soon).
+Bower by searching for "rave-extension".
 
 ## How do I start?
 
 Check out the [Quick Start using Bower](./docs/quick-start-bower.md)
 and the [Quick Start using NPM](./docs/quick-start-npm.md).
+
+## Why do I see 404s?
+
+404s are ok during development. You can [eliminate 404s](./docs/404s.md)
+if desired.
