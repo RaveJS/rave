@@ -68,7 +68,6 @@ function gatherAppMetadata (context, metadatas) {
 	if (first) {
 		context.app = {
 			name: first.name,
-			// TODO: get main from the app's package descriptor, instead
 			main: path.joinPaths(first.name, first.main),
 			metadata: first
 		};

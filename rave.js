@@ -1560,6 +1560,26 @@ function translateWrapInAmd (load) {
 });
 
 
+;define('rave/lib/overrideIf', ['require', 'exports', 'module'], function (require, exports, module, define) {module.exports = overrideIf;
+
+function overrideIf (predicate, base, props) {
+	for (var p in props) {
+		if (p in base) {
+			base[p] = choice(predicate, props[p], base[p]);
+		}
+	}
+}
+
+function choice (predicate, a, b) {
+	return function () {
+		var f = predicate.apply(this, arguments) ? a : b;
+		return f.apply(this, arguments);
+	};
+}
+
+});
+
+
 ;define('rave/lib/createFileExtFilter', ['require', 'exports', 'module'], function (require, exports, module, define) {module.exports = createFileExtFilter;
 
 /**
@@ -1612,26 +1632,6 @@ function beget (base) {
 	obj = new Begetter();
 	Begetter.prototype = null;
 	return obj;
-}
-
-});
-
-
-;define('rave/lib/overrideIf', ['require', 'exports', 'module'], function (require, exports, module, define) {module.exports = overrideIf;
-
-function overrideIf (predicate, base, props) {
-	for (var p in props) {
-		if (p in base) {
-			base[p] = choice(predicate, props[p], base[p]);
-		}
-	}
-}
-
-function choice (predicate, a, b) {
-	return function () {
-		var f = predicate.apply(this, arguments) ? a : b;
-		return f.apply(this, arguments);
-	};
 }
 
 });
@@ -1809,55 +1809,6 @@ function fetchText (url, callback, errback) {
 });
 
 
-;define('rave/lib/findRequires', ['require', 'exports', 'module'], function (require, exports, module, define) {module.exports = findRequires;
-
-var removeCommentsRx, findRValueRequiresRx;
-
-removeCommentsRx = /\/\*[\s\S]*?\*\/|\/\/.*?[\n\r]/g;
-findRValueRequiresRx = /require\s*\(\s*(["'])(.*?[^\\])\1\s*\)|[^\\]?(["'])/g;
-
-function findRequires (source) {
-	var deps, seen, clean, currQuote;
-
-	deps = [];
-	seen = {};
-
-	// remove comments, then look for require() or quotes
-	clean = source.replace(removeCommentsRx, '');
-	clean.replace(findRValueRequiresRx, function (m, rq, id, qq) {
-		// if we encounter a string in the source, don't look for require()
-		if (qq) {
-			currQuote = currQuote == qq ? false : currQuote;
-		}
-		// if we're not inside a quoted string
-		else if (!currQuote) {
-			// push [relative] id into deps list and seen map
-			if (!(id in seen)) {
-				seen[id] = true;
-				deps.push(id)
-			}
-		}
-		return ''; // uses least RAM/CPU
-	});
-
-	return deps;
-}
-
-});
-
-
-;define('rave/lib/addSourceUrl', ['require', 'exports', 'module'], function (require, exports, module, define) {module.exports = addSourceUrl;
-
-function addSourceUrl (url, source) {
-	return source
-		+ '\n//# sourceURL='
-		+ url.replace(/\s/g, '%20')
-		+ '\n';
-}
-
-});
-
-
 ;define('rave/lib/captureAmdArgs', ['require', 'exports', 'module'], function (require, exports, module, define) {module.exports = captureAmdArgs;
 
 // TODO: deal with multiple define() calls?
@@ -1910,6 +1861,55 @@ function ensureFactory (thing) {
 });
 
 
+;define('rave/lib/findRequires', ['require', 'exports', 'module'], function (require, exports, module, define) {module.exports = findRequires;
+
+var removeCommentsRx, findRValueRequiresRx;
+
+removeCommentsRx = /\/\*[\s\S]*?\*\/|\/\/.*?[\n\r]/g;
+findRValueRequiresRx = /require\s*\(\s*(["'])(.*?[^\\])\1\s*\)|[^\\]?(["'])/g;
+
+function findRequires (source) {
+	var deps, seen, clean, currQuote;
+
+	deps = [];
+	seen = {};
+
+	// remove comments, then look for require() or quotes
+	clean = source.replace(removeCommentsRx, '');
+	clean.replace(findRValueRequiresRx, function (m, rq, id, qq) {
+		// if we encounter a string in the source, don't look for require()
+		if (qq) {
+			currQuote = currQuote == qq ? false : currQuote;
+		}
+		// if we're not inside a quoted string
+		else if (!currQuote) {
+			// push [relative] id into deps list and seen map
+			if (!(id in seen)) {
+				seen[id] = true;
+				deps.push(id)
+			}
+		}
+		return ''; // uses least RAM/CPU
+	});
+
+	return deps;
+}
+
+});
+
+
+;define('rave/lib/addSourceUrl', ['require', 'exports', 'module'], function (require, exports, module, define) {module.exports = addSourceUrl;
+
+function addSourceUrl (url, source) {
+	return source
+		+ '\n//# sourceURL='
+		+ url.replace(/\s/g, '%20')
+		+ '\n';
+}
+
+});
+
+
 ;define('rave/lib/legacy', ['require', 'exports', 'module'], function (require, exports, module, define) {module.exports = {
 	fromLoader: function (value) {
 		return value && value.__es5Module ? value.__es5Module : value;
@@ -1927,19 +1927,6 @@ function ensureFactory (thing) {
 });
 
 
-;define('rave/pipeline/normalizeCjs', ['require', 'exports', 'module', 'rave/lib/path'], function (require, exports, module, $cram_r0, define) {var path = $cram_r0;
-
-module.exports = normalizeCjs;
-
-var reduceLeadingDots = path.reduceLeadingDots;
-
-function normalizeCjs (name, refererName, refererUrl) {
-	return reduceLeadingDots(String(name), refererName || '');
-}
-
-});
-
-
 ;define('rave/pipeline/fetchAsText', ['require', 'exports', 'module', 'rave/lib/fetchText'], function (require, exports, module, $cram_r0, define) {module.exports = fetchAsText;
 
 var fetchText = $cram_r0;
@@ -1949,6 +1936,19 @@ function fetchAsText (load) {
 		fetchText(load.address, resolve, reject);
 	});
 
+}
+
+});
+
+
+;define('rave/pipeline/normalizeCjs', ['require', 'exports', 'module', 'rave/lib/path'], function (require, exports, module, $cram_r0, define) {var path = $cram_r0;
+
+module.exports = normalizeCjs;
+
+var reduceLeadingDots = path.reduceLeadingDots;
+
+function normalizeCjs (name, refererName, refererUrl) {
+	return reduceLeadingDots(String(name), refererName || '');
 }
 
 });
@@ -2098,72 +2098,6 @@ function fromObject (obj, name) {
 });
 
 
-;define('rave/lib/metadata/bower', ['require', 'exports', 'module', 'rave/lib/path'], function (require, exports, module, $cram_r0, define) {var path = $cram_r0;
-
-module.exports = {
-	libFolder: 'bower_components',
-	locateMetaFile: locateBowerMetaFile,
-	locateMetaFolder: locateBowerMetaFolder,
-	createDescriptor: createBowerPackageDescriptor,
-	findJsMain: findJsMain,
-	findModuleType: findModuleType,
-};
-
-function locateBowerMetaFile (options, pkgName) {
-	return path.joinPaths(
-		locateBowerMetaFolder(options, pkgName),
-		options.metaName
-	);
-}
-
-function locateBowerMetaFolder (options, pkgName) {
-	return path.joinPaths(
-		options.rootPath,
-		options.libFolder,
-		pkgName || ''
-	);
-}
-
-function createBowerPackageDescriptor (options, url, meta) {
-	var parts, descr;
-	parts = path.splitDirAndFile(url);
-	descr = {
-		name: meta.name,
-		version: meta.version,
-		location: parts[0],
-		metaType: 'bower',
-		moduleType: findModuleType(meta),
-		main: meta.main && path.removeExt(findJsMain(meta.main)),
-		metadata: meta
-	};
-	descr.uid = options.createUid(descr);
-	return descr;
-}
-
-function findJsMain (mains) {
-	if (typeof mains === 'string') return mains;
-	for (var i = 0; i < mains.length; i++) {
-		if (mains[i].slice(-2) === 'js') return mains[i];
-	}
-}
-
-var findAmdRx = /\bamd\b|\bcujo\b/i;
-
-function findModuleType (meta) {
-	// TODO: remove matches on 'cujo' <-- HACK!
-	if (meta.moduleType in { amd: 1, umd: 1 }) return 'amd';
-	if (meta.moduleType in { global: 1, script: 1 }) return 'script';
-	if ('moduleType' in meta) return meta.moduleType;
-	return (meta.name && findAmdRx.test(meta.name))
-		|| (meta.description && findAmdRx.test(meta.description))
-		|| (meta.keywords && (meta.keywords.indexOf('amd') >= 0 || meta.keywords.indexOf('cujo') >= 0))
-		? 'amd'
-		: 'script';
-}
-
-});
-
-
 ;define('rave/lib/createRequire', ['require', 'exports', 'module', 'rave/lib/legacy'], function (require, exports, module, $cram_r0, define) {module.exports = createRequire;
 
 var legacy = $cram_r0;
@@ -2214,78 +2148,67 @@ function getExports (names, value) {
 });
 
 
-;define('rave/lib/metadata/npm', ['require', 'exports', 'module', 'rave/lib/path'], function (require, exports, module, $cram_r0, define) {var path = $cram_r0;
+;define('rave/lib/metadata/bower', ['require', 'exports', 'module', 'rave/lib/path'], function (require, exports, module, $cram_r0, define) {var path = $cram_r0;
 
 module.exports = {
-	libFolder: 'node_modules',
-	locateMetaFile: locateNpmMetaFile,
-	locateMetaFolder: locateNpmMetaFolder,
-	createDescriptor: createNpmPackageDescriptor
+	libFolder: 'bower_components',
+	locateMetaFile: locateBowerMetaFile,
+	locateMetaFolder: locateBowerMetaFolder,
+	createDescriptor: createBowerPackageDescriptor,
+	findJsMain: findJsMain,
+	findModuleType: findModuleType,
 };
 
-function locateNpmMetaFile (options, pkgName) {
+function locateBowerMetaFile (options, pkgName) {
 	return path.joinPaths(
-		locateNpmMetaFolder(options, pkgName),
+		locateBowerMetaFolder(options, pkgName),
 		options.metaName
 	);
 }
 
-function locateNpmMetaFolder (options, pkgName) {
+function locateBowerMetaFolder (options, pkgName) {
 	return path.joinPaths(
-		options.localRootPath,
+		options.rootPath,
 		options.libFolder,
 		pkgName || ''
 	);
 }
 
-function createNpmPackageDescriptor (options, url, meta) {
+function createBowerPackageDescriptor (options, url, meta) {
 	var parts, descr;
 	parts = path.splitDirAndFile(url);
 	descr = {
 		name: meta.name,
 		version: meta.version,
 		location: parts[0],
-		metaType: 'npm',
-		moduleType: meta.moduleType || 'node',
-		main: meta.main && path.removeExt(meta.main),
+		metaType: 'bower',
+		moduleType: findModuleType(meta),
+		main: meta.main && findJsMain(meta.main),
 		metadata: meta
 	};
 	descr.uid = options.createUid(descr);
 	return descr;
 }
 
-});
+function findJsMain (mains) {
+	if (typeof mains === 'string') return mains;
+	for (var i = 0; i < mains.length; i++) {
+		if (mains[i].slice(-2) === 'js') return mains[i];
+	}
+}
 
+var findAmdRx = /\bamd\b|\bcujo\b/i;
 
-;define('rave/lib/nodeFactory', ['require', 'exports', 'module', 'rave/lib/legacy', 'rave/lib/createRequire'], function (require, exports, module, $cram_r0, $cram_r1, define) {module.exports = nodeFactory;
-
-var legacy = $cram_r0;
-var createRequire = $cram_r1;
-
-var nodeEval = new Function(
-	'require', 'exports', 'module', 'global',
-	'eval(arguments[4]);'
-);
-
-var _global;
-
-_global = typeof global !== 'undefined' ? global : window;
-
-function nodeFactory (loader, load) {
-	var name, source, module, require;
-
-	name = load.name;
-	source = load.source;
-	module = { id: name, uri: load.address, exports: {} };
-	require = createRequire(loader, name);
-
-	return function () {
-		// TODO: use loader.global when es6-module-loader implements it
-		var exports;
-		nodeEval(require, module.exports, module, _global, source);
-		exports = module.exports;
-		return legacy.toLoader(exports);
-	};
+function findModuleType (meta) {
+	// TODO: remove matches on 'cujo' <-- HACK!
+	if (meta.moduleType in { amd: 1, umd: 1 }) return 'amd';
+	if (meta.moduleType in { global: 1, script: 1 }) return 'script';
+	if ('moduleType' in meta) return meta.moduleType;
+	return (meta.name && findAmdRx.test(meta.name))
+		|| (meta.description && findAmdRx.test(meta.description))
+		|| (meta.keywords && (meta.keywords.indexOf('amd') >= 0 || meta.keywords.indexOf('cujo') >= 0))
+		? 'amd'
+		: 'script';
 }
 
 });
@@ -2342,6 +2265,144 @@ function amdFactory (loader, defineArgs, load) {
 		else {
 			return cjsRequire(id);
 		}
+	}
+}
+
+});
+
+
+;define('rave/lib/metadata/npm', ['require', 'exports', 'module', 'rave/lib/path'], function (require, exports, module, $cram_r0, define) {var path = $cram_r0;
+
+module.exports = {
+	libFolder: 'node_modules',
+	locateMetaFile: locateNpmMetaFile,
+	locateMetaFolder: locateNpmMetaFolder,
+	createDescriptor: createNpmPackageDescriptor
+};
+
+function locateNpmMetaFile (options, pkgName) {
+	return path.joinPaths(
+		locateNpmMetaFolder(options, pkgName),
+		options.metaName
+	);
+}
+
+function locateNpmMetaFolder (options, pkgName) {
+	return path.joinPaths(
+		options.localRootPath,
+		options.libFolder,
+		pkgName || ''
+	);
+}
+
+function createNpmPackageDescriptor (options, url, meta) {
+	var parts, descr;
+	parts = path.splitDirAndFile(url);
+	descr = {
+		name: meta.name,
+		version: meta.version,
+		location: parts[0],
+		metaType: 'npm',
+		moduleType: meta.moduleType || 'node',
+		main: meta.main,
+		metadata: meta
+	};
+	descr.uid = options.createUid(descr);
+	return descr;
+}
+
+});
+
+
+;define('rave/lib/nodeFactory', ['require', 'exports', 'module', 'rave/lib/legacy', 'rave/lib/createRequire'], function (require, exports, module, $cram_r0, $cram_r1, define) {module.exports = nodeFactory;
+
+var legacy = $cram_r0;
+var createRequire = $cram_r1;
+
+var nodeEval = new Function(
+	'require', 'exports', 'module', 'global',
+	'eval(arguments[4]);'
+);
+
+var _global;
+
+_global = typeof global !== 'undefined' ? global : window;
+
+function nodeFactory (loader, load) {
+	var name, source, module, require;
+
+	name = load.name;
+	source = load.source;
+	module = { id: name, uri: load.address, exports: {} };
+	require = createRequire(loader, name);
+
+	return function () {
+		// TODO: use loader.global when es6-module-loader implements it
+		var exports;
+		nodeEval(require, module.exports, module, _global, source);
+		exports = module.exports;
+		return legacy.toLoader(exports);
+	};
+}
+
+});
+
+
+;define('rave/pipeline/instantiateAmd', ['require', 'exports', 'module', 'rave/lib/findRequires', 'rave/lib/captureAmdArgs', 'rave/lib/amdFactory', 'rave/lib/addSourceUrl'], function (require, exports, module, $cram_r0, $cram_r1, $cram_r2, $cram_r3, define) {var findRequires = $cram_r0;
+var captureAmdArgs = $cram_r1;
+var amdFactory = $cram_r2;
+var addSourceUrl = $cram_r3;
+
+module.exports = instantiateAmd;
+
+var scopedVars = ['require', 'exports', 'module'];
+
+function instantiateAmd (load) {
+	var loader, defineArgs, arity, factory, deps, i;
+console.log('amd', load.name);
+	loader = load.metadata.rave.loader;
+
+	// if debugging, add sourceURL
+	if (load.metadata.rave.debug) {
+		load.source = addSourceUrl(load.address, load.source);
+	}
+
+	// the safest way to capture the many define() variations is to run it
+	defineArgs = captureOrThrow(load);
+	arity = defineArgs.factory.length;
+
+	if (defineArgs.deps == null && arity > 0) {
+		// is using load.source faster than defineArgs.factory.toString()?
+		defineArgs.requires = findRequires(load.source);
+		defineArgs.depsList = scopedVars.slice(0, arity);
+	}
+
+	factory = amdFactory(loader, defineArgs, load);
+
+	// remove "require", "exports", "module"
+	deps = (defineArgs.depsList || []).concat(defineArgs.requires || []);
+	for (i = deps.length - 1; i >= 0; i--) {
+		if (scopedVars.indexOf(deps[i]) >= 0) {
+			deps.splice(i, 1);
+		}
+	}
+
+	return {
+		deps: deps,
+		execute: function () {
+			return new Module(factory.apply(loader, arguments));
+		}
+	};
+}
+
+function captureOrThrow (load) {
+	try {
+		return captureAmdArgs(load.source);
+	}
+	catch (ex) {
+		ex.message = 'Error while capturing AMD define: '
+			+ load.name + '. ' + ex.message;
+		throw ex;
 	}
 }
 
@@ -2460,67 +2521,6 @@ function instantiateNode (load) {
 			return new Module(factory.apply(this, arguments));
 		}
 	};
-}
-
-});
-
-
-;define('rave/pipeline/instantiateAmd', ['require', 'exports', 'module', 'rave/lib/findRequires', 'rave/lib/captureAmdArgs', 'rave/lib/amdFactory', 'rave/lib/addSourceUrl'], function (require, exports, module, $cram_r0, $cram_r1, $cram_r2, $cram_r3, define) {var findRequires = $cram_r0;
-var captureAmdArgs = $cram_r1;
-var amdFactory = $cram_r2;
-var addSourceUrl = $cram_r3;
-
-module.exports = instantiateAmd;
-
-var scopedVars = ['require', 'exports', 'module'];
-
-function instantiateAmd (load) {
-	var loader, defineArgs, arity, factory, deps, i;
-
-	loader = load.metadata.rave.loader;
-
-	// if debugging, add sourceURL
-	if (load.metadata.rave.debug) {
-		load.source = addSourceUrl(load.address, load.source);
-	}
-
-	// the safest way to capture the many define() variations is to run it
-	defineArgs = captureOrThrow(load);
-	arity = defineArgs.factory.length;
-
-	if (defineArgs.deps == null && arity > 0) {
-		// is using load.source faster than defineArgs.factory.toString()?
-		defineArgs.requires = findRequires(load.source);
-		defineArgs.depsList = scopedVars.slice(0, arity);
-	}
-
-	factory = amdFactory(loader, defineArgs, load);
-
-	// remove "require", "exports", "module"
-	deps = (defineArgs.depsList || []).concat(defineArgs.requires || []);
-	for (i = deps.length - 1; i >= 0; i--) {
-		if (scopedVars.indexOf(deps[i]) >= 0) {
-			deps.splice(i, 1);
-		}
-	}
-
-	return {
-		deps: deps,
-		execute: function () {
-			return new Module(factory.apply(loader, arguments));
-		}
-	};
-}
-
-function captureOrThrow (load) {
-	try {
-		return captureAmdArgs(load.source);
-	}
-	catch (ex) {
-		ex.message = 'Error while capturing AMD define: '
-			+ load.name + '. ' + ex.message;
-		throw ex;
-	}
 }
 
 });
