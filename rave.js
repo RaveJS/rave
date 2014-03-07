@@ -1532,16 +1532,6 @@ function beget (base) {
 
 
 
-;define('rave/pipeline/translateWrapInAmd', ['require', 'exports', 'module'], function (require, exports, module, define) {module.exports = translateWrapInAmd;
-
-function translateWrapInAmd (load) {
-	// The \n allows for a comment on the last line!
-	return 'define(' + load.source + '\n)';
-}
-
-});
-
-
 ;define('rave/pipeline/locateAsIs', ['require', 'exports', 'module'], function (require, exports, module, define) {module.exports = locateAsIs;
 
 function locateAsIs (load) {
@@ -1560,21 +1550,11 @@ function translateAsIs (load) {
 });
 
 
-;define('rave/lib/overrideIf', ['require', 'exports', 'module'], function (require, exports, module, define) {module.exports = overrideIf;
+;define('rave/pipeline/translateWrapInAmd', ['require', 'exports', 'module'], function (require, exports, module, define) {module.exports = translateWrapInAmd;
 
-function overrideIf (predicate, base, props) {
-	for (var p in props) {
-		if (p in base) {
-			base[p] = choice(predicate, props[p], base[p]);
-		}
-	}
-}
-
-function choice (predicate, a, b) {
-	return function () {
-		var f = predicate.apply(this, arguments) ? a : b;
-		return f.apply(this, arguments);
-	};
+function translateWrapInAmd (load) {
+	// The \n allows for a comment on the last line!
+	return 'define(' + load.source + '\n)';
 }
 
 });
@@ -1632,6 +1612,26 @@ function beget (base) {
 	obj = new Begetter();
 	Begetter.prototype = null;
 	return obj;
+}
+
+});
+
+
+;define('rave/lib/overrideIf', ['require', 'exports', 'module'], function (require, exports, module, define) {module.exports = overrideIf;
+
+function overrideIf (predicate, base, props) {
+	for (var p in props) {
+		if (p in base) {
+			base[p] = choice(predicate, props[p], base[p]);
+		}
+	}
+}
+
+function choice (predicate, a, b) {
+	return function () {
+		var f = predicate.apply(this, arguments) ? a : b;
+		return f.apply(this, arguments);
+	};
 }
 
 });
@@ -2150,7 +2150,7 @@ function findJsMain (mains) {
 var findAmdRx = /\bamd\b|\bcujo\b/i;
 
 function findModuleType (meta) {
-	// TODO: remove matches on 'cujo'
+	// TODO: remove matches on 'cujo' <-- HACK!
 	if (meta.moduleType in { amd: 1, umd: 1 }) return 'amd';
 	if (meta.moduleType in { global: 1, script: 1 }) return 'script';
 	if ('moduleType' in meta) return meta.moduleType;
