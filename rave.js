@@ -1550,11 +1550,31 @@ function translateAsIs (load) {
 });
 
 
-;define('rave/pipeline/translateWrapInAmd', ['require', 'exports', 'module'], function (require, exports, module, define) {module.exports = translateWrapInAmd;
+;define('rave/pipeline/translateWrapInNode', ['require', 'exports', 'module'], function (require, exports, module, define) {module.exports = translateWrapInNode;
 
-function translateWrapInAmd (load) {
+function translateWrapInNode (load) {
 	// The \n allows for a comment on the last line!
-	return 'define(' + load.source + '\n)';
+	return 'module.exports = ' + load.source + '\n;';
+}
+
+});
+
+
+;define('rave/lib/overrideIf', ['require', 'exports', 'module'], function (require, exports, module, define) {module.exports = overrideIf;
+
+function overrideIf (predicate, base, props) {
+	for (var p in props) {
+		if (p in base) {
+			base[p] = choice(predicate, props[p], base[p]);
+		}
+	}
+}
+
+function choice (predicate, a, b) {
+	return function () {
+		var f = predicate.apply(this, arguments) ? a : b;
+		return f.apply(this, arguments);
+	};
 }
 
 });
@@ -1612,26 +1632,6 @@ function beget (base) {
 	obj = new Begetter();
 	Begetter.prototype = null;
 	return obj;
-}
-
-});
-
-
-;define('rave/lib/overrideIf', ['require', 'exports', 'module'], function (require, exports, module, define) {module.exports = overrideIf;
-
-function overrideIf (predicate, base, props) {
-	for (var p in props) {
-		if (p in base) {
-			base[p] = choice(predicate, props[p], base[p]);
-		}
-	}
-}
-
-function choice (predicate, a, b) {
-	return function () {
-		var f = predicate.apply(this, arguments) ? a : b;
-		return f.apply(this, arguments);
-	};
 }
 
 });
@@ -1853,58 +1853,6 @@ function addSourceUrl (url, source) {
 		+ '\n//# sourceURL='
 		+ url.replace(/\s/g, '%20')
 		+ '\n';
-}
-
-});
-
-
-;define('rave/lib/captureAmdArgs', ['require', 'exports', 'module'], function (require, exports, module, define) {module.exports = captureAmdArgs;
-
-// TODO: deal with multiple define() calls?
-
-var amdEval = new Function ('define', 'eval(arguments[1]);');
-
-function captureAmdArgs (source) {
-	var result, capture;
-
-	capture = function captureDefine () {
-		var args;
-
-		args = Array.prototype.slice.call(arguments);
-
-		// last arg is always the factory (or a plain value)
-		result = { factory: ensureFactory(args.pop()) };
-
-		// if there are other args
-		if (args.length > 0) {
-			// get list of dependency module ids
-			result.depsList = args.pop();
-			// if this is a string, then there are no deps
-			if (typeof result.depsList === 'string') {
-				result.name = result.depsList;
-				delete result.depsList;
-			}
-			else {
-				result.name = args.pop() || null;
-			}
-			if (args.length > 0) {
-				throw new Error('Error parsing AMD source.');
-			}
-		}
-	};
-
-	// indicate we are AMD and we can handle the jqueries
-	capture.amd = { jquery: {} };
-
-	amdEval(capture, source);
-
-	return result;
-}
-
-function ensureFactory (thing) {
-	return typeof thing === 'function'
-		? thing
-		: function () { return thing; }
 }
 
 });
@@ -2200,10 +2148,10 @@ function findJsMain (mains) {
 	}
 }
 
+// TODO: remove matches on 'cujo' <-- HACK!
 var findAmdRx = /\bamd\b|\bcujo\b/i;
 
 function findModuleType (meta) {
-	// TODO: remove matches on 'cujo' <-- HACK!
 	if (meta.moduleType in { amd: 1, umd: 1 }) return 'amd';
 	if (meta.moduleType in { global: 1, script: 1 }) return 'script';
 	if ('moduleType' in meta) return meta.moduleType;
@@ -2212,6 +2160,44 @@ function findModuleType (meta) {
 		|| (meta.keywords && (meta.keywords.indexOf('amd') >= 0 || meta.keywords.indexOf('cujo') >= 0))
 		? 'amd'
 		: 'script';
+}
+
+});
+
+
+;define('rave/lib/nodeFactory', ['require', 'exports', 'module', 'rave/lib/legacy', 'rave/lib/createRequire'], function (require, exports, module, $cram_r0, $cram_r1, define) {module.exports = nodeFactory;
+
+var legacy = $cram_r0;
+var createRequire = $cram_r1;
+
+var nodeEval = new Function(
+	'require', 'exports', 'module', 'global',
+	'eval(arguments[4]);'
+);
+
+var _global;
+
+_global = typeof global !== 'undefined' ? global : window;
+
+function nodeFactory (loader, load) {
+	var name, source, exports, module, require;
+
+	name = load.name;
+	source = load.source;
+	exports = {};
+	module = { id: name, uri: load.address, exports: exports };
+	require = createRequire(loader, name);
+
+	return function () {
+		// TODO: use loader.global when es6-module-loader implements it
+		var exported;
+		nodeEval(require, module.exports, module, _global, source);
+		exported = module.exports;
+		// figure out what author intended to export
+		return exports === module.exports
+			? exported // a set of named exports
+			: legacy.toLoader(exported); // a single default export
+	};
 }
 
 });
@@ -2260,92 +2246,31 @@ function createNpmPackageDescriptor (options, url, meta) {
 });
 
 
-;define('rave/lib/nodeFactory', ['require', 'exports', 'module', 'rave/lib/legacy', 'rave/lib/createRequire'], function (require, exports, module, $cram_r0, $cram_r1, define) {module.exports = nodeFactory;
+;define('rave/pipeline/instantiateNode', ['require', 'exports', 'module', 'rave/lib/findRequires', 'rave/lib/nodeFactory', 'rave/lib/addSourceUrl'], function (require, exports, module, $cram_r0, $cram_r1, $cram_r2, define) {var findRequires = $cram_r0;
+var nodeFactory = $cram_r1;
+var addSourceUrl = $cram_r2;
 
-var legacy = $cram_r0;
-var createRequire = $cram_r1;
+module.exports = instantiateNode;
 
-var nodeEval = new Function(
-	'require', 'exports', 'module', 'global',
-	'eval(arguments[4]);'
-);
+function instantiateNode (load) {
+	var loader, deps, factory;
 
-var _global;
+	loader = load.metadata.rave.loader;
+	deps = findRequires(load.source);
 
-_global = typeof global !== 'undefined' ? global : window;
-
-function nodeFactory (loader, load) {
-	var name, source, module, require;
-
-	name = load.name;
-	source = load.source;
-	module = { id: name, uri: load.address, exports: {} };
-	require = createRequire(loader, name);
-
-	return function () {
-		// TODO: use loader.global when es6-module-loader implements it
-		var exports;
-		nodeEval(require, module.exports, module, _global, source);
-		exports = module.exports;
-		return legacy.toLoader(exports);
-	};
-}
-
-});
-
-
-;define('rave/lib/amdFactory', ['require', 'exports', 'module', 'rave/lib/legacy', 'rave/lib/createRequire'], function (require, exports, module, $cram_r0, $cram_r1, define) {module.exports = amdFactory;
-
-var legacy = $cram_r0;
-var createRequire = $cram_r1;
-
-function amdFactory (loader, defineArgs, load) {
-	var cjsRequire, require, module, scopedVars;
-
-	cjsRequire = createRequire(loader, load.name);
-	require = amdRequire;
-	require.async = cjsRequire.async;
-	require.named = cjsRequire.named;
-
-	module = {
-		exports: {},
-		id: load.name,
-		uri: load.address
-	};
-	scopedVars = {
-		require: require,
-		module: module,
-		exports: module.exports
-	};
-
-	return function () {
-		var args, len, result;
-
-		args = [];
-		len = defineArgs.depsList ? defineArgs.depsList.length : 0;
-		for (var i = 0; i < len; i++) {
-			args.push(amdRequire(defineArgs.depsList[i]));
-		}
-
-		result = defineArgs.factory.apply(null, args);
-
-		if (defineArgs.requires && typeof result === 'undefined') {
-			result = module.exports;
-		}
-
-		return legacy.toLoader(result);
-	};
-
-	function amdRequire (id, callback, errback) {
-		if (id in scopedVars) return scopedVars[id];
-
-		if (arguments.length > 1) {
-			return cjsRequire.async(id).then(callback, errback);
-		}
-		else {
-			return cjsRequire(id);
-		}
+	// if debugging, add sourceURL
+	if (load.metadata.rave.debug) {
+		load.source = addSourceUrl(load.address, load.source);
 	}
+
+	factory = nodeFactory(loader, load);
+
+	return {
+		deps: deps,
+		execute: function () {
+			return new Module(factory.apply(this, arguments));
+		}
+	};
 }
 
 });
@@ -2438,97 +2363,6 @@ function parseUid (uid) {
 });
 
 
-;define('rave/pipeline/instantiateNode', ['require', 'exports', 'module', 'rave/lib/findRequires', 'rave/lib/nodeFactory', 'rave/lib/addSourceUrl'], function (require, exports, module, $cram_r0, $cram_r1, $cram_r2, define) {var findRequires = $cram_r0;
-var nodeFactory = $cram_r1;
-var addSourceUrl = $cram_r2;
-
-module.exports = instantiateNode;
-
-function instantiateNode (load) {
-	var loader, deps, factory;
-
-	loader = load.metadata.rave.loader;
-	deps = findRequires(load.source);
-
-	// if debugging, add sourceURL
-	if (load.metadata.rave.debug) {
-		load.source = addSourceUrl(load.address, load.source);
-	}
-
-	factory = nodeFactory(loader, load);
-
-	return {
-		deps: deps,
-		execute: function () {
-			return new Module(factory.apply(this, arguments));
-		}
-	};
-}
-
-});
-
-
-;define('rave/pipeline/instantiateAmd', ['require', 'exports', 'module', 'rave/lib/findRequires', 'rave/lib/captureAmdArgs', 'rave/lib/amdFactory', 'rave/lib/addSourceUrl'], function (require, exports, module, $cram_r0, $cram_r1, $cram_r2, $cram_r3, define) {var findRequires = $cram_r0;
-var captureAmdArgs = $cram_r1;
-var amdFactory = $cram_r2;
-var addSourceUrl = $cram_r3;
-
-module.exports = instantiateAmd;
-
-var scopedVars = ['require', 'exports', 'module'];
-
-function instantiateAmd (load) {
-	var loader, defineArgs, arity, factory, deps, i;
-
-	loader = load.metadata.rave.loader;
-
-	// if debugging, add sourceURL
-	if (load.metadata.rave.debug) {
-		load.source = addSourceUrl(load.address, load.source);
-	}
-
-	// the safest way to capture the many define() variations is to run it
-	defineArgs = captureOrThrow(load);
-	arity = defineArgs.factory.length;
-
-	if (defineArgs.deps == null && arity > 0) {
-		// is using load.source faster than defineArgs.factory.toString()?
-		defineArgs.requires = findRequires(load.source);
-		defineArgs.depsList = scopedVars.slice(0, arity);
-	}
-
-	factory = amdFactory(loader, defineArgs, load);
-
-	// remove "require", "exports", "module"
-	deps = (defineArgs.depsList || []).concat(defineArgs.requires || []);
-	for (i = deps.length - 1; i >= 0; i--) {
-		if (scopedVars.indexOf(deps[i]) >= 0) {
-			deps.splice(i, 1);
-		}
-	}
-
-	return {
-		deps: deps,
-		execute: function () {
-			return new Module(factory.apply(loader, arguments));
-		}
-	};
-}
-
-function captureOrThrow (load) {
-	try {
-		return captureAmdArgs(load.source);
-	}
-	catch (ex) {
-		ex.message = 'Error while capturing AMD define: '
-			+ load.name + '. ' + ex.message;
-		throw ex;
-	}
-}
-
-});
-
-
 ;define('rave/pipeline/locatePackage', ['require', 'exports', 'module', 'rave/lib/path', 'rave/lib/metadata'], function (require, exports, module, $cram_r0, $cram_r1, define) {module.exports = locatePackage;
 
 var path = $cram_r0;
@@ -2564,18 +2398,17 @@ function locatePackage (load) {
 });
 
 
-;define('rave/src/pipeline', ['require', 'exports', 'module', 'rave/pipeline/normalizeCjs', 'rave/pipeline/locatePackage', 'rave/pipeline/locateAsIs', 'rave/pipeline/fetchAsText', 'rave/pipeline/translateAsIs', 'rave/pipeline/translateWrapInAmd', 'rave/pipeline/instantiateNode', 'rave/pipeline/instantiateAmd', 'rave/lib/overrideIf', 'rave/lib/createFileExtFilter', 'rave/lib/package', 'rave/lib/beget'], function (require, exports, module, $cram_r0, $cram_r1, $cram_r2, $cram_r3, $cram_r4, $cram_r5, $cram_r6, $cram_r7, $cram_r8, $cram_r9, $cram_r10, $cram_r11, define) {var normalizeCjs = $cram_r0;
+;define('rave/src/pipeline', ['require', 'exports', 'module', 'rave/pipeline/normalizeCjs', 'rave/pipeline/locatePackage', 'rave/pipeline/locateAsIs', 'rave/pipeline/fetchAsText', 'rave/pipeline/translateAsIs', 'rave/pipeline/translateWrapInNode', 'rave/pipeline/instantiateNode', 'rave/lib/overrideIf', 'rave/lib/createFileExtFilter', 'rave/lib/package', 'rave/lib/beget'], function (require, exports, module, $cram_r0, $cram_r1, $cram_r2, $cram_r3, $cram_r4, $cram_r5, $cram_r6, $cram_r7, $cram_r8, $cram_r9, $cram_r10, define) {var normalizeCjs = $cram_r0;
 var locatePackage = $cram_r1;
 var locateAsIs = $cram_r2;
 var fetchAsText = $cram_r3;
 var translateAsIs = $cram_r4;
-var translateWrapInAmd = $cram_r5;
+var translateWrapInNode = $cram_r5;
 var instantiateNode = $cram_r6;
-var instantiateAmd = $cram_r7;
-var overrideIf = $cram_r8;
-var createFileExtFilter = $cram_r9;
-var pkg = $cram_r10;
-var beget = $cram_r11;
+var overrideIf = $cram_r7;
+var createFileExtFilter = $cram_r8;
+var pkg = $cram_r9;
+var beget = $cram_r10;
 
 module.exports = _ravePipeline;
 
@@ -2599,8 +2432,8 @@ function _ravePipeline (context) {
 		normalize: normalizeCjs,
 		locate: withContext(context, locateAsIs),
 		fetch: fetchAsText,
-		translate: translateWrapInAmd,
-		instantiate: instantiateAmd
+		translate: translateWrapInNode,
+		instantiate: instantiateNode
 	};
 
 	return {
