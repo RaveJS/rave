@@ -2,7 +2,7 @@
 /** @author Brian Cavalier */
 /** @author John Hann */
 var rave, document, defaultMain,
-	context, loader, legacy, define;
+	context, loader, define;
 
 rave = exports || {};
 
@@ -16,7 +16,6 @@ rave.getCurrentScript = getCurrentScript;
 rave.mergeBrowserOptions = mergeBrowserOptions;
 rave.mergeNodeOptions = mergeNodeOptions;
 rave.simpleDefine = simpleDefine;
-rave.legacyAccessors = legacyAccessors;
 
 // initialize
 rave.scriptUrl = getCurrentScript();
@@ -33,14 +32,13 @@ context = (document ? mergeBrowserOptions : mergeNodeOptions)({
 });
 
 loader = context.loader;
-legacy = legacyAccessors(loader);
-define = simpleDefine(legacy);
+define = simpleDefine(loader);
 define.amd = {};
 
 function boot (context) {
 	try {
 		// apply pipeline to loader
-		var pipeline = legacy.get('rave/src/pipeline');
+		var pipeline = fromLoader(loader.get('rave/src/pipeline'));
 		// extend loader
 		pipeline(context).applyTo(loader);
 		loader.import(context.raveMain).then(go, failLoudly);
@@ -49,11 +47,10 @@ function boot (context) {
 		failLoudly(ex);
 	}
 	function go (main) {
-		main = legacy.get(context.raveMain);
-		var childContext = beget(context);
+		main = fromLoader(main);
 		if (!main) failLoudly(new Error('No main module.'));
-		else if (typeof main.main === 'function') main.main(childContext);
-		else if (typeof main === 'function') main(childContext);
+		else if (typeof main.main === 'function') main.main(context);
+		else if (typeof main === 'function') main(context);
 	}
 	function failLoudly (ex) {
 		console.error(ex);
@@ -100,15 +97,14 @@ function mergeNodeOptions (context) {
 }
 
 function simpleDefine (loader) {
-	// TODO: have this return {id, deps, factory} instead of eagerly instantiating
 	var _global;
 	// temporary work-around for es6-module-loader which throws when
 	// accessing loader.global
 	try { _global = loader.global } catch (ex) { _global = global; }
 	return function (id, deps, factory) {
-		var scoped, modules, i, len, isCjs, result;
+		var scoped, modules, i, len, isCjs = false, value;
 		scoped = {
-			require: loader.get,
+			require: function (id) { return fromLoader(loader.get(id)); },
 			exports: {},
 			global: _global
 		};
@@ -126,41 +122,33 @@ function simpleDefine (loader) {
 			isCjs |= deps[i] === 'exports' || deps[i] === 'module';
 		}
 		// eager instantiation.
-		result = factory.apply(null, modules);
-		loader.set(id, isCjs ? scoped.module.exports : result);
+		value = factory.apply(null, modules);
+		// find result, preferring a returned value
+		if (typeof value !== 'undefined') {
+			value = toLoader(value);
+		}
+		else if (isCjs) {
+			value = scoped.exports;
+			if (scoped.module.exports !== value) {
+				value = toLoader(scoped.module.exports);
+			}
+		}
+		else {
+			value = {}; // es6 needs an object
+		}
+		loader.set(id, new Module(value));
 	};
 }
 
-function legacyAccessors (loader) {
-	// TODO: could we use rave/lib/legacy instead of this?
-	var get = loader.get;
-	var set = loader.set;
-	var legacy = beget(loader);
-
-	legacy.get = function (id) {
-		var value = get.call(loader, id);
-		return value && value.__es5Module ? value.__es5Module : value;
-	};
-	legacy.set = function (id, module) {
-		var value = {
-			// for real ES6 modules to consume this module
-			'default': module,
-			// for modules transpiled from ES6
-			__es5Module: module
-		};
-		// TODO: spec is ambiguous whether Module is a constructor or factory
-		set.call(loader, id, new Module(value));
-	};
-
-	return legacy;
+function fromLoader (value) {
+	return value && value.__es5Module ? value.__es5Module : value;
 }
 
-// TODO: could we use rave/lib/beget instead of this?
-function Begetter () {}
-function beget (base) {
-	var obj;
-	Begetter.prototype = base;
-	obj = new Begetter();
-	Begetter.prototype = null;
-	return obj;
+function toLoader (value) {
+	return {
+		// for real ES6 modules to consume this module
+		'default': value,
+		// for modules transpiled from ES6
+		__es5Module: value
+	};
 }
