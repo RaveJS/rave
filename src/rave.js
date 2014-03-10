@@ -49,6 +49,7 @@ function boot (context) {
 		failLoudly(ex);
 	}
 	function go (main) {
+		main = legacy.get(context.raveMain);
 		var childContext = beget(context);
 		if (!main) failLoudly(new Error('No main module.'));
 		else if (typeof main.main === 'function') main.main(childContext);
@@ -141,7 +142,7 @@ function legacyAccessors (loader) {
 		return value && value.__es5Module ? value.__es5Module : value;
 	};
 	legacy.set = function (id, module) {
-		var value = typeof module === 'object' ? module : {
+		var value = {
 			// for real ES6 modules to consume this module
 			'default': module,
 			// for modules transpiled from ES6

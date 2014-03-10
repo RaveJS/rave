@@ -1415,6 +1415,7 @@ function boot (context) {
 		failLoudly(ex);
 	}
 	function go (main) {
+		main = legacy.get(context.raveMain);
 		var childContext = beget(context);
 		if (!main) failLoudly(new Error('No main module.'));
 		else if (typeof main.main === 'function') main.main(childContext);
@@ -1507,7 +1508,7 @@ function legacyAccessors (loader) {
 		return value && value.__es5Module ? value.__es5Module : value;
 	};
 	legacy.set = function (id, module) {
-		var value = typeof module === 'object' ? module : {
+		var value = {
 			// for real ES6 modules to consume this module
 			'default': module,
 			// for modules transpiled from ES6
@@ -1545,36 +1546,6 @@ function locateAsIs (load) {
 
 function translateAsIs (load) {
 	return load.source;
-}
-
-});
-
-
-;define('rave/pipeline/translateWrapInNode', ['require', 'exports', 'module'], function (require, exports, module, define) {module.exports = translateWrapInNode;
-
-function translateWrapInNode (load) {
-	// The \n allows for a comment on the last line!
-	return 'module.exports = ' + load.source + '\n;';
-}
-
-});
-
-
-;define('rave/lib/overrideIf', ['require', 'exports', 'module'], function (require, exports, module, define) {module.exports = overrideIf;
-
-function overrideIf (predicate, base, props) {
-	for (var p in props) {
-		if (p in base) {
-			base[p] = choice(predicate, props[p], base[p]);
-		}
-	}
-}
-
-function choice (predicate, a, b) {
-	return function () {
-		var f = predicate.apply(this, arguments) ? a : b;
-		return f.apply(this, arguments);
-	};
 }
 
 });
@@ -1623,15 +1594,11 @@ function toHashmap (it) {
 });
 
 
-;define('rave/lib/beget', ['require', 'exports', 'module'], function (require, exports, module, define) {module.exports = beget;
+;define('rave/pipeline/translateWrapInNode', ['require', 'exports', 'module'], function (require, exports, module, define) {module.exports = translateWrapInNode;
 
-function Begetter () {}
-function beget (base) {
-	var obj;
-	Begetter.prototype = base;
-	obj = new Begetter();
-	Begetter.prototype = null;
-	return obj;
+function translateWrapInNode (load) {
+	// The \n allows for a comment on the last line!
+	return 'module.exports = ' + load.source + '\n;';
 }
 
 });
@@ -1782,6 +1749,40 @@ function splitDirAndFile (url) {
 });
 
 
+;define('rave/lib/beget', ['require', 'exports', 'module'], function (require, exports, module, define) {module.exports = beget;
+
+function Begetter () {}
+function beget (base) {
+	var obj;
+	Begetter.prototype = base;
+	obj = new Begetter();
+	Begetter.prototype = null;
+	return obj;
+}
+
+});
+
+
+;define('rave/lib/overrideIf', ['require', 'exports', 'module'], function (require, exports, module, define) {module.exports = overrideIf;
+
+function overrideIf (predicate, base, props) {
+	for (var p in props) {
+		if (p in base) {
+			base[p] = choice(predicate, props[p], base[p]);
+		}
+	}
+}
+
+function choice (predicate, a, b) {
+	return function () {
+		var f = predicate.apply(this, arguments) ? a : b;
+		return f.apply(this, arguments);
+	};
+}
+
+});
+
+
 ;define('rave/lib/fetchText', ['require', 'exports', 'module'], function (require, exports, module, define) {module.exports = fetchText;
 
 function fetchText (url, callback, errback) {
@@ -1863,7 +1864,7 @@ function addSourceUrl (url, source) {
 		return value && value.__es5Module ? value.__es5Module : value;
 	},
 	toLoader: function (module) {
-		return typeof module === 'object' ? module : {
+		return {
 			// for real ES6 modules to consume this module
 			'default': module,
 			// for modules transpiled from ES5
@@ -1897,82 +1898,6 @@ function fetchAsText (load) {
 		fetchText(load.address, resolve, reject);
 	});
 
-}
-
-});
-
-
-;define('rave/lib/metadata/crawl', ['require', 'exports', 'module', 'rave/lib/beget'], function (require, exports, module, $cram_r0, define) {var beget = $cram_r0;
-
-module.exports = {
-	processMetaFile: processMetaFile,
-	processDependencies: processDependencies,
-	saveDescriptor: saveDescriptor
-};
-
-function processMetaFile (context, options, pkgName) {
-	var url;
-
-	options = beget(options);
-
-	// TODO: consider resolving this before this function executes
-	if (pkgName) {
-		url = options.locateMetaFile(options, pkgName);
-		options.localRootPath = options.locateMetaFolder(options, pkgName);
-	}
-	else {
-		url = options.rootUrl;
-		options.localRootPath = options.rootPath;
-	}
-
-	return context.loader.import(url).then(process, notFound);
-
-	function process (metadata) {
-		// save this package's descriptor
-		var pkgDesc = saveDescriptor(context, options, url, metadata);
-		return processDependencies(context, options, metadata)
-			.then(function (metadeps) {
-				// the `|| []` guards against flawed ES6 Promise implementations
-				addDeps(pkgDesc, metadeps || []);
-				return pkgDesc;
-			});
-	}
-
-	function addDeps (descriptor, depDescriptors) {
-		var uid;
-		if (!descriptor.deps) descriptor.deps = {};
-		for (var i = 0; i < depDescriptors.length; i++) {
-			if (depDescriptors[i]) {
-				uid = options.createUid(depDescriptors[i]);
-				descriptor.deps[depDescriptors[i].name] = uid;
-			}
-		}
-	}
-
-	function notFound (ex) {
-		// the package must exist at a higher level.
-		return null;
-	}
-}
-
-function processDependencies (context, options, metadata) {
-	var deps = metadata.dependencies, promises = [];
-	for (var name in deps) {
-		promises.push(processMetaFile(context, options, name));
-	}
-	return Promise.all(promises);
-}
-
-function saveDescriptor (context, options, url, metadata) {
-	var uid, descr;
-
-	descr = options.createDescriptor(options, url, metadata);
-	uid = options.createUid(descr);
-
-	if (!context.packages[uid]) context.packages[uid] = descr;
-	if (!context.packages[descr.name]) context.packages[descr.name] = descr;
-
-	return context.packages[uid];
 }
 
 });
@@ -2019,7 +1944,7 @@ function normalizeDescriptor (thing, name) {
 
 	if (name) descriptor.name = name; // override with hashmap key
 	if (!descriptor.name) throw new Error('Package requires a name: ' + thing);
-	descriptor.main = descriptor.main.replace(/\.js$/, '');
+	descriptor.main = path.removeExt(descriptor.main);
 	descriptor.location = path.ensureEndSlash(descriptor.location);
 	descriptor.deps = {};
 
@@ -2096,75 +2021,6 @@ function getExports (names, value) {
 });
 
 
-;define('rave/lib/metadata/bower', ['require', 'exports', 'module', 'rave/lib/path'], function (require, exports, module, $cram_r0, define) {var path = $cram_r0;
-
-module.exports = {
-	libFolder: 'bower_components',
-	locateMetaFile: locateBowerMetaFile,
-	locateMetaFolder: locateBowerMetaFolder,
-	createDescriptor: createBowerPackageDescriptor,
-	findJsMain: findJsMain,
-	findModuleType: findModuleType,
-};
-
-function locateBowerMetaFile (options, pkgName) {
-	return path.joinPaths(
-		locateBowerMetaFolder(options, pkgName),
-		options.metaName
-	);
-}
-
-function locateBowerMetaFolder (options, pkgName) {
-	return path.joinPaths(
-		options.rootPath,
-		options.libFolder,
-		pkgName || ''
-	);
-}
-
-function createBowerPackageDescriptor (options, url, meta) {
-	var parts, moduleType, main, descr;
-	parts = path.splitDirAndFile(url);
-	moduleType = findModuleType(meta);
-	main = meta.main && findJsMain(meta.main);
-	if (main && moduleType !== 'script') main = path.removeExt(main);
-	descr = {
-		name: meta.name,
-		version: meta.version,
-		location: parts[0],
-		metaType: 'bower',
-		moduleType: moduleType,
-		main: main,
-		metadata: meta
-	};
-	descr.uid = options.createUid(descr);
-	return descr;
-}
-
-function findJsMain (mains) {
-	if (typeof mains === 'string') return mains;
-	for (var i = 0; i < mains.length; i++) {
-		if (mains[i].slice(-2) === 'js') return mains[i];
-	}
-}
-
-// TODO: remove matches on 'cujo' <-- HACK!
-var findAmdRx = /\bamd\b|\bcujo\b/i;
-
-function findModuleType (meta) {
-	if (meta.moduleType in { amd: 1, umd: 1 }) return 'amd';
-	if (meta.moduleType in { global: 1, script: 1 }) return 'script';
-	if ('moduleType' in meta) return meta.moduleType;
-	return (meta.name && findAmdRx.test(meta.name))
-		|| (meta.description && findAmdRx.test(meta.description))
-		|| (meta.keywords && (meta.keywords.indexOf('amd') >= 0 || meta.keywords.indexOf('cujo') >= 0))
-		? 'amd'
-		: 'script';
-}
-
-});
-
-
 ;define('rave/lib/nodeFactory', ['require', 'exports', 'module', 'rave/lib/legacy', 'rave/lib/createRequire'], function (require, exports, module, $cram_r0, $cram_r1, define) {module.exports = nodeFactory;
 
 var legacy = $cram_r0;
@@ -2203,49 +2059,6 @@ function nodeFactory (loader, load) {
 });
 
 
-;define('rave/lib/metadata/npm', ['require', 'exports', 'module', 'rave/lib/path'], function (require, exports, module, $cram_r0, define) {var path = $cram_r0;
-
-module.exports = {
-	libFolder: 'node_modules',
-	locateMetaFile: locateNpmMetaFile,
-	locateMetaFolder: locateNpmMetaFolder,
-	createDescriptor: createNpmPackageDescriptor
-};
-
-function locateNpmMetaFile (options, pkgName) {
-	return path.joinPaths(
-		locateNpmMetaFolder(options, pkgName),
-		options.metaName
-	);
-}
-
-function locateNpmMetaFolder (options, pkgName) {
-	return path.joinPaths(
-		options.localRootPath,
-		options.libFolder,
-		pkgName || ''
-	);
-}
-
-function createNpmPackageDescriptor (options, url, meta) {
-	var parts, descr;
-	parts = path.splitDirAndFile(url);
-	descr = {
-		name: meta.name,
-		version: meta.version,
-		location: parts[0],
-		metaType: 'npm',
-		moduleType: meta.moduleType || 'node',
-		main: meta.main && path.removeExt(meta.main),
-		metadata: meta
-	};
-	descr.uid = options.createUid(descr);
-	return descr;
-}
-
-});
-
-
 ;define('rave/pipeline/instantiateNode', ['require', 'exports', 'module', 'rave/lib/findRequires', 'rave/lib/nodeFactory', 'rave/lib/addSourceUrl'], function (require, exports, module, $cram_r0, $cram_r1, $cram_r2, define) {var findRequires = $cram_r0;
 var nodeFactory = $cram_r1;
 var addSourceUrl = $cram_r2;
@@ -2276,138 +2089,16 @@ function instantiateNode (load) {
 });
 
 
-;define('rave/lib/metadata', ['require', 'exports', 'module', 'rave/lib/path', 'rave/lib/beget', 'rave/lib/metadata/crawl', 'rave/lib/metadata/bower', 'rave/lib/metadata/npm'], function (require, exports, module, $cram_r0, $cram_r1, $cram_r2, $cram_r3, $cram_r4, define) {var path = $cram_r0;
-var beget = $cram_r1;
-
-var crawl = $cram_r2;
-var bowerOptions = $cram_r3;
-var npmOptions = $cram_r4;
-
-var metaNameToOptions = {
-	'bower.json': bowerOptions,
-	'package.json': npmOptions
-};
-
-module.exports = {
-	crawl: crawlStart,
-	findPackage: findPackageDescriptor,
-	findDepPackage: findDependentPackage,
-	createUid: createUid,
-	parseUid: parseUid
-};
-
-function crawlStart (context, rootUrl) {
-	var parts, metaName, metaOptions, options;
-
-	parts = path.splitDirAndFile(rootUrl);
-	metaName = parts[1];
-	metaOptions = metaNameToOptions[metaName];
-
-	if (!metaOptions) throw new Error('Unknown metadata file: ' + rootUrl);
-
-	options = beget(metaOptions);
-
-	options.metaName = metaName;
-	options.rootPath = parts[0];
-	options.rootUrl = rootUrl;
-	options.createUid = createUid;
-
-	return crawl.processMetaFile(context, options, '');
-}
-
-function findPackageDescriptor (descriptors, fromModule) {
-	var parts, pkgName;
-	parts = parseUid(fromModule);
-	pkgName = parts.pkgUid || parts.pkgName;
-	return descriptors[pkgName];
-}
-
-function findDependentPackage (descriptors, fromPkg, depName) {
-	var parts, pkgName, depPkgUid;
-
-	// ensure we have a package descriptor, not a uid
-	if (typeof fromPkg === 'string') fromPkg = descriptors[fromPkg];
-
-	parts = parseUid(depName);
-	pkgName = parts.pkgUid || parts.pkgName;
-
-	if (fromPkg && (pkgName === fromPkg.name || pkgName === fromPkg.uid)) {
-		// this is the same the package
-		return fromPkg;
-	}
-	else {
-		// get dep pkg uid
-		depPkgUid = fromPkg ? fromPkg.deps[pkgName] : pkgName;
-		return depPkgUid && descriptors[depPkgUid];
-	}
-}
-
-function createUid (descriptor, normalized) {
-	return /*descriptor.metaType + ':' +*/ descriptor.name
-		+ (descriptor.version ? '@' + descriptor.version : '')
-		+ (normalized ? '#' + normalized : '');
-}
-
-function parseUid (uid) {
-	var uparts = uid.split('#');
-	var name = uparts.pop();
-	var nparts = name.split('/');
-	return {
-		name: name,
-		pkgName: nparts.shift(),
-		modulePath: nparts.join('/'),
-		pkgUid: uparts[0]
-	}
-}
-
-});
-
-
-;define('rave/pipeline/locatePackage', ['require', 'exports', 'module', 'rave/lib/path', 'rave/lib/metadata'], function (require, exports, module, $cram_r0, $cram_r1, define) {module.exports = locatePackage;
-
-var path = $cram_r0;
-var metadata = $cram_r1;
-
-function locatePackage (load) {
-	var options, parts, packageName, modulePath, moduleName, descriptor,
-		location, ext;
-
-	options = load.metadata.rave;
-
-	if (!options.packages) throw new Error('Packages not provided: ' + load.name);
-
-	parts = metadata.parseUid(load.name);
-	packageName = parts.pkgUid || parts.pkgName;
-	modulePath = parts.modulePath;
-
-	descriptor = options.packages[packageName];
-	if (!descriptor) throw new Error('Package not found: ' + load.name);
-
-	moduleName = modulePath || descriptor.main;
-	location = descriptor.location;
-	ext = options.defaultExt || '.js';
-
-	// prepend baseUrl
-	if (!path.isAbsUrl(location) && options.baseUrl) {
-		location = path.joinPaths(options.baseUrl, location);
-	}
-
-	return path.joinPaths(location, path.ensureExt(moduleName, ext));
-}
-
-});
-
-
-;define('rave/src/pipeline', ['require', 'exports', 'module', 'rave/pipeline/normalizeCjs', 'rave/pipeline/locatePackage', 'rave/pipeline/locateAsIs', 'rave/pipeline/fetchAsText', 'rave/pipeline/translateAsIs', 'rave/pipeline/translateWrapInNode', 'rave/pipeline/instantiateNode', 'rave/lib/overrideIf', 'rave/lib/createFileExtFilter', 'rave/lib/package', 'rave/lib/beget'], function (require, exports, module, $cram_r0, $cram_r1, $cram_r2, $cram_r3, $cram_r4, $cram_r5, $cram_r6, $cram_r7, $cram_r8, $cram_r9, $cram_r10, define) {var normalizeCjs = $cram_r0;
-var locatePackage = $cram_r1;
-var locateAsIs = $cram_r2;
-var fetchAsText = $cram_r3;
-var translateAsIs = $cram_r4;
-var translateWrapInNode = $cram_r5;
-var instantiateNode = $cram_r6;
-var overrideIf = $cram_r7;
-var createFileExtFilter = $cram_r8;
-var pkg = $cram_r9;
+;define('rave/src/pipeline', ['require', 'exports', 'module', 'rave/pipeline/normalizeCjs', 'rave/pipeline/locateAsIs', 'rave/pipeline/fetchAsText', 'rave/pipeline/translateAsIs', 'rave/pipeline/translateWrapInNode', 'rave/pipeline/instantiateNode', 'rave/lib/overrideIf', 'rave/lib/createFileExtFilter', 'rave/lib/package', 'rave/lib/path', 'rave/lib/beget'], function (require, exports, module, $cram_r0, $cram_r1, $cram_r2, $cram_r3, $cram_r4, $cram_r5, $cram_r6, $cram_r7, $cram_r8, $cram_r9, $cram_r10, define) {var normalizeCjs = $cram_r0;
+var locateAsIs = $cram_r1;
+var fetchAsText = $cram_r2;
+var translateAsIs = $cram_r3;
+var translateWrapInNode = $cram_r4;
+var instantiateNode = $cram_r5;
+var overrideIf = $cram_r6;
+var createFileExtFilter = $cram_r7;
+var pkg = $cram_r8;
+var path = $cram_r9;
 var beget = $cram_r10;
 
 module.exports = _ravePipeline;
@@ -2422,12 +2113,13 @@ function _ravePipeline (context) {
 
 	modulePipeline = {
 		normalize: normalizeCjs,
-		locate: withContext(context, locatePackage),
+		locate: locateRaveWithContext(context),
 		fetch: fetchAsText,
 		translate: translateAsIs,
 		instantiate: instantiateNode
 	};
 
+	// TODO: move this to lib/pipeline
 	jsonPipeline = {
 		normalize: normalizeCjs,
 		locate: withContext(context, locateAsIs),
@@ -2463,6 +2155,14 @@ function withContext (context, func) {
 	return function (load) {
 		load.metadata.rave = context;
 		return func.call(this, load);
+	};
+}
+
+function locateRaveWithContext (context) {
+	var base = context.packages.rave.location.replace(/rave\/?$/, '');
+	return function (load) {
+		load.metadata.rave = context;
+		return path.joinPaths(base, path.ensureExt(load.name, '.js'));
 	};
 }
 

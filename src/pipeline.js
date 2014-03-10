@@ -2,7 +2,6 @@
 /** @author Brian Cavalier */
 /** @author John Hann */
 var normalizeCjs = require('rave/pipeline/normalizeCjs');
-var locatePackage = require('rave/pipeline/locatePackage');
 var locateAsIs = require('rave/pipeline/locateAsIs');
 var fetchAsText = require('rave/pipeline/fetchAsText');
 var translateAsIs = require('rave/pipeline/translateAsIs');
@@ -11,6 +10,7 @@ var instantiateNode = require('rave/pipeline/instantiateNode');
 var overrideIf = require('rave/lib/overrideIf');
 var createFileExtFilter = require('rave/lib/createFileExtFilter');
 var pkg = require('rave/lib/package');
+var path = require('rave/lib/path');
 var beget = require('rave/lib/beget');
 
 module.exports = _ravePipeline;
@@ -25,12 +25,13 @@ function _ravePipeline (context) {
 
 	modulePipeline = {
 		normalize: normalizeCjs,
-		locate: withContext(context, locatePackage),
+		locate: locateRaveWithContext(context),
 		fetch: fetchAsText,
 		translate: translateAsIs,
 		instantiate: instantiateNode
 	};
 
+	// TODO: move this to lib/pipeline
 	jsonPipeline = {
 		normalize: normalizeCjs,
 		locate: withContext(context, locateAsIs),
@@ -66,5 +67,13 @@ function withContext (context, func) {
 	return function (load) {
 		load.metadata.rave = context;
 		return func.call(this, load);
+	};
+}
+
+function locateRaveWithContext (context) {
+	var base = context.packages.rave.location.replace(/rave\/?$/, '');
+	return function (load) {
+		load.metadata.rave = context;
+		return path.joinPaths(base, path.ensureExt(load.name, '.js'));
 	};
 }
