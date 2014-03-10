@@ -167,7 +167,7 @@ function applyFirstMain (context, extensions) {
 
 function initApplication (context) {
 	var mainModule;
-	mainModule = context.app.main;
+	mainModule = context.app && context.app.main;
 	if (mainModule) {
 		return runMain(context, mainModule)
 			.then(function () { return context; });
