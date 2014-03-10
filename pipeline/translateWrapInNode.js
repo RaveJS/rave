@@ -1,9 +1,9 @@
 /** @license MIT License (c) copyright 2014 original authors */
 /** @author Brian Cavalier */
 /** @author John Hann */
-module.exports = translateWrapInAmd;
+module.exports = translateWrapInNode;
 
-function translateWrapInAmd (load) {
+function translateWrapInNode (load) {
 	// The \n allows for a comment on the last line!
-	return 'define(' + load.source + '\n);';
+	return 'module.exports = ' + load.source + '\n;';
 }
