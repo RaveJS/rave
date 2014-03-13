@@ -2,17 +2,19 @@
 
 ## What is RaveJS?
 
-RaveJS is next-generation modular JavaScript architecture.  RaveJS
-is designed on EcmaScript and *de facto* standards.  It's open and
-is designed to integrate with *everything*.
+RaveJS provides zero-configuration application bootstrap and development
+using the metadata *you're already generating* when you use JavaScript
+package managers such as [npm](http://npmjs.org) and [Bower](http://bower.io).
+RaveJS encourages good architectural practices, simplifies migration to ES6,
+and integrates with *everything*.
 
 ## Does RaveJS require a PhD in Rocket Science?
 
 No.  If you can do `npm install` or `bower install` and if you can add
 a single script element to an HTML page, you can master RaveJS!
 
-RaveJS is the easiest way to get started with modules.  Author AMD, CommonJS,
-or (soon) ES6 modules without transpiling, build steps, or secret
+RaveJS is the absolute easiest way to get started with modules.  Author AMD,
+CommonJS, or (soon) ES6 modules without transpiling, build steps, or secret
 incantations.
 
 ## Does it scale?
