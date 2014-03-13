@@ -31,7 +31,6 @@ function _ravePipeline (context) {
 		instantiate: instantiateNode
 	};
 
-	// TODO: move this to lib/pipeline
 	jsonPipeline = {
 		normalize: normalizeCjs,
 		locate: withContext(context, locateAsIs),

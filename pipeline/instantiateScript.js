@@ -9,7 +9,7 @@ var metadata = require('../lib/metadata');
 var path = require('../lib/path');
 
 function instantiateScript (load) {
-	var packages, deps;
+	var packages, pkg, deps;
 
 	// if debugging, add sourceURL
 	if (load.metadata.rave.debug) {
