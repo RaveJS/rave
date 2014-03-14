@@ -1367,7 +1367,7 @@ if (typeof exports !== 'undefined') {
 /** @author Brian Cavalier */
 /** @author John Hann */
 (function (exports, global) {
-var rave, document, defaultMain,
+var rave, document, defaultMain, debugMain,
 	context, loader, define;
 
 rave = exports || {};
@@ -1375,6 +1375,7 @@ rave = exports || {};
 document = global.document;
 
 defaultMain = 'rave/auto';
+debugMain = 'rave/debug';
 
 // export testable functions
 rave.boot = boot;
@@ -1402,7 +1403,13 @@ define = simpleDefine(loader);
 define.amd = {};
 
 function boot (context) {
+	var main = context.raveMain;
 	try {
+		// check if we should load debugMain instead
+		if (context.debug || context.raveDebug) {
+			// don't override main if user changed it with <html> attr
+			if (context.raveMain === defaultMain) context.raveMain = debugMain;
+		}
 		// apply pipeline to loader
 		var pipeline = fromLoader(loader.get('rave/src/pipeline'));
 		// extend loader
@@ -1539,36 +1546,6 @@ function translateAsIs (load) {
 });
 
 
-;define('rave/pipeline/translateWrapInNode', ['require', 'exports', 'module'], function (require, exports, module, define) {module.exports = translateWrapInNode;
-
-function translateWrapInNode (load) {
-	// The \n allows for a comment on the last line!
-	return 'module.exports = ' + load.source + '\n;';
-}
-
-});
-
-
-;define('rave/lib/overrideIf', ['require', 'exports', 'module'], function (require, exports, module, define) {module.exports = overrideIf;
-
-function overrideIf (predicate, base, props) {
-	for (var p in props) {
-		if (p in base) {
-			base[p] = choice(predicate, props[p], base[p]);
-		}
-	}
-}
-
-function choice (predicate, a, b) {
-	return function () {
-		var f = predicate.apply(this, arguments) ? a : b;
-		return f.apply(this, arguments);
-	};
-}
-
-});
-
-
 ;define('rave/lib/createFileExtFilter', ['require', 'exports', 'module'], function (require, exports, module, define) {module.exports = createFileExtFilter;
 
 /**
@@ -1607,6 +1584,16 @@ function toHashmap (it) {
 		}
 	}
 	return map;
+}
+
+});
+
+
+;define('rave/pipeline/translateWrapInNode', ['require', 'exports', 'module'], function (require, exports, module, define) {module.exports = translateWrapInNode;
+
+function translateWrapInNode (load) {
+	// The \n allows for a comment on the last line!
+	return 'module.exports = ' + load.source + '\n;';
 }
 
 });
@@ -1771,6 +1758,26 @@ function beget (base) {
 });
 
 
+;define('rave/lib/overrideIf', ['require', 'exports', 'module'], function (require, exports, module, define) {module.exports = overrideIf;
+
+function overrideIf (predicate, base, props) {
+	for (var p in props) {
+		if (p in base) {
+			base[p] = choice(predicate, props[p], base[p]);
+		}
+	}
+}
+
+function choice (predicate, a, b) {
+	return function () {
+		var f = predicate.apply(this, arguments) ? a : b;
+		return f.apply(this, arguments);
+	};
+}
+
+});
+
+
 ;define('rave/lib/fetchText', ['require', 'exports', 'module'], function (require, exports, module, define) {module.exports = fetchText;
 
 function fetchText (url, callback, errback) {
@@ -1864,6 +1871,19 @@ function addSourceUrl (url, source) {
 });
 
 
+;define('rave/pipeline/normalizeCjs', ['require', 'exports', 'module', 'rave/lib/path'], function (require, exports, module, $cram_r0, define) {var path = $cram_r0;
+
+module.exports = normalizeCjs;
+
+var reduceLeadingDots = path.reduceLeadingDots;
+
+function normalizeCjs (name, refererName, refererUrl) {
+	return reduceLeadingDots(String(name), refererName || '');
+}
+
+});
+
+
 ;define('rave/pipeline/fetchAsText', ['require', 'exports', 'module', 'rave/lib/fetchText'], function (require, exports, module, $cram_r0, define) {module.exports = fetchAsText;
 
 var fetchText = $cram_r0;
@@ -1873,19 +1893,6 @@ function fetchAsText (load) {
 		fetchText(load.address, resolve, reject);
 	});
 
-}
-
-});
-
-
-;define('rave/pipeline/normalizeCjs', ['require', 'exports', 'module', 'rave/lib/path'], function (require, exports, module, $cram_r0, define) {var path = $cram_r0;
-
-module.exports = normalizeCjs;
-
-var reduceLeadingDots = path.reduceLeadingDots;
-
-function normalizeCjs (name, refererName, refererUrl) {
-	return reduceLeadingDots(String(name), refererName || '');
 }
 
 });
@@ -2107,7 +2114,6 @@ function _ravePipeline (context) {
 		instantiate: instantiateNode
 	};
 
-	// TODO: move this to lib/pipeline
 	jsonPipeline = {
 		normalize: normalizeCjs,
 		locate: withContext(context, locateAsIs),

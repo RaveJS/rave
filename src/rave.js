@@ -1,7 +1,7 @@
 /** @license MIT License (c) copyright 2014 original authors */
 /** @author Brian Cavalier */
 /** @author John Hann */
-var rave, document, defaultMain,
+var rave, document, defaultMain, debugMain,
 	context, loader, define;
 
 rave = exports || {};
@@ -9,6 +9,7 @@ rave = exports || {};
 document = global.document;
 
 defaultMain = 'rave/auto';
+debugMain = 'rave/debug';
 
 // export testable functions
 rave.boot = boot;
@@ -36,7 +37,13 @@ define = simpleDefine(loader);
 define.amd = {};
 
 function boot (context) {
+	var main = context.raveMain;
 	try {
+		// check if we should load debugMain instead
+		if (context.debug || context.raveDebug) {
+			// don't override main if user changed it with <html> attr
+			if (context.raveMain === defaultMain) context.raveMain = debugMain;
+		}
 		// apply pipeline to loader
 		var pipeline = fromLoader(loader.get('rave/src/pipeline'));
 		// extend loader
