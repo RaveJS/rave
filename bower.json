@@ -1,7 +1,7 @@
 {
 	"name": "rave",
 	"version": "0.0.7",
-	"description": "Web apps are all the rave.",
+	"description": "Zero-configuration application bootstrap and development.",
 	"main": "rave",
 	"keywords": [
 		"module",
