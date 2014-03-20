@@ -36,7 +36,10 @@
 		"**/.*",
 		"node_modules",
 		"bower_components",
+		"src",
+		"build",
 		"test",
-		"tests"
+		"tests",
+		"docs"
 	]
 }

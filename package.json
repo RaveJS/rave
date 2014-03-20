@@ -42,8 +42,5 @@
 	"cram": "node node_modules/cram/cram.js --config ./build/cram.json --output ./build/temp/pipeline.js",
 	"concat": "node build/concat.js",
 	"build": "npm run cram && npm run concat"
-  },
-  "dependencies": {
-	"buster": "~0.6.13"
   }
 }
