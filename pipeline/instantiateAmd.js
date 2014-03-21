@@ -30,7 +30,7 @@ function instantiateAmd (load) {
 		// is using load.source faster than defineArgs.factory.toString()?
 		defineArgs.requires = findRequires(load.source);
 		defineArgs.depsList = scopedVars.slice(0, arity);
-		defineArgs.isCjs = true;
+		defineArgs.isCjs = arity > 1;
 		deps = deps.concat(defineArgs.requires);
 	}
 	else {
