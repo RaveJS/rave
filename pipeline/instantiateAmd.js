@@ -26,7 +26,7 @@ function instantiateAmd (load) {
 
 	deps = defineArgs.depsList || [];
 
-	if (defineArgs.deps == null && arity > 0) {
+	if (defineArgs.depsList == null && arity > 0) {
 		// is using load.source faster than defineArgs.factory.toString()?
 		defineArgs.requires = findRequires(load.source);
 		defineArgs.depsList = scopedVars.slice(0, arity);
