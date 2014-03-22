@@ -1546,6 +1546,36 @@ function translateAsIs (load) {
 });
 
 
+;define('rave/pipeline/translateWrapInNode', ['require', 'exports', 'module'], function (require, exports, module, define) {module.exports = translateWrapInNode;
+
+function translateWrapInNode (load) {
+	// The \n allows for a comment on the last line!
+	return 'module.exports = ' + load.source + '\n;';
+}
+
+});
+
+
+;define('rave/lib/overrideIf', ['require', 'exports', 'module'], function (require, exports, module, define) {module.exports = overrideIf;
+
+function overrideIf (predicate, base, props) {
+	for (var p in props) {
+		if (p in base) {
+			base[p] = choice(predicate, props[p], base[p]);
+		}
+	}
+}
+
+function choice (predicate, a, b) {
+	return function () {
+		var f = predicate.apply(this, arguments) ? a : b;
+		return f.apply(this, arguments);
+	};
+}
+
+});
+
+
 ;define('rave/lib/createFileExtFilter', ['require', 'exports', 'module'], function (require, exports, module, define) {module.exports = createFileExtFilter;
 
 /**
@@ -1584,16 +1614,6 @@ function toHashmap (it) {
 		}
 	}
 	return map;
-}
-
-});
-
-
-;define('rave/pipeline/translateWrapInNode', ['require', 'exports', 'module'], function (require, exports, module, define) {module.exports = translateWrapInNode;
-
-function translateWrapInNode (load) {
-	// The \n allows for a comment on the last line!
-	return 'module.exports = ' + load.source + '\n;';
 }
 
 });
@@ -1685,44 +1705,41 @@ function removeExt (path) {
 /**
  * Normalizes a CommonJS-style (or AMD) module id against a referring
  * module id.  Leading ".." or "." path specifiers are folded into
- * the referer's id/path.
+ * the referer's id/path.  Interprets module ids of "." and ".." as meaning
+ * "grab the module whose name is the same as my folder or parent folder".
+ * These special folder ids are not included in the AMD spec, but seem to
+ * work in RequireJS, curl.js, and dojo -- as well as node.js.
  * @param {string} childId
- * @param {string} baseId
+ * @param {string} refId
  * @return {string}
  */
-function reduceLeadingDots (childId, baseId) {
-	var removeLevels, normId, levels, isRelative, diff;
-	// this algorithm is similar to dojo's compactPath, which
-	// interprets module ids of "." and ".." as meaning "grab the
-	// module whose name is the same as my folder or parent folder".
-	// These special module ids are not included in the AMD spec
-	// but seem to work in node.js, too.
+function reduceLeadingDots (childId, refId) {
+	var removeLevels, normId, levels, diff;
 
-	removeLevels = 1;
-	normId = childId;
+	if (isRelPath(childId)) {
+		// detect if childId refers to a directory or to a module
+		removeLevels = childId.slice(-1) === '.' ? 0 : 1;
 
-	// remove leading dots and count levels
-	if (isRelPath(normId)) {
-		isRelative = true;
-		// replaceDots also counts levels
-		normId = normId.replace(findDotsRx, replaceDots);
-	}
+		// replaceDots() also counts levels.
+		normId = childId.replace(findDotsRx, replaceDots);
 
-	if (isRelative) {
-		levels = baseId.split('/');
+		levels = refId.split('/');
 		diff = levels.length - removeLevels;
+
 		if (diff < 0) {
-			// this is an attempt to navigate above parent module.
-			// maybe dev wants a url or something. punt and return url;
+			// This is an attempt to navigate above parent module.
+			// maybe this is a url? Punt and return url;
 			return childId;
 		}
+
 		levels.splice(diff, removeLevels);
+
 		// normId || [] prevents concat from adding extra "/" when
-		// normId is reduced to a blank string
+		// normId is reduced to a blank string.
 		return levels.concat(normId || []).join('/');
 	}
 	else {
-		return normId;
+		return childId;
 	}
 
 	function replaceDots (m, dot, dblDot, remainder) {
@@ -1753,26 +1770,6 @@ function beget (base) {
 	obj = new Begetter();
 	Begetter.prototype = null;
 	return obj;
-}
-
-});
-
-
-;define('rave/lib/overrideIf', ['require', 'exports', 'module'], function (require, exports, module, define) {module.exports = overrideIf;
-
-function overrideIf (predicate, base, props) {
-	for (var p in props) {
-		if (p in base) {
-			base[p] = choice(predicate, props[p], base[p]);
-		}
-	}
-}
-
-function choice (predicate, a, b) {
-	return function () {
-		var f = predicate.apply(this, arguments) ? a : b;
-		return f.apply(this, arguments);
-	};
 }
 
 });
@@ -1854,6 +1851,20 @@ function addSourceUrl (url, source) {
 });
 
 
+;define('rave/pipeline/fetchAsText', ['require', 'exports', 'module', 'rave/lib/fetchText'], function (require, exports, module, $cram_r0, define) {module.exports = fetchAsText;
+
+var fetchText = $cram_r0;
+
+function fetchAsText (load) {
+	return new Promise(function(resolve, reject) {
+		fetchText(load.address, resolve, reject);
+	});
+
+}
+
+});
+
+
 ;define('rave/lib/es5Transform', ['require', 'exports', 'module'], function (require, exports, module, define) {module.exports = {
 	fromLoader: function (value) {
 		return value && value.__es5Module ? value.__es5Module : value;
@@ -1879,20 +1890,6 @@ var reduceLeadingDots = path.reduceLeadingDots;
 
 function normalizeCjs (name, refererName, refererUrl) {
 	return reduceLeadingDots(String(name), refererName || '');
-}
-
-});
-
-
-;define('rave/pipeline/fetchAsText', ['require', 'exports', 'module', 'rave/lib/fetchText'], function (require, exports, module, $cram_r0, define) {module.exports = fetchAsText;
-
-var fetchText = $cram_r0;
-
-function fetchAsText (load) {
-	return new Promise(function(resolve, reject) {
-		fetchText(load.address, resolve, reject);
-	});
-
 }
 
 });
@@ -1977,7 +1974,7 @@ function createRequire (loader, refId) {
 	// Implement proposed require.async, just like Montage Require:
 	// https://github.com/montagejs/mr, but with an added `names`
 	// parameter.
-	require.ensure = require.async = function (id) {
+	require.async = function (id) {
 		var abs, args;
 		abs = loader.normalize(id, refId);
 		args = arguments;
@@ -2041,13 +2038,11 @@ function nodeFactory (loader, load) {
 
 	return function () {
 		// TODO: use loader.global when es6-module-loader implements it
-		var exported;
 		nodeEval(require, module.exports, module, _global, source);
-		exported = module.exports;
 		// figure out what author intended to export
 		return exports === module.exports
-			? exported // a set of named exports
-			: es5Transform.toLoader(exported); // a single default export
+			? exports // a set of named exports
+			: es5Transform.toLoader(module.exports); // a single default export
 	};
 }
 
