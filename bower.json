@@ -3,6 +3,7 @@
 	"version": "0.0.7",
 	"description": "Zero-configuration application bootstrap and development.",
 	"main": "rave",
+	"moduleType": ["node"],
 	"keywords": [
 		"module",
 		"package",
