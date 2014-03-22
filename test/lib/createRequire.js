@@ -11,9 +11,7 @@ buster.testCase('createRequire', {
 		var r = createRequire({}, 'foo');
 		assert.isFunction(r);
 		assert('async' in r, 'require.async');
-		assert('ensure' in r, 'require.ensure');
 		assert('named' in r, 'require.named');
-		assert.same(r.async, r.ensure, 'require.async === require.ensure');
 		assert.same(r.length, 1, 'require arity === 1');
 		assert.same(r.named.length, 2, 'require.named arity === 2');
 		assert.same(r.async.length, 1, 'require.async arity === 1');
