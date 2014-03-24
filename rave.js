@@ -1851,20 +1851,6 @@ function addSourceUrl (url, source) {
 });
 
 
-;define('rave/pipeline/fetchAsText', ['require', 'exports', 'module', 'rave/lib/fetchText'], function (require, exports, module, $cram_r0, define) {module.exports = fetchAsText;
-
-var fetchText = $cram_r0;
-
-function fetchAsText (load) {
-	return new Promise(function(resolve, reject) {
-		fetchText(load.address, resolve, reject);
-	});
-
-}
-
-});
-
-
 ;define('rave/lib/es5Transform', ['require', 'exports', 'module'], function (require, exports, module, define) {module.exports = {
 	fromLoader: function (value) {
 		return value && value.__es5Module ? value.__es5Module : value;
@@ -1878,6 +1864,20 @@ function fetchAsText (load) {
 		};
 	}
 };
+
+});
+
+
+;define('rave/pipeline/fetchAsText', ['require', 'exports', 'module', 'rave/lib/fetchText'], function (require, exports, module, $cram_r0, define) {module.exports = fetchAsText;
+
+var fetchText = $cram_r0;
+
+function fetchAsText (load) {
+	return new Promise(function(resolve, reject) {
+		fetchText(load.address, resolve, reject);
+	});
+
+}
 
 });
 
