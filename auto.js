@@ -20,14 +20,16 @@ function autoConfigure (context) {
 
 	urls = context.raveMeta.split(/\s*,\s*/);
 
+	delete context.packages.rave;
+
 	// TODO: consider returning this promise to rave.js to handle rejections
 	return pmap(urls, function (url) {
 		return metadata.crawl(context, url)['catch'](logMissing)
 	}).then(done)['catch'](failHard);
 
 	function done (metadatas) {
+
 		context = gatherAppMetadata(context, metadatas);
-		context = normalizeRavePackage(context);
 		return configureLoader(context)
 			.then(function (context) {
 				return gatherExtensions(context);
@@ -75,12 +77,6 @@ function gatherAppMetadata (context, metadatas) {
 	else {
 		logNoMetadata(context);
 	}
-	return context;
-}
-
-function normalizeRavePackage (context) {
-	context.packages.rave = pkg.normalizeDescriptor(context.packages.rave);
-	context.packages.rave.uid = context.packages.rave.name = 'rave';
 	return context;
 }
 
