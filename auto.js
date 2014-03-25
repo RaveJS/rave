@@ -137,7 +137,7 @@ function createExtensionApi (context, extension) {
 function applyPipelines (context, extensions) {
 	return pmap(extensions, function (extension) {
 		var api = extension.api;
-		if (api.pipeline) {
+		if (api && api.pipeline) {
 			return api.pipeline(context.loader);
 		}
 	}).then(function () {
@@ -146,10 +146,10 @@ function applyPipelines (context, extensions) {
 }
 
 function applyFirstMain (context, extensions) {
-	var appliedMain, api;
+	var appliedMain;
 	map(extensions, function (extension) {
 		var api = extension.api;
-		if (api.main) {
+		if (api && api.main) {
 			if (appliedMain) {
 				throw new Error('Found multiple extensions with main().');
 			}
