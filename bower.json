@@ -1,6 +1,6 @@
 {
 	"name": "rave",
-	"version": "0.0.7",
+	"version": "0.0.8",
 	"description": "Zero-configuration application bootstrap and development.",
 	"main": "rave",
 	"moduleType": ["node"],
