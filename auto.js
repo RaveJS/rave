@@ -31,9 +31,8 @@ function autoConfigure (context) {
 
 		context = gatherAppMetadata(context, metadatas);
 		return configureLoader(context)
-			.then(function (context) {
-				return gatherExtensions(context);
-			})
+			.then(applyRavePackageMetadata)
+			.then(gatherExtensions)
 			.then(function (extensions) {
 				// TODO: remove || [] when Promise shim is fixed
 				return applyPipelines(context, extensions || []);
@@ -87,7 +86,7 @@ function configureLoader (context) {
 }
 
 function gatherExtensions (context) {
-	var seen, name, pkg, promises;
+	var seen, name, pkg, promises, moduleName;
 	seen = {};
 	promises = [];
 	for (name in context.packages) {
@@ -96,11 +95,42 @@ function gatherExtensions (context) {
 		if (!(pkg.name in seen)) {
 			seen[pkg.name] = true;
 			if (pkg.metadata && pkg.metadata.rave) {
-				promises.push(initExtension(context, pkg.name, pkg.metadata.rave));
+
+				moduleName = typeof pkg.metadata.rave === 'string'
+					? pkg.metadata.rave
+					: pkg.metadata.rave.extension;
+
+				if(moduleName) {
+					promises.push(initExtension(context, pkg.name, pkg.metadata.rave));
+				}
+
 			}
 		}
 	}
 	return Promise.all(promises);
+}
+
+function applyRavePackageMetadata(context) {
+	var rave = context.app.metadata.metadata.rave;
+
+	if(rave && rave.overrides) {
+		applyOverrides(context.packages, rave.overrides);
+	}
+
+	return context;
+}
+
+function applyOverrides(packages, overrides) {
+	var name, pkg, key, pkgOverrides;
+	for(name in overrides) {
+		pkg = packages[name];
+		if(pkg) {
+			pkgOverrides = overrides[name];
+			for(key in pkgOverrides) {
+				pkg[key] = pkgOverrides[key];
+			}
+		}
+	}
 }
 
 function initExtension (context, packageName, moduleName) {
