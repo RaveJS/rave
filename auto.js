@@ -100,7 +100,7 @@ function gatherExtensions (context) {
 					? pkg.metadata.rave
 					: pkg.metadata.rave.extension;
 
-				if(moduleName) {
+				if (moduleName) {
 					promises.push(initExtension(context, pkg.name, pkg.metadata.rave));
 				}
 
@@ -113,7 +113,7 @@ function gatherExtensions (context) {
 function applyRavePackageMetadata(context) {
 	var rave = context.app.metadata.metadata.rave;
 
-	if(rave && rave.overrides) {
+	if (rave && rave.overrides) {
 		applyOverrides(context.packages, rave.overrides);
 	}
 
@@ -122,11 +122,11 @@ function applyRavePackageMetadata(context) {
 
 function applyOverrides(packages, overrides) {
 	var name, pkg, key, pkgOverrides;
-	for(name in overrides) {
+	for (name in overrides) {
 		pkg = packages[name];
-		if(pkg) {
+		if (pkg) {
 			pkgOverrides = overrides[name];
-			for(key in pkgOverrides) {
+			for (key in pkgOverrides) {
 				pkg[key] = pkgOverrides[key];
 			}
 		}
