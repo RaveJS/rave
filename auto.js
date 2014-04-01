@@ -110,7 +110,7 @@ function gatherExtensions (context) {
 	return Promise.all(promises);
 }
 
-function applyRavePackageMetadata(context) {
+function applyRavePackageMetadata (context) {
 	var rave = context.app.metadata.metadata.rave;
 
 	if (rave && rave.overrides) {
@@ -120,7 +120,7 @@ function applyRavePackageMetadata(context) {
 	return context;
 }
 
-function applyOverrides(packages, overrides) {
+function applyOverrides (packages, overrides) {
 	var name, pkg, key, pkgOverrides;
 	for (name in overrides) {
 		pkg = packages[name];
