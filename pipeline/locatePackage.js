@@ -4,6 +4,7 @@
 module.exports = locatePackage;
 
 var path = require('../lib/path');
+var parseUid = require('../lib/uid').parse;
 var metadata = require('../lib/metadata');
 
 function locatePackage (load) {
@@ -14,7 +15,7 @@ function locatePackage (load) {
 
 	if (!options.packages) throw new Error('Packages not provided: ' + load.name);
 
-	parts = metadata.parseUid(load.name);
+	parts = parseUid(load.name);
 	packageName = parts.pkgUid || parts.pkgName;
 	modulePath = parts.modulePath;
 
