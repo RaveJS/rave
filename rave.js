@@ -1546,16 +1546,6 @@ function translateAsIs (load) {
 });
 
 
-;define('rave/pipeline/translateWrapInNode', ['require', 'exports', 'module'], function (require, exports, module, define) {module.exports = translateWrapInNode;
-
-function translateWrapInNode (load) {
-	// The \n allows for a comment on the last line!
-	return 'module.exports = ' + load.source + '\n;';
-}
-
-});
-
-
 ;define('rave/lib/overrideIf', ['require', 'exports', 'module'], function (require, exports, module, define) {module.exports = overrideIf;
 
 function overrideIf (predicate, base, props) {
@@ -1804,26 +1794,31 @@ function fetchText (url, callback, errback) {
 
 ;define('rave/lib/findRequires', ['require', 'exports', 'module'], function (require, exports, module, define) {module.exports = findRequires;
 
-var removeCommentsRx, findRValueRequiresRx;
+var findRValueRequiresRx;
 
-removeCommentsRx = /\/\*[\s\S]*?\*\/|\/\/.*?[\n\r]/g;
-findRValueRequiresRx = /require\s*\(\s*(["'])(.*?[^\\])\1\s*\)|[^\\]?(["'])/g;
+findRValueRequiresRx = /require\s*\(\s*(["'])(.*?[^\\])\1\s*\)|(\\["'])|(["'])|(\/\/|\/\*)|(\n|\*\/)/g;
 
 function findRequires (source) {
-	var deps, seen, clean, currQuote;
+	var deps, seen, quote, comment;
 
 	deps = [];
 	seen = {};
 
-	// remove comments, then look for require() or quotes
-	clean = source.replace(removeCommentsRx, '');
-	clean.replace(findRValueRequiresRx, function (m, rq, id, qq) {
-		// if we encounter a string in the source, don't look for require()
-		if (qq) {
-			currQuote = currQuote == qq ? false : currQuote;
+	// look for require() (ouside of quotes and comments)
+	source.replace(findRValueRequiresRx, function (m, rq, id, escq, qq, sc, ec) {
+		if (comment) {
+			if (ec === comment) comment = false;
 		}
-		// if we're not inside a quoted string
-		else if (!currQuote) {
+		else if (quote) {
+			if (qq === quote) quote = false;
+		}
+		else if (qq) {
+			quote = qq;
+		}
+		else if (sc) {
+			comment = sc === '//' ? '\n' : '*/';
+		}
+		else if (id) {
 			// push [relative] id into deps list and seen map
 			if (!(id in seen)) {
 				seen[id] = true;
@@ -1832,7 +1827,6 @@ function findRequires (source) {
 		}
 		return ''; // uses least RAM/CPU
 	});
-
 	return deps;
 }
 
@@ -1963,6 +1957,31 @@ function fromObject (obj, name) {
 });
 
 
+;define('rave/pipeline/instantiateJson', ['require', 'exports', 'module', 'rave/lib/es5Transform', 'rave/lib/addSourceUrl'], function (require, exports, module, $cram_r0, $cram_r1, define) {var es5Transform = $cram_r0;
+var addSourceUrl = $cram_r1;
+
+module.exports = instantiateNode;
+
+function instantiateNode (load) {
+	var source;
+
+	source = '(' + load.source + ')';
+
+	// if debugging, add sourceURL
+	if (load.metadata.rave.debug) {
+		source = addSourceUrl(load.address, source);
+	}
+
+	return {
+		execute: function () {
+			return new Module(es5Transform.toLoader(eval(source)));
+		}
+	};
+}
+
+});
+
+
 ;define('rave/lib/createRequire', ['require', 'exports', 'module', 'rave/lib/es5Transform'], function (require, exports, module, $cram_r0, define) {module.exports = createRequire;
 
 var es5Transform = $cram_r0;
@@ -2079,12 +2098,12 @@ function instantiateNode (load) {
 });
 
 
-;define('rave/src/pipeline', ['require', 'exports', 'module', 'rave/pipeline/normalizeCjs', 'rave/pipeline/locateAsIs', 'rave/pipeline/fetchAsText', 'rave/pipeline/translateAsIs', 'rave/pipeline/translateWrapInNode', 'rave/pipeline/instantiateNode', 'rave/lib/overrideIf', 'rave/lib/createFileExtFilter', 'rave/lib/package', 'rave/lib/path', 'rave/lib/beget'], function (require, exports, module, $cram_r0, $cram_r1, $cram_r2, $cram_r3, $cram_r4, $cram_r5, $cram_r6, $cram_r7, $cram_r8, $cram_r9, $cram_r10, define) {var normalizeCjs = $cram_r0;
+;define('rave/src/pipeline', ['require', 'exports', 'module', 'rave/pipeline/normalizeCjs', 'rave/pipeline/locateAsIs', 'rave/pipeline/fetchAsText', 'rave/pipeline/translateAsIs', 'rave/pipeline/instantiateNode', 'rave/pipeline/instantiateJson', 'rave/lib/overrideIf', 'rave/lib/createFileExtFilter', 'rave/lib/package', 'rave/lib/path', 'rave/lib/beget'], function (require, exports, module, $cram_r0, $cram_r1, $cram_r2, $cram_r3, $cram_r4, $cram_r5, $cram_r6, $cram_r7, $cram_r8, $cram_r9, $cram_r10, define) {var normalizeCjs = $cram_r0;
 var locateAsIs = $cram_r1;
 var fetchAsText = $cram_r2;
 var translateAsIs = $cram_r3;
-var translateWrapInNode = $cram_r4;
-var instantiateNode = $cram_r5;
+var instantiateNode = $cram_r4;
+var instantiateJson = $cram_r5;
 var overrideIf = $cram_r6;
 var createFileExtFilter = $cram_r7;
 var pkg = $cram_r8;
@@ -2113,8 +2132,8 @@ function _ravePipeline (context) {
 		normalize: normalizeCjs,
 		locate: withContext(context, locateAsIs),
 		fetch: fetchAsText,
-		translate: translateWrapInNode,
-		instantiate: instantiateNode
+		translate: translateAsIs,
+		instantiate: instantiateJson
 	};
 
 	return {

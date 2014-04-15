@@ -5,8 +5,8 @@ var normalizeCjs = require('rave/pipeline/normalizeCjs');
 var locateAsIs = require('rave/pipeline/locateAsIs');
 var fetchAsText = require('rave/pipeline/fetchAsText');
 var translateAsIs = require('rave/pipeline/translateAsIs');
-var translateWrapInNode = require('rave/pipeline/translateWrapInNode');
 var instantiateNode = require('rave/pipeline/instantiateNode');
+var instantiateJson = require('rave/pipeline/instantiateJson');
 var overrideIf = require('rave/lib/overrideIf');
 var createFileExtFilter = require('rave/lib/createFileExtFilter');
 var pkg = require('rave/lib/package');
@@ -35,8 +35,8 @@ function _ravePipeline (context) {
 		normalize: normalizeCjs,
 		locate: withContext(context, locateAsIs),
 		fetch: fetchAsText,
-		translate: translateWrapInNode,
-		instantiate: instantiateNode
+		translate: translateAsIs,
+		instantiate: instantiateJson
 	};
 
 	return {
