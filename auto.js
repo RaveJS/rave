@@ -161,7 +161,7 @@ function extractExtensionCtor (extModule) {
 }
 
 function createExtensionApi (context, extension) {
-	return extension(beget(context));
+	return extension(context);
 }
 
 function applyPipelines (context, extensions) {
