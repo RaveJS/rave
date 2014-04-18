@@ -43,3 +43,7 @@ and the [Quick Start using NPM](./docs/quick-start-npm.md).
 
 404s are ok during development. You can [eliminate 404s](./docs/404s.md)
 if desired.
+
+## About
+
+RaveJS is brought to you by [cujoJS](http://cujojs.com).
