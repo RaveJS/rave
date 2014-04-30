@@ -14,9 +14,6 @@ add capabilities and frameworks to your application simply by installing
 *Rave Extension* packages to apply your favorite build, deploy, and testing 
 patterns.  
 
-RaveJS encourages good architectural practices, simplifies migration to ES6,
-and integrates with *anything*.
-
 ## Why should I use RaveJS?
 
 -	Less machinery, configuration, and maintenance
