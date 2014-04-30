@@ -1546,69 +1546,6 @@ function translateAsIs (load) {
 });
 
 
-;define('rave/lib/overrideIf', ['require', 'exports', 'module'], function (require, exports, module, define) {module.exports = overrideIf;
-
-function overrideIf (predicate, base, props) {
-	for (var p in props) {
-		if (p in base) {
-			base[p] = choice(predicate, props[p], base[p]);
-		}
-	}
-}
-
-function choice (predicate, a, b) {
-	return function () {
-		var f = predicate.apply(this, arguments) ? a : b;
-		return f.apply(this, arguments);
-	};
-}
-
-});
-
-
-;define('rave/lib/createFileExtFilter', ['require', 'exports', 'module'], function (require, exports, module, define) {module.exports = createFileExtFilter;
-
-/**
- * Creates a filter for a loader pipeline based on file extensions.
- * @param {string|Array<string>|Object} extensions may be a single string
- *   containing a comma-separated list of file extensions, an array of file
- *   extensions, or an Object literal whose keys are file extensions.
- * @returns {function(Object|string): boolean}
- */
-function createFileExtFilter (extensions) {
-	var map = toHashmap(extensions);
-	return function (load) {
-		var name = typeof load === 'object' ? load.name : load;
-		var dot = name ? name.lastIndexOf('.') : -1;
-		var slash = name ? name.lastIndexOf('/') : -1;
-		return dot > slash && map.hasOwnProperty(name.slice(dot + 1));
-	}
-}
-
-function toHashmap (it) {
-	var map = {}, i;
-	if (!it) {
-		throw new TypeError('Invalid type passed to createFileExtFilter.');
-	}
-	if (typeof it === 'string') {
-		it = it.split(/\s*,\s*/);
-	}
-	if (it.length) {
-		for (i = 0; i < it.length; i++) {
-			map[it[i]] = 1;
-		}
-	}
-	else {
-		for (i in it) {
-			map[i] = 1;
-		}
-	}
-	return map;
-}
-
-});
-
-
 ;define('rave/lib/path', ['require', 'exports', 'module'], function (require, exports, module, define) {var absUrlRx, findDotsRx;
 
 absUrlRx = /^\/|^[^:]+:\/\//;
@@ -1751,6 +1688,69 @@ function splitDirAndFile (url) {
 });
 
 
+;define('rave/lib/overrideIf', ['require', 'exports', 'module'], function (require, exports, module, define) {module.exports = overrideIf;
+
+function overrideIf (predicate, base, props) {
+	for (var p in props) {
+		if (p in base) {
+			base[p] = choice(predicate, props[p], base[p]);
+		}
+	}
+}
+
+function choice (predicate, a, b) {
+	return function () {
+		var f = predicate.apply(this, arguments) ? a : b;
+		return f.apply(this, arguments);
+	};
+}
+
+});
+
+
+;define('rave/lib/createFileExtFilter', ['require', 'exports', 'module'], function (require, exports, module, define) {module.exports = createFileExtFilter;
+
+/**
+ * Creates a filter for a loader pipeline based on file extensions.
+ * @param {string|Array<string>|Object} extensions may be a single string
+ *   containing a comma-separated list of file extensions, an array of file
+ *   extensions, or an Object literal whose keys are file extensions.
+ * @returns {function(Object|string): boolean}
+ */
+function createFileExtFilter (extensions) {
+	var map = toHashmap(extensions);
+	return function (load) {
+		var name = typeof load === 'object' ? load.name : load;
+		var dot = name ? name.lastIndexOf('.') : -1;
+		var slash = name ? name.lastIndexOf('/') : -1;
+		return dot > slash && map.hasOwnProperty(name.slice(dot + 1));
+	}
+}
+
+function toHashmap (it) {
+	var map = {}, i;
+	if (!it) {
+		throw new TypeError('Invalid type passed to createFileExtFilter.');
+	}
+	if (typeof it === 'string') {
+		it = it.split(/\s*,\s*/);
+	}
+	if (it.length) {
+		for (i = 0; i < it.length; i++) {
+			map[it[i]] = 1;
+		}
+	}
+	else {
+		for (i in it) {
+			map[i] = 1;
+		}
+	}
+	return map;
+}
+
+});
+
+
 ;define('rave/lib/beget', ['require', 'exports', 'module'], function (require, exports, module, define) {module.exports = beget;
 
 function Begetter () {}
@@ -1761,6 +1761,35 @@ function beget (base) {
 	Begetter.prototype = null;
 	return obj;
 }
+
+});
+
+
+;define('rave/lib/addSourceUrl', ['require', 'exports', 'module'], function (require, exports, module, define) {module.exports = addSourceUrl;
+
+function addSourceUrl (url, source) {
+	return source
+		+ '\n//# sourceURL='
+		+ url.replace(/\s/g, '%20')
+		+ '\n';
+}
+
+});
+
+
+;define('rave/lib/es5Transform', ['require', 'exports', 'module'], function (require, exports, module, define) {module.exports = {
+	fromLoader: function (value) {
+		return value && value.__es5Module ? value.__es5Module : value;
+	},
+	toLoader: function (module) {
+		return {
+			// for real ES6 modules to consume this module
+			'default': module,
+			// for modules transpiled from ES5
+			__es5Module: module
+		};
+	}
+};
 
 });
 
@@ -1829,35 +1858,6 @@ function findRequires (source) {
 	});
 	return deps;
 }
-
-});
-
-
-;define('rave/lib/addSourceUrl', ['require', 'exports', 'module'], function (require, exports, module, define) {module.exports = addSourceUrl;
-
-function addSourceUrl (url, source) {
-	return source
-		+ '\n//# sourceURL='
-		+ url.replace(/\s/g, '%20')
-		+ '\n';
-}
-
-});
-
-
-;define('rave/lib/es5Transform', ['require', 'exports', 'module'], function (require, exports, module, define) {module.exports = {
-	fromLoader: function (value) {
-		return value && value.__es5Module ? value.__es5Module : value;
-	},
-	toLoader: function (module) {
-		return {
-			// for real ES6 modules to consume this module
-			'default': module,
-			// for modules transpiled from ES5
-			__es5Module: module
-		};
-	}
-};
 
 });
 
