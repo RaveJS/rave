@@ -3,12 +3,19 @@
 
 ## What is RaveJS?
 
-RaveJS provides zero-configuration application bootstrap and development
-using the metadata *you're already generating* when you use JavaScript
-package managers such as [npm](http://npmjs.org) and [Bower](http://bower.io).
-RaveJS encourages good architectural practices, simplifies migration to ES6,
-and integrates with *everything*.
+RaveJS eliminates configuration, machinery, and complexity.  Stop 
+configuring and tweaking complex machinery such as file watchers, 
+minifiers, and transpilers just to get to a runnable app.  Instead, go 
+from zero to "hello world" in 30 seconds.  In the next 30 seconds, easily 
+add capabilities and frameworks to your application simply by installing
+*Rave Extension* and *Rave Starter* packages from 
+[npm](//www.npmjs.org/search?q=rave-extension) and 
+[Bower](//bower.io/search/?q=rave-extension). Finally, install additional 
+*Rave Extension* packages to apply your favorite build, deploy, and testing 
+patterns.  
 
+RaveJS encourages good architectural practices, simplifies migration to ES6,
+and integrates with *anything*.
 
 ## Why should I use RaveJS?
 
@@ -16,6 +23,7 @@ and integrates with *everything*.
 -	Brain-dead simple project start-up
 	-	Modern, modular architectures are simple, too!
 -	Huge selection of packages on npm and Bower
+-	ES6 Loader polyfill is built in
 -	Platform for integration and customization
 -	Create easy-to-understand demos and tutorials
 -	Super fast prototyping
@@ -33,7 +41,9 @@ incantations.
 
 ## How does it work?
 
-RaveJS moves the configuration task to package authors and integrators.
+RaveJS uses the metadata *you're already generating* when you use JavaScript
+package managers such as [npm](//npmjs.org) and [Bower](//bower.io).
+This moves the configuration task to package authors and integrators.
 Package authors already create metadata when they wish to publish their
 packages to npm and Bower.  RaveJS uses the metadata in package.json and
 bower.json to auto-configure an ES6 Loader (or Loader shim) so there's no
