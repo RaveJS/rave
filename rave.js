@@ -1396,9 +1396,7 @@ context = (document ? mergeBrowserOptions : mergeNodeOptions)({
 	raveMain: defaultMain,
 	raveScript: rave.scriptUrl,
 	baseUrl: rave.baseUrl,
-	loader: new Loader({}),
-	// TODO: does this rave property really need to be here????
-	packages: { rave: rave.scriptUrl }
+	loader: new Loader({})
 });
 
 loader = context.loader;
@@ -1413,10 +1411,10 @@ function boot (context) {
 			// don't override main if user changed it with <html> attr
 			if (context.raveMain === defaultMain) context.raveMain = debugMain;
 		}
-		// apply pipeline to loader
-		var pipeline = fromLoader(loader.get(hooksName));
+		// apply hooks overrides to loader
+		var hooks = fromLoader(loader.get(hooksName));
 		// extend loader
-		pipeline(context);
+		hooks(context);
 		loader.import(context.raveMain).then(go, failLoudly);
 	}
 	catch (ex) {
@@ -1732,6 +1730,59 @@ function fetchText (url, callback, errback) {
 });
 
 
+;define('rave/lib/findRequires', ['require', 'exports', 'module'], function (require, exports, module, define) {module.exports = findRequires;
+
+var findRValueRequiresRx;
+
+findRValueRequiresRx = /require\s*\(\s*(["'])(.*?[^\\])\1\s*\)|(\\["'])|(["'])|(\/\/|\/\*)|(\n|\*\/)/g;
+
+function findRequires (source) {
+	var deps, seen, quote, comment;
+
+	deps = [];
+	seen = {};
+
+	// look for require() (ouside of quotes and comments)
+	source.replace(findRValueRequiresRx, function (m, rq, id, escq, qq, sc, ec) {
+		if (comment) {
+			if (ec === comment) comment = false;
+		}
+		else if (quote) {
+			if (qq === quote) quote = false;
+		}
+		else if (qq) {
+			quote = qq;
+		}
+		else if (sc) {
+			comment = sc === '//' ? '\n' : '*/';
+		}
+		else if (id) {
+			// push [relative] id into deps list and seen map
+			if (!(id in seen)) {
+				seen[id] = true;
+				deps.push(id)
+			}
+		}
+		return ''; // uses least RAM/CPU
+	});
+	return deps;
+}
+
+});
+
+
+;define('rave/lib/addSourceUrl', ['require', 'exports', 'module'], function (require, exports, module, define) {module.exports = addSourceUrl;
+
+function addSourceUrl (url, source) {
+	return source
+		+ '\n//# sourceURL='
+		+ url.replace(/\s/g, '%20')
+		+ '\n';
+}
+
+});
+
+
 ;define('rave/lib/es5Transform', ['require', 'exports', 'module'], function (require, exports, module, define) {module.exports = {
 	fromLoader: function (value) {
 		return value && value.__es5Module ? value.__es5Module : value;
@@ -1745,18 +1796,6 @@ function fetchText (url, callback, errback) {
 		};
 	}
 };
-
-});
-
-
-;define('rave/lib/addSourceUrl', ['require', 'exports', 'module'], function (require, exports, module, define) {module.exports = addSourceUrl;
-
-function addSourceUrl (url, source) {
-	return source
-		+ '\n//# sourceURL='
-		+ url.replace(/\s/g, '%20')
-		+ '\n';
-}
 
 });
 
@@ -1894,47 +1933,6 @@ function parseUid (uid) {
 });
 
 
-;define('rave/lib/findRequires', ['require', 'exports', 'module'], function (require, exports, module, define) {module.exports = findRequires;
-
-var findRValueRequiresRx;
-
-findRValueRequiresRx = /require\s*\(\s*(["'])(.*?[^\\])\1\s*\)|(\\["'])|(["'])|(\/\/|\/\*)|(\n|\*\/)/g;
-
-function findRequires (source) {
-	var deps, seen, quote, comment;
-
-	deps = [];
-	seen = {};
-
-	// look for require() (ouside of quotes and comments)
-	source.replace(findRValueRequiresRx, function (m, rq, id, escq, qq, sc, ec) {
-		if (comment) {
-			if (ec === comment) comment = false;
-		}
-		else if (quote) {
-			if (qq === quote) quote = false;
-		}
-		else if (qq) {
-			quote = qq;
-		}
-		else if (sc) {
-			comment = sc === '//' ? '\n' : '*/';
-		}
-		else if (id) {
-			// push [relative] id into deps list and seen map
-			if (!(id in seen)) {
-				seen[id] = true;
-				deps.push(id)
-			}
-		}
-		return ''; // uses least RAM/CPU
-	});
-	return deps;
-}
-
-});
-
-
 ;define('rave/pipeline/normalizeCjs', ['require', 'exports', 'module', 'rave/lib/path'], function (require, exports, module, $cram_r0, define) {var path = $cram_r0;
 
 module.exports = normalizeCjs;
@@ -1957,31 +1955,6 @@ function fetchAsText (load) {
 		fetchText(load.address, resolve, reject);
 	});
 
-}
-
-});
-
-
-;define('rave/pipeline/instantiateJson', ['require', 'exports', 'module', 'rave/lib/es5Transform', 'rave/lib/addSourceUrl'], function (require, exports, module, $cram_r0, $cram_r1, define) {var es5Transform = $cram_r0;
-var addSourceUrl = $cram_r1;
-
-module.exports = instantiateJson;
-
-function instantiateJson (load) {
-	var source;
-
-	source = '(' + load.source + ')';
-
-	// if debugging, add sourceURL
-	if (load.metadata.rave.debug) {
-		source = addSourceUrl(load.address, source);
-	}
-
-	return {
-		execute: function () {
-			return new Module(es5Transform.toLoader(eval(source)));
-		}
-	};
 }
 
 });
@@ -2103,6 +2076,31 @@ function toFastOverride (override) {
 
 function sameCommonJSPackages (a, b) {
 	return parse(a).pkgName === parse(b).pkgName;
+}
+
+});
+
+
+;define('rave/pipeline/instantiateJson', ['require', 'exports', 'module', 'rave/lib/es5Transform', 'rave/lib/addSourceUrl'], function (require, exports, module, $cram_r0, $cram_r1, define) {var es5Transform = $cram_r0;
+var addSourceUrl = $cram_r1;
+
+module.exports = instantiateJson;
+
+function instantiateJson (load) {
+	var source;
+
+	source = '(' + load.source + ')';
+
+	// if debugging, add sourceURL
+	if (load.metadata.rave.debug) {
+		source = addSourceUrl(load.address, source);
+	}
+
+	return {
+		execute: function () {
+			return new Module(es5Transform.toLoader(eval(source)));
+		}
+	};
 }
 
 });
@@ -2274,9 +2272,9 @@ function _ravePipeline (context) {
 
 	overrides = [resetOverride, raveOverride, jsonOverride];
 	newHooks = override.hooks(nativeHooks, overrides);
+	setLoaderHooks(context.loader, newHooks);
 
-	return setLoaderHooks(context.loader, newHooks);
-
+	return context;
 }
 
 function getLoaderHooks (loader) {

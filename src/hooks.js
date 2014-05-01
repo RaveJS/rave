@@ -51,9 +51,9 @@ function _ravePipeline (context) {
 
 	overrides = [resetOverride, raveOverride, jsonOverride];
 	newHooks = override.hooks(nativeHooks, overrides);
+	setLoaderHooks(context.loader, newHooks);
 
-	return setLoaderHooks(context.loader, newHooks);
-
+	return context;
 }
 
 function getLoaderHooks (loader) {

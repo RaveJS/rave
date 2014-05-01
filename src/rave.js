@@ -30,9 +30,7 @@ context = (document ? mergeBrowserOptions : mergeNodeOptions)({
 	raveMain: defaultMain,
 	raveScript: rave.scriptUrl,
 	baseUrl: rave.baseUrl,
-	loader: new Loader({}),
-	// TODO: does this rave property really need to be here????
-	packages: { rave: rave.scriptUrl }
+	loader: new Loader({})
 });
 
 loader = context.loader;
@@ -47,10 +45,10 @@ function boot (context) {
 			// don't override main if user changed it with <html> attr
 			if (context.raveMain === defaultMain) context.raveMain = debugMain;
 		}
-		// apply pipeline to loader
-		var pipeline = fromLoader(loader.get(hooksName));
+		// apply hooks overrides to loader
+		var hooks = fromLoader(loader.get(hooksName));
 		// extend loader
-		pipeline(context);
+		hooks(context);
 		loader.import(context.raveMain).then(go, failLoudly);
 	}
 	catch (ex) {
