@@ -2232,9 +2232,9 @@ var path = $cram_r6;
 var beget = $cram_r7;
 var override = $cram_r8;
 
-module.exports = _ravePipeline;
+module.exports = baseHooks;
 
-function _ravePipeline (context) {
+function baseHooks (context) {
 	var nativeHooks, resetOverride, raveOverride, jsonOverride, overrides,
 		newHooks;
 

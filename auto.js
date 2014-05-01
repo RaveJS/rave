@@ -2,7 +2,7 @@
 /** @author Brian Cavalier */
 /** @author John Hann */
 var metadata = require('./lib/metadata');
-var fromMetadata = require('./lib/pipeline');
+var fromMetadata = require('./lib/hooksFromMetadata');
 var beget = require('./lib/beget');
 var path = require('./lib/path');
 var pkg = require('./lib/package');
@@ -20,7 +20,7 @@ function autoConfigure (context) {
 
 	urls = context.raveMeta.split(/\s*,\s*/);
 
-	delete context.packages.rave;
+	context.packages = {};
 
 	// TODO: consider returning this promise to rave.js to handle rejections
 	return pmap(urls, function (url) {
@@ -80,8 +80,10 @@ function gatherAppMetadata (context, metadatas) {
 }
 
 function configureLoader (context) {
-	var pipeline = fromMetadata(context);
-	pipeline.applyTo(context.loader);
+	var hooks = fromMetadata(context);
+	for (var name in hooks) {
+		context.loader[name] = hooks[name];
+	}
 	return Promise.resolve(context);
 }
 

@@ -11,9 +11,9 @@ var path = require('rave/lib/path');
 var beget = require('rave/lib/beget');
 var override = require('rave/load/override');
 
-module.exports = _ravePipeline;
+module.exports = baseHooks;
 
-function _ravePipeline (context) {
+function baseHooks (context) {
 	var nativeHooks, resetOverride, raveOverride, jsonOverride, overrides,
 		newHooks;
 
