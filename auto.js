@@ -6,6 +6,7 @@ var fromMetadata = require('./lib/hooksFromMetadata');
 var beget = require('./lib/beget');
 var path = require('./lib/path');
 var pkg = require('./lib/package');
+var override = require('./load/override');
 
 module.exports = {
 	main: autoConfigure
@@ -80,7 +81,9 @@ function gatherAppMetadata (context, metadatas) {
 }
 
 function configureLoader (context) {
-	var hooks = fromMetadata(context);
+	var overrides = fromMetadata(context);
+	context.load.overrides = overrides;
+	var hooks = override.hooks(context.load.nativeHooks, overrides);
 	for (var name in hooks) {
 		context.loader[name] = hooks[name];
 	}
