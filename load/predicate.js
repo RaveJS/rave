@@ -28,17 +28,17 @@ function composePredicates (matchPackage, matchPattern, matchExtensions, overrid
 		? testAllPredicates
 		: predicate;
 
-	function testAllPredicates (name) {
+	function testAllPredicates (load) {
 		for (var i = 0, len = predicates.length; i < len; i++) {
-			if (!predicates[i](name)) return false;
+			if (!predicates[i](load)) return false;
 		}
 		return predicate.apply(this, arguments);
 	}
 }
 
 function createPackageMatcher (samePackage, override) {
-	return function (name) {
-		samePackage(name, override.package);
+	return function (load) {
+		return samePackage(load.name, override.package);
 	};
 }
 
@@ -46,8 +46,8 @@ function createPatternMatcher (override) {
 	var patternRx = typeof override.pattern === 'string'
 		? new RegExp(override.pattern)
 		: override.pattern;
-	return function (name) {
-		return patternRx.test(name);
+	return function (load) {
+		return patternRx.test(load.name);
 	};
 }
 
@@ -55,7 +55,8 @@ function createExtensionsMatcher (override) {
 	var extensions = override.extensions && override.extensions.map(function (ext) {
 		return ext.charAt(0) === '.' ? ext : '.' + ext;
 	});
-	return function (name) {
+	return function (load) {
+		var name = load.name;
 		return extensions.some(function (ext) {
 			return name.slice(-ext.length) === ext;
 		});

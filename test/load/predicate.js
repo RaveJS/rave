@@ -87,11 +87,12 @@ buster.testCase('predicate', {
 
 	'createPackageMatcher': {
 		'should create a function that calls samePackage and passes a package property': function () {
-			var samePackage = this.spy();
+			var samePackage = this.spy(truthy);
 			var f = { package: 'foo' };
 			var matcher = filter.createPackageMatcher(samePackage, f);
-			matcher('bar');
+			var result = matcher({ name: 'bar' });
 			assert.calledWith(samePackage, 'bar', 'foo');
+			assert(result);
 		}
 	},
 
@@ -99,13 +100,13 @@ buster.testCase('predicate', {
 		'should create a function that checks a regexp against a string': function () {
 			var f = { pattern: /^foo$/ };
 			var matcher = filter.createPatternMatcher(f);
-			var result = matcher('foo');
+			var result = matcher({ name: 'foo' });
 			assert(result);
 		},
 		'should work with a string pattern instead of a RegExp': function () {
 			var f = { pattern: '^foo$' };
 			var matcher = filter.createPatternMatcher(f);
-			var result = matcher('foo');
+			var result = matcher({ name: 'foo' });
 			assert(result);
 		}
 	},
@@ -114,16 +115,16 @@ buster.testCase('predicate', {
 		'should create a function that checks if a string ends in one or more extensions': function () {
 			var f = { extensions: [ '.js', '.javascript' ] };
 			var matcher = filter.createExtensionsMatcher(f);
-			assert(matcher('foo/bar.js'));
-			assert(matcher('foo/bar.javascript'));
-			refute(matcher('foo/bar.css'));
+			assert(matcher({ name: 'foo/bar.js' }));
+			assert(matcher({ name: 'foo/bar.javascript' }));
+			refute(matcher({ name: 'foo/bar.css' }));
 		},
 		'should also work if extensions don\'t start with a dot': function () {
 			var f = { extensions: [ 'js', 'javascript' ] };
 			var matcher = filter.createExtensionsMatcher(f);
-			assert(matcher('foo/bar.js'));
-			assert(matcher('foo/bar.javascript'));
-			refute(matcher('foo/bar.css'));
+			assert(matcher({ name: 'foo/bar.js' }));
+			assert(matcher({ name: 'foo/bar.javascript' }));
+			refute(matcher({ name: 'foo/bar.css' }));
 		}
 	}
 
