@@ -3,20 +3,20 @@
 /** @author John Hann */
 var fs = require('fs');
 
-var eml, template, pipeline, rave, built;
+var eml, template, hooks, rave, built;
 
 eml = fs.readFileSync('./node_modules/es6-module-loader/lib/es6-module-loader.js');
 template = fs.readFileSync('./src/_template.js');
-pipeline = fs.readFileSync('./build/temp/pipeline.js');
+hooks = fs.readFileSync('./build/temp/hooks.js');
 rave = fs.readFileSync('./src/rave.js');
 
-pipeline = removeLicenses(String(pipeline));
+hooks = removeLicenses(String(hooks));
 rave = removeLicenses(String(rave));
 
 built = String(template)
 	.replace(/\/\*===loader===\*\//, eml)
 	.replace(/\/\*===rave===\*\//, rave)
-	.replace(/\/\*===pipeline===\*\//, pipeline);
+	.replace(/\/\*===hooks===\*\//, hooks);
 
 fs.writeFileSync('rave.js', built);
 

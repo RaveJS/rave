@@ -5,5 +5,5 @@
 			"config": { "loader": "curl/loader/cjsm11" }
 		}
 	},
-	"main": "rave/src/pipeline"
+	"main": "rave/src/hooks"
 }

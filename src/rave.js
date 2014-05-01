@@ -1,7 +1,7 @@
 /** @license MIT License (c) copyright 2014 original authors */
 /** @author Brian Cavalier */
 /** @author John Hann */
-var rave, document, defaultMain, debugMain,
+var rave, document, defaultMain, debugMain, hooksName,
 	context, loader, define;
 
 rave = exports || {};
@@ -10,6 +10,7 @@ document = global.document;
 
 defaultMain = 'rave/auto';
 debugMain = 'rave/debug';
+hooksName = 'rave/src/hooks';
 
 // export testable functions
 rave.boot = boot;
@@ -27,8 +28,10 @@ rave.baseUrl = document
 
 context = (document ? mergeBrowserOptions : mergeNodeOptions)({
 	raveMain: defaultMain,
+	raveScript: rave.scriptUrl,
 	baseUrl: rave.baseUrl,
 	loader: new Loader({}),
+	// TODO: does this rave property really need to be here????
 	packages: { rave: rave.scriptUrl }
 });
 
@@ -45,9 +48,9 @@ function boot (context) {
 			if (context.raveMain === defaultMain) context.raveMain = debugMain;
 		}
 		// apply pipeline to loader
-		var pipeline = fromLoader(loader.get('rave/src/pipeline'));
+		var pipeline = fromLoader(loader.get(hooksName));
 		// extend loader
-		pipeline(context).applyTo(loader);
+		pipeline(context);
 		loader.import(context.raveMain).then(go, failLoudly);
 	}
 	catch (ex) {

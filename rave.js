@@ -1367,7 +1367,7 @@ if (typeof exports !== 'undefined') {
 /** @author Brian Cavalier */
 /** @author John Hann */
 (function (exports, global) {
-var rave, document, defaultMain, debugMain,
+var rave, document, defaultMain, debugMain, hooksName,
 	context, loader, define;
 
 rave = exports || {};
@@ -1376,6 +1376,7 @@ document = global.document;
 
 defaultMain = 'rave/auto';
 debugMain = 'rave/debug';
+hooksName = 'rave/src/hooks';
 
 // export testable functions
 rave.boot = boot;
@@ -1393,8 +1394,10 @@ rave.baseUrl = document
 
 context = (document ? mergeBrowserOptions : mergeNodeOptions)({
 	raveMain: defaultMain,
+	raveScript: rave.scriptUrl,
 	baseUrl: rave.baseUrl,
 	loader: new Loader({}),
+	// TODO: does this rave property really need to be here????
 	packages: { rave: rave.scriptUrl }
 });
 
@@ -1411,9 +1414,9 @@ function boot (context) {
 			if (context.raveMain === defaultMain) context.raveMain = debugMain;
 		}
 		// apply pipeline to loader
-		var pipeline = fromLoader(loader.get('rave/src/pipeline'));
+		var pipeline = fromLoader(loader.get(hooksName));
 		// extend loader
-		pipeline(context).applyTo(loader);
+		pipeline(context);
 		loader.import(context.raveMain).then(go, failLoudly);
 	}
 	catch (ex) {
@@ -1688,69 +1691,6 @@ function splitDirAndFile (url) {
 });
 
 
-;define('rave/lib/overrideIf', ['require', 'exports', 'module'], function (require, exports, module, define) {module.exports = overrideIf;
-
-function overrideIf (predicate, base, props) {
-	for (var p in props) {
-		if (p in base) {
-			base[p] = choice(predicate, props[p], base[p]);
-		}
-	}
-}
-
-function choice (predicate, a, b) {
-	return function () {
-		var f = predicate.apply(this, arguments) ? a : b;
-		return f.apply(this, arguments);
-	};
-}
-
-});
-
-
-;define('rave/lib/createFileExtFilter', ['require', 'exports', 'module'], function (require, exports, module, define) {module.exports = createFileExtFilter;
-
-/**
- * Creates a filter for a loader pipeline based on file extensions.
- * @param {string|Array<string>|Object} extensions may be a single string
- *   containing a comma-separated list of file extensions, an array of file
- *   extensions, or an Object literal whose keys are file extensions.
- * @returns {function(Object|string): boolean}
- */
-function createFileExtFilter (extensions) {
-	var map = toHashmap(extensions);
-	return function (load) {
-		var name = typeof load === 'object' ? load.name : load;
-		var dot = name ? name.lastIndexOf('.') : -1;
-		var slash = name ? name.lastIndexOf('/') : -1;
-		return dot > slash && map.hasOwnProperty(name.slice(dot + 1));
-	}
-}
-
-function toHashmap (it) {
-	var map = {}, i;
-	if (!it) {
-		throw new TypeError('Invalid type passed to createFileExtFilter.');
-	}
-	if (typeof it === 'string') {
-		it = it.split(/\s*,\s*/);
-	}
-	if (it.length) {
-		for (i = 0; i < it.length; i++) {
-			map[it[i]] = 1;
-		}
-	}
-	else {
-		for (i in it) {
-			map[i] = 1;
-		}
-	}
-	return map;
-}
-
-});
-
-
 ;define('rave/lib/beget', ['require', 'exports', 'module'], function (require, exports, module, define) {module.exports = beget;
 
 function Begetter () {}
@@ -1761,35 +1701,6 @@ function beget (base) {
 	Begetter.prototype = null;
 	return obj;
 }
-
-});
-
-
-;define('rave/lib/addSourceUrl', ['require', 'exports', 'module'], function (require, exports, module, define) {module.exports = addSourceUrl;
-
-function addSourceUrl (url, source) {
-	return source
-		+ '\n//# sourceURL='
-		+ url.replace(/\s/g, '%20')
-		+ '\n';
-}
-
-});
-
-
-;define('rave/lib/es5Transform', ['require', 'exports', 'module'], function (require, exports, module, define) {module.exports = {
-	fromLoader: function (value) {
-		return value && value.__es5Module ? value.__es5Module : value;
-	},
-	toLoader: function (module) {
-		return {
-			// for real ES6 modules to consume this module
-			'default': module,
-			// for modules transpiled from ES5
-			__es5Module: module
-		};
-	}
-};
 
 });
 
@@ -1816,6 +1727,168 @@ function fetchText (url, callback, errback) {
 		}
 	};
 	xhr.send(null);
+}
+
+});
+
+
+;define('rave/lib/es5Transform', ['require', 'exports', 'module'], function (require, exports, module, define) {module.exports = {
+	fromLoader: function (value) {
+		return value && value.__es5Module ? value.__es5Module : value;
+	},
+	toLoader: function (module) {
+		return {
+			// for real ES6 modules to consume this module
+			'default': module,
+			// for modules transpiled from ES5
+			__es5Module: module
+		};
+	}
+};
+
+});
+
+
+;define('rave/lib/addSourceUrl', ['require', 'exports', 'module'], function (require, exports, module, define) {module.exports = addSourceUrl;
+
+function addSourceUrl (url, source) {
+	return source
+		+ '\n//# sourceURL='
+		+ url.replace(/\s/g, '%20')
+		+ '\n';
+}
+
+});
+
+
+;define('rave/load/predicate', ['require', 'exports', 'module'], function (require, exports, module, define) {exports.composePredicates = composePredicates;
+exports.createPackageMatcher = createPackageMatcher;
+exports.createPatternMatcher = createPatternMatcher;
+exports.createExtensionsMatcher = createExtensionsMatcher;
+
+function composePredicates (matchPackage, matchPattern, matchExtensions, override) {
+	var predicate, predicates = [];
+
+	predicate = override.predicate || always;
+
+	if (override.package && override.package !== '*') {
+		predicates.push(matchPackage);
+	}
+
+	if (override.pattern) {
+		predicates.push(matchPattern);
+	}
+
+	if (override.extensions) {
+		predicates.push(matchExtensions);
+	}
+
+	return predicates.length > 0
+		? testAllPredicates
+		: predicate;
+
+	function testAllPredicates (load) {
+		for (var i = 0, len = predicates.length; i < len; i++) {
+			if (!predicates[i](load)) return false;
+		}
+		return predicate.apply(this, arguments);
+	}
+}
+
+function createPackageMatcher (samePackage, override) {
+	return function (load) {
+		return samePackage(load.name, override.package);
+	};
+}
+
+function createPatternMatcher (override) {
+	var patternRx = typeof override.pattern === 'string'
+		? new RegExp(override.pattern)
+		: override.pattern;
+	return function (load) {
+		return patternRx.test(load.name);
+	};
+}
+
+function createExtensionsMatcher (override) {
+	var extensions = override.extensions && override.extensions.map(function (ext) {
+		return ext.charAt(0) === '.' ? ext : '.' + ext;
+	});
+	return function (load) {
+		var name = load.name;
+		return extensions.some(function (ext) {
+			return name.slice(-ext.length) === ext;
+		});
+	};
+}
+
+function always () { return true; }
+
+});
+
+
+;define('rave/load/specificity', ['require', 'exports', 'module'], function (require, exports, module, define) {exports.compare = compareFilters;
+exports.pkgSpec = packageSpecificity;
+exports.patSpec = patternSpecificity;
+exports.extSpec = extensionSpecificity;
+exports.predSpec = predicateSpecificity;
+
+function packageSpecificity (filter) {
+	if (!filter.package || filter.package === '*') return 0;
+//	else if (filter.package.indexOf('*') >= 0) return 1;
+	else return 1;
+}
+
+function patternSpecificity (filter) {
+	return filter.pattern ? 1 : 0;
+}
+
+function extensionSpecificity (filter) {
+	return filter.extensions && filter.extensions.length
+		? 1 / filter.extensions.length
+		: 0;
+}
+
+function predicateSpecificity (filter) {
+	return filter.predicate ? 1 : 0;
+}
+
+function compareFilters (a, b) {
+	// packages have highest priority
+	var diff = packageSpecificity(a) - packageSpecificity(b);
+	// after packages, patterns are priority
+	if (diff === 0) diff = patternSpecificity(a) - patternSpecificity(b);
+	// next priority is extensions
+	if (diff === 0) diff = extensionSpecificity(a) - extensionSpecificity(b);
+	// last priority is custom predicates
+	if (diff === 0) diff = predicateSpecificity(a) - predicateSpecificity(b);
+	// sort higher specificity filters to beginning of array
+	return -diff;
+}
+
+
+});
+
+
+;define('rave/lib/uid', ['require', 'exports', 'module'], function (require, exports, module, define) {exports.create = createUid;
+exports.parse = parseUid;
+
+function createUid (descriptor, normalized) {
+	return /*descriptor.metaType + ':' +*/ descriptor.name
+		+ (descriptor.version ? '@' + descriptor.version : '')
+		+ (normalized ? '#' + normalized : '');
+}
+
+function parseUid (uid) {
+	var uparts = uid.split('#');
+	var name = uparts.pop();
+	var nparts = name.split('/');
+	return {
+		name: name,
+		pkgName: nparts.shift(),
+		modulePath: nparts.join('/'),
+		pkgUid: uparts[0]
+	}
 }
 
 });
@@ -1889,80 +1962,12 @@ function fetchAsText (load) {
 });
 
 
-;define('rave/lib/package', ['require', 'exports', 'module', 'rave/lib/path'], function (require, exports, module, $cram_r0, define) {var path = $cram_r0;
-
-/**
- * @module rave/lib/package
- * Functions for CommonJS-style module packages
- */
-module.exports = {
-
-	normalizeDescriptor: normalizeDescriptor,
-	normalizeCollection: normalizeCollection
-
-};
-
-function normalizeCollection (collection) {
-	var result = {}, i, descriptor;
-	if (collection && collection.length && collection[0]) {
-		// array
-		for (i = 0; i < collection.length; i++) {
-			descriptor = normalizeDescriptor(collection[i]);
-			result[descriptor.name] = descriptor;
-		}
-	}
-	else if (collection) {
-		// object hashmap
-		for (i in collection) {
-			descriptor = normalizeDescriptor(collection[i], i);
-			result[descriptor.name] = descriptor;
-		}
-	}
-	return result;
-}
-
-function normalizeDescriptor (thing, name) {
-	var descriptor;
-
-	descriptor = typeof thing === 'string'
-		? fromString(thing)
-		: fromObject(thing, name);
-
-	if (name) descriptor.name = name; // override with hashmap key
-	if (!descriptor.name) throw new Error('Package requires a name: ' + thing);
-	descriptor.main = path.removeExt(descriptor.main);
-	descriptor.location = path.ensureEndSlash(descriptor.location);
-	descriptor.deps = {};
-
-	return descriptor;
-}
-
-function fromString (str) {
-	var parts = str.split('/');
-	return {
-		main: parts.pop(),
-		location: parts.join('/'),
-		name: parts.pop()
-	};
-}
-
-function fromObject (obj, name) {
-	return {
-		main: obj.main || 'main', // or index?
-		location: obj.location || '',
-		name: obj.name || name
-	};
-}
-
-});
-
-
 ;define('rave/pipeline/instantiateJson', ['require', 'exports', 'module', 'rave/lib/es5Transform', 'rave/lib/addSourceUrl'], function (require, exports, module, $cram_r0, $cram_r1, define) {var es5Transform = $cram_r0;
 var addSourceUrl = $cram_r1;
 
-module.exports = instantiateNode;
+module.exports = instantiateJson;
 
-function instantiateNode (load) {
+function instantiateJson (load) {
 	var source;
 
 	source = '(' + load.source + ')';
@@ -1977,6 +1982,127 @@ function instantiateNode (load) {
 			return new Module(es5Transform.toLoader(eval(source)));
 		}
 	};
+}
+
+});
+
+
+;define('rave/load/override', ['require', 'exports', 'module', 'rave/load/predicate', 'rave/load/specificity', 'rave/lib/uid'], function (require, exports, module, $cram_r0, $cram_r1, $cram_r2, define) {var predicate = $cram_r0;
+var specificity = $cram_r1;
+var parse = $cram_r2.parse;
+
+exports.hooks = overrideHooks;
+exports.hook = overrideHook;
+exports.sortByPredicate = sortByPredicate;
+exports.toFastOverride = toFastOverride;
+exports.callHook = callHook;
+exports.callNormalize = callNormalize;
+exports.packageMatch = sameCommonJSPackages;
+
+var notCalled = {};
+
+function sortByPredicate (overrides) {
+	return overrides.sort(specificity.compare);
+}
+
+/**
+ * Creates a unified set of loader hooks given the overrides collected
+ * from rave load extensions.
+ * @param {Object} originalHooks is an object whose properties are the loader's
+ *   original hooks (or at least the ones that were present before rave first
+ *   overrode any hooks).
+ * @param {Array} overrides is the collection of overrides to apply.  These
+ *   must be concatenated with any previous overrides or the previous ones will
+ *   be lost if this method is applied multiple times.
+ * @returns {{normalize: Function, locate: Function, fetch: Function, translate: Function, instantiate: Function}}
+ */
+function overrideHooks (originalHooks, overrides) {
+	var sorted;
+
+	sorted = sortByPredicate(overrides)
+		.map(toFastOverride);
+
+	return {
+		normalize: overrideHook('normalize', originalHooks.normalize, sorted, callNormalize),
+		locate: overrideHook('locate', originalHooks.locate, sorted),
+		fetch: overrideHook('fetch', originalHooks.fetch, sorted),
+		translate: overrideHook('translate', originalHooks.translate, sorted),
+		instantiate: overrideHook('instantiate', originalHooks.instantiate, sorted)
+	};
+}
+
+/**
+ * Creates an overridden loader hook given an array of overrides and the
+ * name of the hook.
+ * @private
+ * @param {string} name is the name of the hook.
+ * @param {function():*} originalHook is the loader's original hook.
+ * @param {Array<Object>} overrides is the collection of rave extension
+ *   override definitions.
+ * @param {function} [eachOverride] is a function that creates a function that
+ *   will test a predicate and possibly call a hook override.  Called for each
+ *   override for the named hook.
+ * @returns {function():*}
+ */
+function overrideHook (name, originalHook, overrides, eachOverride) {
+	var hooks;
+
+	if (!eachOverride) eachOverride = callHook;
+	hooks = overrides.reduce(reduceByName, []);
+
+	return hooks.length ? callHooks : originalHook;
+
+	function callHooks () {
+		var result;
+		for (var i = 0, len = hooks.length; i < len; i++) {
+			result = hooks[i].apply(this, arguments);
+			if (result !== notCalled) return result;
+		}
+		return originalHook.apply(this, arguments);
+	}
+
+	function reduceByName (hooks, override) {
+		if (override.hooks[name]) {
+			hooks.push(eachOverride(override.predicate, override.hooks[name], notCalled));
+		}
+		return hooks;
+	}
+
+}
+
+function callHook (predicate, hook, defaultValue) {
+	return function (load) {
+		return predicate(load) ? hook(load) : defaultValue;
+	};
+}
+
+function callNormalize (predicate, normalize, defaultValue) {
+	return function (name, refName, refUrl) {
+		var normalized = normalize(name, refName, refUrl);
+		return predicate({ name: normalized }) ? normalized : defaultValue;
+	};
+}
+
+function toFastOverride (override) {
+	var samePackage, pred;
+
+	samePackage = override.samePackage || sameCommonJSPackages;
+
+	pred = predicate.composePredicates(
+		predicate.createPackageMatcher(samePackage, override),
+		predicate.createPatternMatcher(override),
+		predicate.createExtensionsMatcher(override),
+		override
+	);
+
+	return {
+		predicate: pred,
+		hooks: override.hooks
+	};
+}
+
+function sameCommonJSPackages (a, b) {
+	return parse(a).pkgName === parse(b).pkgName;
 }
 
 });
@@ -2098,65 +2224,74 @@ function instantiateNode (load) {
 });
 
 
-;define('rave/src/pipeline', ['require', 'exports', 'module', 'rave/pipeline/normalizeCjs', 'rave/pipeline/locateAsIs', 'rave/pipeline/fetchAsText', 'rave/pipeline/translateAsIs', 'rave/pipeline/instantiateNode', 'rave/pipeline/instantiateJson', 'rave/lib/overrideIf', 'rave/lib/createFileExtFilter', 'rave/lib/package', 'rave/lib/path', 'rave/lib/beget'], function (require, exports, module, $cram_r0, $cram_r1, $cram_r2, $cram_r3, $cram_r4, $cram_r5, $cram_r6, $cram_r7, $cram_r8, $cram_r9, $cram_r10, define) {var normalizeCjs = $cram_r0;
+;define('rave/src/hooks', ['require', 'exports', 'module', 'rave/pipeline/normalizeCjs', 'rave/pipeline/locateAsIs', 'rave/pipeline/fetchAsText', 'rave/pipeline/translateAsIs', 'rave/pipeline/instantiateNode', 'rave/pipeline/instantiateJson', 'rave/lib/path', 'rave/lib/beget', 'rave/load/override'], function (require, exports, module, $cram_r0, $cram_r1, $cram_r2, $cram_r3, $cram_r4, $cram_r5, $cram_r6, $cram_r7, $cram_r8, define) {var normalizeCjs = $cram_r0;
 var locateAsIs = $cram_r1;
 var fetchAsText = $cram_r2;
 var translateAsIs = $cram_r3;
 var instantiateNode = $cram_r4;
 var instantiateJson = $cram_r5;
-var overrideIf = $cram_r6;
-var createFileExtFilter = $cram_r7;
-var pkg = $cram_r8;
-var path = $cram_r9;
-var beget = $cram_r10;
+var path = $cram_r6;
+var beget = $cram_r7;
+var override = $cram_r8;
 
 module.exports = _ravePipeline;
 
 function _ravePipeline (context) {
-	var modulePipeline, jsonPipeline;
+	var nativeHooks, resetOverride, raveOverride, jsonOverride, overrides,
+		newHooks;
+
+	nativeHooks = getLoaderHooks(context.loader);
+	context.load = { nativeHooks: nativeHooks };
 
 	context = beget(context);
-	if (context.packages) {
-		context.packages = pkg.normalizeCollection(context.packages);
-	}
 
-	modulePipeline = {
-		normalize: normalizeCjs,
-		locate: locateRaveWithContext(context),
-		fetch: fetchAsText,
-		translate: translateAsIs,
-		instantiate: instantiateNode
-	};
-
-	jsonPipeline = {
-		normalize: normalizeCjs,
-		locate: withContext(context, locateAsIs),
-		fetch: fetchAsText,
-		translate: translateAsIs,
-		instantiate: instantiateJson
-	};
-
-	return {
-		applyTo: function (loader) {
-			overrideIf(createRavePredicate(context), loader, modulePipeline);
-			overrideIf(createFileExtFilter('json'), loader, jsonPipeline);
+	// we need this until Loader spec and shim stabilize
+	resetOverride = {
+		hooks: {
+			normalize: normalizeCjs,
+			fetch: fetchAsText,
+			translate: translateAsIs
 		}
+	};
+
+	// load things in rave package
+	raveOverride = {
+		package: 'rave',
+		hooks: {
+			locate: locateRaveWithContext(context),
+			instantiate: instantiateNode
+		}
+	};
+
+	// load json metadata files
+	jsonOverride = {
+		extensions: [ '.json' ],
+		hooks: {
+			locate: withContext(context, locateAsIs),
+			instantiate: instantiateJson
+		}
+	};
+
+	overrides = [resetOverride, raveOverride, jsonOverride];
+	newHooks = override.hooks(nativeHooks, overrides);
+
+	return setLoaderHooks(context.loader, newHooks);
+
+}
+
+function getLoaderHooks (loader) {
+	return {
+		normalize: loader.normalize,
+		locate: loader.locate,
+		fetch: loader.fetch,
+		translate: loader.translate,
+		instantiate: loader.instantiate
 	};
 }
 
-function createRavePredicate (context) {
-	return function (arg) {
-		var moduleId, packageId;
-		// Pipeline functions typically receive an object with a normalized name,
-		// but the normalize function takes an unnormalized name and a normalized
-		// referrer name.
-		moduleId = typeof arg === 'object' ? arg.name : arg;
-		// check if this is the rave-main module
-		if (moduleId === context.raveMain) return true;
-		if (moduleId.charAt(0) === '.') moduleId = arguments[1];
-		packageId = moduleId.split('/')[0];
-		return packageId === 'rave';
-	};
+function setLoaderHooks (loader, hooks) {
+	for (var p in hooks) loader[p] = hooks[p];
+	return loader;
 }
 
 function withContext (context, func) {
@@ -2167,7 +2302,10 @@ function withContext (context, func) {
 }
 
 function locateRaveWithContext (context) {
-	var base = context.packages.rave.location.replace(/rave\/?$/, '');
+	var parts = context.raveScript.split('/');
+	parts.pop(); // script file
+	parts.pop(); // script directory
+	var base = parts.join('/');
 	return function (load) {
 		load.metadata.rave = context;
 		return path.joinPaths(base, path.ensureExt(load.name, '.js'));
