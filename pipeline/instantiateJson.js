@@ -4,9 +4,9 @@
 var es5Transform = require('../lib/es5Transform');
 var addSourceUrl = require('../lib/addSourceUrl');
 
-module.exports = instantiateNode;
+module.exports = instantiateJson;
 
-function instantiateNode (load) {
+function instantiateJson (load) {
 	var source;
 
 	source = '(' + load.source + ')';
