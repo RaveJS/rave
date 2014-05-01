@@ -144,6 +144,11 @@ function initExtension (context, packageName, moduleName) {
 		.then(function (api) {
 			return createExtensionApi(context, api);
 		})
+		['catch'](function (ex) {
+			ex.message = 'Failed to initialize rave extension, "'
+				+ packageName + '": ' + ex.message;
+			throw ex;
+		})
 		.then(function (api) {
 			return { name: packageName, api: api };
 		});
@@ -156,11 +161,12 @@ function fetchExtension (extModuleName) {
 function extractExtensionCtor (extModule) {
 	var create;
 	if (extModule) {
-		create = typeof extModule === 'function' &&  extModule
-			|| typeof extModule.create === 'function' && extModule.create;
+		create = typeof extModule === 'function'
+			? extModule
+			: extModule.create;
 	}
 	if (!create) {
-		throw new Error('Rave extension has incompatible API.');
+		throw new Error('API not found.');
 	}
 	return create;
 }
@@ -212,6 +218,9 @@ function initApplication (context) {
 	if (mainModule) {
 		return runMain(context, mainModule)
 			.then(function () { return context; });
+	}
+	else {
+		return context;
 	}
 }
 
