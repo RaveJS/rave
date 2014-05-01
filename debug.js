@@ -17,32 +17,54 @@ If the 404s are spoiling your debug party, the README.md shows how to evict them
 
 var replCommands = "Available commands:\n\
 -> rave.dump() - dumps rave's context to the console.\n\
+-> rave.version - shows rave's version.\n\
 -> rave.help() - shows these commands.\n\
 -> what else should we provide????";
 
-var replEnabledMessage = "RaveJS REPL enabled! "
+var replEnabledMessage = "Rave {raveVersion} REPL enabled! \n"
 	+ replCommands;
 
 function startDebug (context) {
-	var replEnabled;
+	var rave, replEnabled;
 
 	console.log(debuggingMessage);
 
-	global.rave = function (quiet) {
+	rave = global.rave = function (quiet) {
+		var message, version;
+
+		version = findVersion(context);
+		message = renderMessage({ raveVersion: version }, replEnabledMessage);
+
 		if (replEnabled) {
-			console.log('RaveJS REPL enabled!');
+			console.log(message);
 			return;
 		}
+
 		replEnabled = true;
+
 		// TODO: load a debug REPL module?
-		global.rave.dump = function () {
+		rave.dump = function () {
 			console.log(context);
 		};
-		global.rave.help = function () {
+		rave.version = version;
+		rave.help = function () {
 			console.log(replCommands);
 		};
-		if (!quiet) console.log(replEnabledMessage);
+
+		if (!quiet) {
+			console.log(message);
+		}
 	};
 
 	auto.main(context);
+}
+
+function findVersion (context) {
+	return context.packages.rave.metadata.version;
+}
+
+function renderMessage (values, template) {
+	return template.replace(/\{([^\}]+)\}/g, function (m, key) {
+		return values[key];
+	});
 }
