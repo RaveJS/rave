@@ -172,7 +172,17 @@ function createExtensionApi (context, extension) {
 function applyPipelines (context, extensions) {
 	return pmap(extensions, function (extension) {
 		var api = extension.api;
-		if (api && api.pipeline) {
+		if (!api) return;
+		if (api.load) {
+			// TODO: consolidate this with configureLoader()
+			context.load.overrides = context.load.overrides.concat(api.load);
+			var hooks = override.hooks(context.load.nativeHooks, context.load.overrides);
+			for (var name in hooks) {
+				context.loader[name] = hooks[name];
+			}
+		}
+		// TODO: remove api.pipeline support ASAP
+		else if (api.pipeline) {
 			return api.pipeline(context.loader);
 		}
 	}).then(function () {
