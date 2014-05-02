@@ -149,7 +149,7 @@ function hasRaveResolution (context) {
 			return true;
 		}
 	}
-	return true;
+	return false;
 }
 
 function runSemverOnExtensions (context) {
