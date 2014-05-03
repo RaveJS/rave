@@ -106,7 +106,7 @@ function gatherExtensions (context) {
 					: pkg.metadata.rave.extension;
 
 				if (moduleName) {
-					promises.push(initExtension(context, pkg.name, pkg.metadata.rave));
+					promises.push(initExtension(context, pkg.name, moduleName));
 				}
 
 			}
