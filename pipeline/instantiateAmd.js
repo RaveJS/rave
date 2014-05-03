@@ -24,7 +24,8 @@ function instantiateAmd (load) {
 	defineArgs = captureOrThrow(load);
 	arity = defineArgs.factory.length;
 
-	deps = defineArgs.depsList || [];
+	// copy deps so we can remove items below!
+	deps = defineArgs.depsList ? defineArgs.depsList.slice() : [];
 
 	if (defineArgs.depsList == null && arity > 0) {
 		// is using load.source faster than defineArgs.factory.toString()?
