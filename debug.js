@@ -17,7 +17,7 @@ If the 404s are spoiling your debug party, the README.md shows how to evict them
 -> Type rave() to turn on REPL commands. (experimental)";
 
 var replCommands = "Available commands:\n\
--> rave.dump() - dumps rave's context to the console.\n\
+-> rave.dump() - returns rave's context to be viewed or manipulated.\n\
 -> rave.version - shows rave's version.\n\
 -> rave.checkVersions() - checks if extensions are compatible.\n\
 -> rave.help() - shows these commands.\n\
@@ -77,7 +77,7 @@ function startDebug (context) {
 
 		// TODO: load a debug REPL module?
 		rave.dump = function () {
-			console.log(context);
+			return context;
 		};
 		rave.version = version;
 		rave.checkVersions = function () {
