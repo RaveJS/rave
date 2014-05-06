@@ -9,7 +9,7 @@ module.exports = {
 };
 
 var debugging = "\
-┏( ＾◡＾)┛ ┗(＾◡＾ )┓ Welcome to the RaveJS debug party! ┏( ＾◡＾)┛ ┗(＾◡＾ )┓\n\
+┏( ˆ◡ˆ)┛ ┗(ˆ◡ˆ )┓ Welcome to the RaveJS debug party! ┏( ˆ◡ˆ)┛ ┗(ˆ◡ˆ )┓\n\
 \n\
 If you see some 404s for JSON files, that's ok! \
 They'll go away when you build your app.\n\
