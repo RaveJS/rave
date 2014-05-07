@@ -1,5 +1,6 @@
 # RaveJS
 
+┏( ˆ◡ˆ)┛ ┗(ˆ◡ˆ )┓ RaveJS rocks! ┏( ˆ◡ˆ)┛ ┗(ˆ◡ˆ )┓
 
 ## What is RaveJS?
 
