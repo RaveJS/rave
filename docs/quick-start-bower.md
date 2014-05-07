@@ -13,7 +13,7 @@ Initialize the app to use Bower:
 bower init
 ```
 
-Be sure to provide a `name` and a `main`.  "main.js" is a good name to
+Be sure to provide a `name` and a `entry point`.  "main.js" is a good name to
 use.  Just hit enter to accept the default values for the other questions if
 you are not sure how to answer.
 

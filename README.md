@@ -3,16 +3,16 @@
 
 ## What is RaveJS?
 
-RaveJS eliminates configuration, machinery, and complexity.  Stop 
-configuring and tweaking complex machinery such as file watchers, 
-minifiers, and transpilers just to get to a runnable app.  Instead, go 
-from zero to "hello world" in 30 seconds.  In the next 30 seconds, easily 
+RaveJS eliminates configuration, machinery, and complexity.  Stop
+configuring and tweaking complicated machinery such as file watchers,
+minifiers, and transpilers just to get to a runnable app.  Instead, go
+from zero to "hello world" in 30 seconds.  In the next 30 seconds, easily
 add capabilities and frameworks to your application simply by installing
-*Rave Extension* and *Rave Starter* packages from 
-[npm](//www.npmjs.org/search?q=rave-extension) and 
-[Bower](//bower.io/search/?q=rave-extension). Finally, install additional 
-*Rave Extension* packages to apply your favorite build, deploy, and testing 
-patterns.  
+*Rave Extension* and *Rave Starter* packages from
+[npm](//www.npmjs.org/search?q=rave-extension) and
+[Bower](//bower.io/search/?q=rave-extension). Finally, install additional
+*Rave Extension* packages to apply your favorite build, deploy, and testing
+patterns.
 
 ## Why should I use RaveJS?
 
@@ -40,13 +40,13 @@ incantations.
 
 RaveJS uses the metadata *you're already generating* when you use JavaScript
 package managers such as [npm](//npmjs.org) and [Bower](//bower.io).
-This moves the configuration task to package authors and integrators.
+RaveJS moves the configuration task to package authors and integrators.
 Package authors already create metadata when they wish to publish their
 packages to npm and Bower.  RaveJS uses the metadata in package.json and
 bower.json to auto-configure an ES6 Loader (or Loader shim) so there's no
 messy AMD config or browserify build process.
 
-RaveJS Extensions allow third-parties to provide new capabilities
+RaveJS Extensions allow third parties to provide new capabilities
 to RaveJS or to your application.  Install the extensions you desire easily
 through npm (`npm install --save <name-of-rave-extension>`) or Bower
 (`bower install --save <name-of-rave-extension>`).
@@ -77,6 +77,7 @@ or (soon) ES6 format.  RaveJS makes it all work seamlessly.
 Check out the [Quick Start using Bower](./docs/quick-start-bower.md)
 and the [Quick Start using npm](./docs/quick-start-npm.md).
 
+Check the [docs/ folder](./docs/) for more information.
 
 ## Why do I see 404s?
 
