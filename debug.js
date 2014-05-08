@@ -100,7 +100,13 @@ function startDebug (context) {
 }
 
 function findVersion (context) {
-	return context.packages.rave.metadata.version;
+	try {
+		return context.packages.rave.metadata.version;
+	}
+	catch (ex) {
+		console.error('Rave metadata not found! Did you forget to install rave with the --save option?');
+		return "(unknown version)";
+	}
 }
 
 function render (values, template) {
