@@ -3,6 +3,8 @@
 /** @author John Hann */
 var auto = require('./auto');
 var uid = require('./lib/uid');
+var override = require('./load/override');
+var metadata = require('./lib/metadata');
 
 module.exports = {
 	main: startDebug
@@ -57,6 +59,13 @@ If this extension is old, please ask the author to update it. {bugsLink}";
 
 var currRaveVersion = "Rave version is {raveVersion}.";
 
+var unknownPackage = "Unknown package when importing {0} from {1}\n\
+Did you forget to specify `--save` when installing?";
+
+var wrongModuleType = "Possible moduleType mismatch? Module {name} appears \
+to be of type {sourceType}? \nPlease ask the package author to add or update \
+moduleType.";
+
 function startDebug (context) {
 	var rave, enabled;
 
@@ -88,6 +97,77 @@ function startDebug (context) {
 		};
 
 		console.log(message);
+	};
+
+	var applyHooks = auto.applyLoaderHooks;
+	auto.applyLoaderHooks = function (context, extensions) {
+		return applyHooks.call(this, context, extensions).then(function (result) {
+			var normalize = context.loader.normalize;
+			// log an error if rave encounters an unknown package
+			context.loader.normalize = function (name, refName, refUrl) {
+				try {
+					var normalized = normalize(name, refName, refUrl);
+				}
+				catch (ex) {
+					console.error(render(arguments, unknownPackage));
+					throw ex;
+				}
+				return normalized;
+			};
+			// log an error if it looks like an incorrect module type was applied
+			// TODO: override instantiate to catch throws of ReferenceError
+			// errors can happen when instantiate hook runs (AMD) or when returned factory runs (node)
+			// if /\bdefine\b in message, module is AMD, but was not declared as AMD
+			// if /\brequire\b in message, module is node, but was not declared as node
+			// if /\bexports\b in message, module is node, but was not declared as node
+			// if /\bmodule\b in message, module is node, but was not declared as node
+			var instantiate = context.loader.instantiate;
+			context.loader.instantiate = function (load) {
+				try {
+					return Promise.cast(instantiate(load)).then(createCheckedFactory, checkError);
+				}
+				catch (ex) {
+					checkError(ex);
+					throw ex;
+				}
+				function createCheckedFactory (result) {
+					var execute = result.execute;
+					if (execute) {
+						result.execute = function () {
+							try {
+								return execute.apply(this, arguments);
+							}
+							catch (ex) {
+								checkError(ex);
+								throw ex;
+							}
+						}
+					}
+					return result;
+				}
+				function checkError (ex) {
+					var info = {
+						name: load.name,
+						declaredType: metadata.findPackage(context.packages, load.name).moduleType
+					};
+					if (ex instanceof ReferenceError) {
+						if (!/\bdefine\b/.test(ex.message)) {
+							if (/\brequire\b|\exports\b|\bmodule\b/.test(ex.message)) {
+								info.sourceType = 'node';
+							}
+						}
+						else {
+							info.sourceType = 'AMD';
+						}
+						if (info.sourceType) {
+							console.error(render(info, wrongModuleType));
+						}
+					}
+					return ex;
+				}
+			};
+			return result;
+		});
 	};
 
 	auto.main(context).then(

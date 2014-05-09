@@ -9,19 +9,22 @@ var pkg = require('./lib/package');
 var override = require('./load/override');
 
 module.exports = {
-	main: autoConfigure
+	main: autoConfigure,
+	applyLoaderHooks: applyLoaderHooks
 };
 
 var defaultMeta = 'bower.json,package.json';
 
 function autoConfigure (context) {
-	var urls;
+	var urls, applyLoaderHooks;
 
 	if (!context.raveMeta) context.raveMeta = defaultMeta;
 
 	urls = context.raveMeta.split(/\s*,\s*/);
 
 	context.packages = {};
+
+	applyLoaderHooks = this.applyLoaderHooks;
 
 	// TODO: consider returning this promise to rave.js to handle rejections
 	return pmap(urls, function (url) {
@@ -36,7 +39,7 @@ function autoConfigure (context) {
 			.then(gatherExtensions)
 			.then(function (extensions) {
 				// TODO: remove || [] when Promise shim is fixed
-				return applyPipelines(context, extensions || []);
+				return applyLoaderHooks(context, extensions || []);
 			})
 			.then(function (extensions) {
 				// TODO: remove || [] when Promise shim is fixed
@@ -175,21 +178,17 @@ function createExtensionApi (context, extension) {
 	return extension(context);
 }
 
-function applyPipelines (context, extensions) {
+function applyLoaderHooks (context, extensions) {
 	return pmap(extensions, function (extension) {
 		var api = extension.api;
 		if (!api) return;
 		if (api.load) {
-			// TODO: consolidate this with configureLoader()
 			context.load.overrides = context.load.overrides.concat(api.load);
-			var hooks = override.hooks(context.load.nativeHooks, context.load.overrides);
-			for (var name in hooks) {
-				context.loader[name] = hooks[name];
-			}
 		}
-		// TODO: remove api.pipeline support ASAP
-		else if (api.pipeline) {
-			return api.pipeline(context.loader);
+	}).then(function () {
+		var hooks = override.hooks(context.load.nativeHooks, context.load.overrides);
+		for (var name in hooks) {
+			context.loader[name] = hooks[name];
 		}
 	}).then(function () {
 		return extensions;
