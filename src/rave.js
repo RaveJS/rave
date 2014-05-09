@@ -23,7 +23,7 @@ rave.simpleDefine = simpleDefine;
 rave.scriptUrl = getCurrentScript();
 rave.scriptPath = getPathFromUrl(rave.scriptUrl);
 rave.baseUrl = document
-	? getPathFromUrl(document.location.pathname)
+	? getPathFromUrl(document.location.origin + document.location.pathname)
 	: __dirname;
 
 context = (document ? mergeBrowserOptions : mergeNodeOptions)({
