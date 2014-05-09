@@ -124,7 +124,7 @@ function startDebug (context) {
 			var instantiate = context.loader.instantiate;
 			context.loader.instantiate = function (load) {
 				try {
-					return Promise.cast(instantiate(load)).then(createCheckedFactory, checkError);
+					return Promise.resolve(instantiate(load)).then(createCheckedFactory, checkError);
 				}
 				catch (ex) {
 					checkError(ex);
