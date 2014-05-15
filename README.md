@@ -14,8 +14,8 @@ transpilers just to get to a runnable app.  Instead, go from zero to "hello
 world" in 30 seconds without touching a configuration file.  In the next 30
 seconds, easily add capabilities and frameworks to your application simply
 by installing *Rave Extension* packages from
-[npm](//www.npmjs.org/search?q=rave-extension) or
-[Bower](//bower.io/search/?q=rave-extension). Finally, install additional
+[npm](http://www.npmjs.org/search?q=rave-extension) or
+[Bower](http://bower.io/search/?q=rave-extension). Finally, install additional
 *Rave Extension* packages to apply your favorite build, deploy, and testing
 patterns.
 
@@ -55,17 +55,17 @@ Then check the [docs/ folder](./docs/) for more information.
 ### From a Rave Starter
 
 For a minimally-opinionated Starter,
-[begin here](https://github.com/RaveJS/rave-start).
+[begin here](http://github.com/RaveJS/rave-start).
 
 For an AngularJS-centric starter,
-[begin here](https://github.com/RaveJS/rave-start-angular).
+[begin here](http://github.com/RaveJS/rave-start-angular).
 
 Don't see a Starter for your favorite stack?  Create one!
 
 ## How does it work?
 
 Rave uses the metadata *you're already aggregating* when you use JavaScript
-package managers such as [npm](//npmjs.org) and [Bower](//bower.io).
+package managers such as [npm](http://npmjs.org) and [Bower](http://bower.io).
 This moves the configuration task to package authors and integrators.
 
 Package authors already create metadata when they publish their
@@ -89,7 +89,7 @@ Rave Extensions do many things:
   metadata or glue code
 
 Rave extensions are easy to create and easy to find on npm and
-Bower by searching for "[rave-extension](https://www.npmjs.org/search?q=rave-extension)".
+Bower by searching for "[rave-extension](http://www.npmjs.org/search?q=rave-extension)".
 
 
 ## Does it scale?
@@ -98,12 +98,6 @@ Yes. Rave easily scales to applications containing hundreds of modules
 from dozens of third-party packages.  It doesn't matter if those packages
 are available on npm or Bower -- or whether they're authored in AMD, CommonJS,
 or (soon) ES6 format.  Rave makes it all work seamlessly.
-
-
-## Why do I see 404s?
-
-404s are ok during development.  These won't occur in production. You can
-[eliminate 404s](./docs/404s.md) during development easily, too, if desired.
 
 
 ## About

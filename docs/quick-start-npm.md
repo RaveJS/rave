@@ -58,3 +58,11 @@ in a browser.
 Now, go find some useful
 [Rave Extensions](http://www.npmjs.org/search?q=rave-extension) to install.
 Don't forget to use `--save` when you `npm install --save <extension>`!
+
+### Why do I see 404s?
+
+Relax! These 404s are a natural part of Rave's auto-configuration process.
+They're harmless during development and won't occur in production.
+You can [eliminate the 404s](./docs/404s.md) by fine-tuning Rave's
+discovery process.
+
