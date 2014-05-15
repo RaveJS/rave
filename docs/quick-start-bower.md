@@ -64,6 +64,4 @@ Don't forget to use `--save` when you `bower install --save <extension>`!
 
 Relax! These 404s are a natural part of Rave's auto-configuration process.
 They're harmless during development and won't occur in production.
-You can [eliminate the 404s](./docs/404s.md) by fine-tuning Rave's
-discovery process.
-
+[Eliminating the 404s](./docs/404s.md) is easy, too.
