@@ -42,16 +42,20 @@ module format.  Here's a simple main module to get you started:
 
 ```js
 define(function (require, exports) {
-exports.main = function (context) {
-	write('<h1>Welcome to RaveJS!</h1>');
-	write('<h2>Congrats on your first RaveJS app: "' + context.app.name + '"!</h2>');
-};
-function write (msg) {
-	document.body.appendChild(document.createElement('div')).innerHTML = msg;
-}
+	exports.main = function (context) {
+		write('<h1>Welcome to RaveJS!</h1>');
+		write('<h2>Congrats on your first RaveJS app: "' + context.app.name + '"!</h2>');
+	};
+	function write (msg) {
+		document.body.appendChild(document.createElement('div')).innerHTML = msg;
+	}
 });
 ```
 
 That's it! No file watchers, no build steps, and no transpiling.
 Just launch your favorite web server and open the index.html page
 in a browser.
+
+Now, go find some useful
+[Rave Extensions](http://bower.io/search/?q=rave-extension) to install.
+Don't forget to use `--save` when you `bower install --save <extension>`!
