@@ -3,7 +3,7 @@
 /** @author John Hann */
 var auto = require('./auto');
 var uid = require('./lib/uid');
-var override = require('./load/override');
+//var override = require('./load/override');
 var metadata = require('./lib/metadata');
 
 module.exports = {
@@ -171,7 +171,9 @@ function startDebug (context) {
 	};
 
 	auto.main(context).then(
-		detectExtensionConflict,
+		function (context) {
+			return detectExtensionConflict(context);
+		},
 		function (ex) {
 			detectExtensionConflict(context);
 			throw ex;
@@ -210,6 +212,7 @@ function detectExtensionConflict (context) {
 		console.warn(raveResolution);
 		console.log(updateDepsInstructions);
 	}
+	return context;
 }
 
 function hasMultipleRaves (context) {
