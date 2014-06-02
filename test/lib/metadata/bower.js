@@ -7,7 +7,7 @@ var bower = require('../../../lib/metadata/bower');
 buster.testCase('lib/metadata/bower', {
 
 	createDescriptor: {
-		'should append main dirname to location': function() {
+		'should not append main dirname to location': function() {
 			var bowerTest = Object.create(bower, {
 				pkgRoot: { value: 'existing/part' }
 			});
@@ -16,7 +16,7 @@ buster.testCase('lib/metadata/bower', {
 				main: 'deep/path/to/main.js'
 			});
 
-			assert.equals(dsc.location, 'existing/part/deep/path/to');
+			assert.equals(dsc.location, 'existing/part');
 		},
 
 		'should set main to main basename': function() {
@@ -24,7 +24,7 @@ buster.testCase('lib/metadata/bower', {
 				main: 'deep/path/to/main.js'
 			});
 
-			assert.equals(dsc.main, 'main.js');
+			assert.equals(dsc.main, 'deep/path/to/main.js');
 		},
 
 		'should remove main extension if moduleType !== globals': function() {
@@ -33,7 +33,7 @@ buster.testCase('lib/metadata/bower', {
 				moduleType: ['amd']
 			});
 
-			assert.equals(dsc.main, 'main');
+			assert.equals(dsc.main, 'deep/path/to/main');
 		},
 
 		'should use moduleType if specified': function() {

@@ -7,7 +7,7 @@ var npm = require('../../../lib/metadata/npm');
 buster.testCase('lib/metadata/npm', {
 
 	createDescriptor: {
-		'should append main dirname to location': function() {
+		'should not append main dirname to location': function() {
 			var npmTest = Object.create(npm, {
 				pkgRoot: { value: 'existing/part' }
 			});
@@ -16,15 +16,15 @@ buster.testCase('lib/metadata/npm', {
 				main: 'deep/path/to/main.js'
 			});
 
-			assert.equals(dsc.location, 'existing/part/deep/path/to');
+			assert.equals(dsc.location, 'existing/part');
 		},
 
-		'should set main to main basename and remove file extension': function() {
+		'should remove file extension': function() {
 			var dsc = npm.createDescriptor({
 				main: 'deep/path/to/main.js'
 			});
 
-			assert.equals(dsc.main, 'main');
+			assert.equals(dsc.main, 'deep/path/to/main');
 		},
 
 		'should use moduleType if specified': function() {
