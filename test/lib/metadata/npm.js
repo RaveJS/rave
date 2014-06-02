@@ -39,7 +39,17 @@ buster.testCase('lib/metadata/npm', {
 			var dsc = npm.createDescriptor({});
 
 			assert.equals(dsc.moduleType, ['node']);
+		},
+
+		'should prefer using browser field as the main if available': function () {
+			var dsc = npm.createDescriptor({
+				main: 'main.js',
+				browser: 'browser-main.js'
+			});
+
+			assert.equals(dsc.main, 'browser-main');
 		}
+
 	}
 
 });
