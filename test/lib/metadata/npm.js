@@ -39,6 +39,30 @@ buster.testCase('lib/metadata/npm', {
 			var dsc = npm.createDescriptor({});
 
 			assert.equals(dsc.moduleType, ['node']);
+		},
+
+		'should use browser field as main if it is a string': function () {
+			var dsc = npm.createDescriptor({
+				main: 'deep/path/to/main.js',
+				browser: 'deep/path/to/browser.js'
+			});
+
+			assert.equals(dsc.main, 'deep/path/to/browser');
+		},
+
+		'should use browser field as map if it is an object': function () {
+			var browser = {
+				'a': 'b',
+				'./relative/module': './relative/browser/module',
+				'fs': false
+			};
+			var dsc = npm.createDescriptor({
+				main: 'deep/path/to/main.js',
+				browser: browser
+			});
+
+			assert.equals(dsc.main, 'deep/path/to/main');
+			assert.equals(dsc.map, browser);
 		}
 	}
 
