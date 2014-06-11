@@ -14,7 +14,7 @@ buster.testCase('createNormalizer', {
 		var func = createNormalizer(arg1, arg2, arg3);
 		func('a', 'b', 'c');
 		assert.alwaysCalledWithExactly(arg3, 'a', 'b', 'c');
-		assert.alwaysCalledWithExactly(arg2, 'd', 'b', 'c');
+		assert.alwaysCalledWithExactly(arg2, 'd', 'b');
 		assert.alwaysCalledWithExactly(arg1, 'm', 'b', 'c');
 	}
 

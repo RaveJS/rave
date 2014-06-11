@@ -57,12 +57,18 @@ buster.testCase('lib/metadata/npm', {
 				'fs': false
 			};
 			var dsc = npm.createDescriptor({
+				name: 'foo',
+				version: '2.0.0',
 				main: 'deep/path/to/main.js',
 				browser: browser
 			});
 
 			assert.equals(dsc.main, 'deep/path/to/main');
-			assert.equals(dsc.map, browser);
+			assert.equals(dsc.map, {
+				'a': 'b',
+				'fs': false,
+				'foo@2.0.0#foo/relative/module': 'foo@2.0.0#foo/relative/browser/module'
+			});
 		}
 	}
 

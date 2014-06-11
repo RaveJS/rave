@@ -25,24 +25,15 @@ buster.testCase('createMapper', {
 	},
 
 	'should replace the module id if it is in the map': function () {
-		var normalize = this.spy(fakeNormalize);
-		var packages = {'a': {map: {'./some/path': './foo.js'}}};
-		var map = createMapper({packages: packages}, normalize);
-		assert.equals(map(normalize('./some/path.js', 'a'), 'a'), 'a#./FOO');
+		var packages = {'a': {map: {'foo#foo/some/path': 'foo#foo/browser'}}};
+		var map = createMapper({packages: packages});
+		assert.equals(map('foo#foo/some/path', 'a'), 'foo#foo/browser');
 	},
 
 	'should replace the module id with rave/lib/blank if it is mapped to false': function () {
-		var normalize = this.spy(fakeNormalize);
-		var packages = {'a': {map: {'./some/path': false}}};
-		var map = createMapper({packages: packages}, normalize);
-		assert.equals(map(normalize('./some/path.js', 'a'), 'a'), 'rave/lib/blank');
+		var packages = {'a': {map: {'bar': false}}};
+		var map = createMapper({packages: packages});
+		assert.equals(map('bar', 'a'), 'rave/lib/blank');
 	}
 
 });
-
-// we want to make sure the normalize function is used in the right places
-// so create a fake normalizer that incorporates the args into the return value
-// as well as does some processing to the module id
-function fakeNormalize(id, refUid) {
-	return refUid + '#' + id.toUpperCase().replace(".JS", "");
-}
