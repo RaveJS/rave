@@ -67,7 +67,7 @@ buster.testCase('lib/metadata/npm', {
 			assert.equals(dsc.map, {
 				'a': 'b',
 				'fs': false,
-				'foo@2.0.0#foo/relative/module': 'foo@2.0.0#foo/relative/browser/module'
+				'foo/relative/module': 'foo/relative/browser/module'
 			});
 		}
 	}
