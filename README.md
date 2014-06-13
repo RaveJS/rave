@@ -102,4 +102,5 @@ or (soon) ES6 format.  Rave makes it all work seamlessly.
 
 ## About
 
-RaveJS is brought to you by [cujoJS](http://cujojs.com).
+RaveJS is one of the many stand-alone components of
+[cujoJS](http://cujojs.com), the JavaScript Architectural Toolkit.
