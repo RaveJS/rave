@@ -17,3 +17,11 @@ about debugging.
 
 You may turn on debugging for only rave by including a `data-rave-debug`
 attribute instead of `data-debug`.
+
+# Insight into rave at run time
+
+When rave debugging has been enabled via `data-debug` or `data-rave-debug`,
+rave creates a global `rave` function that can be executed to turn on
+rave REPL-like commands in your browser's debugging console.
+
+Enable debugging and open your browser's console for more information.
