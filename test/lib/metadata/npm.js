@@ -50,12 +50,17 @@ buster.testCase('lib/metadata/npm', {
 			assert.equals(dsc.main, 'deep/path/to/browser');
 		},
 
-		'should use browser field as map if it is an object': function () {
+		'should use a normalized browser field as map if it is an object': function () {
+			this.stub(npm, 'normalizeMap', function (moduleName) {
+				return moduleName;
+			});
+
 			var browser = {
 				'a': 'b',
 				'./relative/module': './relative/browser/module',
 				'fs': false
 			};
+
 			var dsc = npm.createDescriptor({
 				name: 'foo',
 				version: '2.0.0',
@@ -64,10 +69,21 @@ buster.testCase('lib/metadata/npm', {
 			});
 
 			assert.equals(dsc.main, 'deep/path/to/main');
-			assert.equals(dsc.map, {
+			assert.equals(dsc.map, browser);
+			assert.calledOnceWith(npm.normalizeMap, browser, 'foo/index');
+		}
+	},
+
+	normalizeMap: {
+		'should normalize each key/value in an object': function () {
+			assert.equals(npm.normalizeMap({
 				'a': 'b',
-				'fs': false,
-				'foo/relative/module': 'foo/relative/browser/module'
+				'./relative/module': './relative/browser/module',
+				'fs': false
+			}, 'foo/index'), {
+				'a': 'b',
+				'foo/relative/module': 'foo/relative/browser/module',
+				'fs': false
 			});
 		}
 	}
