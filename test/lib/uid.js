@@ -45,6 +45,15 @@ buster.testCase('lib/uid', {
 			assert.equals(parsed.modulePath, 'c/d');
 			assert.equals(parsed.pkgUid, 'a');
 		}
+	},
+
+	getName: {
+		'should handle module uids': function () {
+			assert.equals(uid.getName('a#b/c/d'), 'b/c/d');
+		},
+		'should handle module names': function () {
+			assert.equals(uid.getName('b/c/d'), 'b/c/d');
+		}
 	}
 
 });
