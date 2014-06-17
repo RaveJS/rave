@@ -45,13 +45,6 @@ or complex build scripts.
 
 ## How do I start?
 
-### From scratch
-
-Check out the [Quick Start using Bower](./docs/quick-start-bower.md)
-and the [Quick Start using npm](./docs/quick-start-npm.md).
-
-Then check the [docs/ folder](./docs/) for more information.
-
 ### From a Rave Starter
 
 For a minimally-opinionated Starter,
@@ -61,6 +54,13 @@ For an AngularJS-centric starter,
 [begin here](http://github.com/RaveJS/rave-start-angular).
 
 Don't see a Starter for your favorite stack?  Create one!
+
+### From scratch
+
+Check out the [Quick Start using Bower](./docs/quick-start-bower.md)
+and the [Quick Start using npm](./docs/quick-start-npm.md).
+
+Then check the [docs/ folder](./docs/) for more information.
 
 ## How does it work?
 
