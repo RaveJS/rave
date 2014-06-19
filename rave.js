@@ -1911,12 +1911,14 @@ function compareFilters (a, b) {
 
 ;define('rave/lib/uid', ['require', 'exports', 'module'], function (require, exports, module, define) {exports.create = createUid;
 exports.parse = parseUid;
+exports.getName = getName;
 
 function createUid (descriptor, normalized) {
 	return /*descriptor.metaType + ':' +*/ descriptor.name
 		+ (descriptor.version ? '@' + descriptor.version : '')
 		+ (normalized ? '#' + normalized : '');
 }
+
 
 function parseUid (uid) {
 	var uparts = uid.split('#');
@@ -1927,7 +1929,25 @@ function parseUid (uid) {
 		pkgName: nparts.shift(),
 		modulePath: nparts.join('/'),
 		pkgUid: uparts[0]
-	}
+	};
+}
+
+
+function getName (uid) {
+	return uid.split("#").pop();
+}
+
+});
+
+
+;define('rave/pipeline/normalizeCjs', ['require', 'exports', 'module', 'rave/lib/path'], function (require, exports, module, $cram_r0, define) {var path = $cram_r0;
+
+module.exports = normalizeCjs;
+
+var reduceLeadingDots = path.reduceLeadingDots;
+
+function normalizeCjs (name, refererName, refererUrl) {
+	return reduceLeadingDots(String(name), refererName || '');
 }
 
 });
@@ -1942,19 +1962,6 @@ function fetchAsText (load) {
 		fetchText(load.address, resolve, reject);
 	});
 
-}
-
-});
-
-
-;define('rave/pipeline/normalizeCjs', ['require', 'exports', 'module', 'rave/lib/path'], function (require, exports, module, $cram_r0, define) {var path = $cram_r0;
-
-module.exports = normalizeCjs;
-
-var reduceLeadingDots = path.reduceLeadingDots;
-
-function normalizeCjs (name, refererName, refererUrl) {
-	return reduceLeadingDots(String(name), refererName || '');
 }
 
 });
