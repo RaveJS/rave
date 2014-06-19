@@ -13,7 +13,7 @@ and tweaking complicated machinery such as file watchers, minifiers, and
 transpilers just to get to a runnable app.  Instead, go from zero to "hello
 world" in 30 seconds without touching a configuration file.  In the next 30
 seconds, easily add capabilities and frameworks to your application simply
-by installing *Rave Extension* packages from
+by installing *Rave Extension* and *Rave Integration* packages from
 [npm](http://www.npmjs.org/search?q=rave-extension) or
 [Bower](http://bower.io/search/?q=rave-extension). Finally, install additional
 *Rave Extension* packages to apply your favorite build, deploy, and testing
@@ -21,10 +21,11 @@ patterns.
 
 ## Why should I use RaveJS?
 
--	Requires little or no machinery, configuration, or maintenance
--	Enables brain-dead-simple project startup
+-	Requires zero machinery or configuration to get started and zero ongoing
+	maintenance
+-	Enables brain-dead simple project startup
 	-	Modern, modular architectures are simple, too!
--	Offers a huge selections of packages on npm and Bower
+-	Offers huge selections of packages from npm and Bower
 -   Provides a platform for third-party integration
 -	Embraces the future: an ES6 Loader polyfill is built in
 -	Creates easy-to-follow demos, tutorials, and prototypes
@@ -33,40 +34,31 @@ patterns.
 ## Does RaveJS require a PhD in Rocket Science?
 
 No.  If you can do `npm install` or `bower install` and if you can add
-a single script element to an HTML page, you can master Rave!
+a single script element to an HTML page, you can master Rave!  If that's
+too much work, clone a *Rave Starter* for a head start.
 
-Rave doesn't replace the tools you already love, such as gulp and grunt.
+Rave doesn't replace the tools you already love, such as gulp or grunt.
 Rave just makes them much easier to use.
 
 Rave is the absolute easiest way to get started with modules.  Author AMD,
-CommonJS, or (soon) ES6 modules without setting up transpilers, file watchers,
+CommonJS, or (soon) ES6 modules without futzing with transpilers, file watchers,
 or complex build scripts.
 
 
 ## How do I start?
 
-### From a Rave Starter
+Jump straight to the [Getting started](./docs/developing.md#getting-started)
+section of the [Developing apps with rave](./docs/developing.md) guide.
 
-For a minimally-opinionated Starter,
-[begin here](http://github.com/RaveJS/rave-start).
+Check the [docs/ folder](./docs/) for more information.
 
-For an AngularJS-centric starter,
-[begin here](http://github.com/RaveJS/rave-start-angular).
-
-Don't see a Starter for your favorite stack?  Create one!
-
-### From scratch
-
-Check out the [Quick Start using Bower](./docs/quick-start-bower.md)
-and the [Quick Start using npm](./docs/quick-start-npm.md).
-
-Then check the [docs/ folder](./docs/) for more information.
 
 ## How does it work?
 
 Rave uses the metadata *you're already aggregating* when you use JavaScript
 package managers such as [npm](http://npmjs.org) and [Bower](http://bower.io).
-This moves the configuration task to package authors and integrators.
+This moves the configuration burden from you, the application developer,
+to package authors.
 
 Package authors already create metadata when they publish their
 packages to npm and Bower.  Rave uses the metadata in package.json and
@@ -83,21 +75,13 @@ Rave Extensions do many things:
 
 - Auto-configure your application's loading patterns
 - Auto-configure your application's build patterns (soon)
-- Auto-configure your application's deployment patterns (soon)
-- Auto-configure your application's testing patterns (target: summer/fall 2014)
+- Auto-configure your application's deployment patterns (TBD: end of 2014)
+- Auto-configure your application's testing patterns (TBD: end of 2014)
 - Integrate third-party packages into your application by supplying additional
   metadata or glue code
 
-Rave extensions are easy to create and easy to find on npm and
-Bower by searching for "[rave-extension](http://www.npmjs.org/search?q=rave-extension)".
-
-
-## Does it scale?
-
-Yes. Rave easily scales to applications containing hundreds of modules
-from dozens of third-party packages.  It doesn't matter if those packages
-are available on npm or Bower -- or whether they're authored in AMD, CommonJS,
-or (soon) ES6 format.  Rave makes it all work seamlessly.
+Rave extensions are easy to create and easy to find on npm and Bower by
+searching for "[rave-extension](http://www.npmjs.org/search?q=rave-extension)".
 
 
 ## About
