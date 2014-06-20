@@ -38,9 +38,13 @@ replace them with an alternative, or *roll your own* at any time.
 To get started with Rave, you need to have the following, typical web
 development tools pre-installed:
 
-1. a recent release of [node.js](http://nodejs.org/download/)
-2. a recent release of [bower](http://bower.io/) and/or npm (comes with node.js)
-3. any static web server (some Rave Starters already come with one)
+1.	a recent release of [node.js](http://nodejs.org/download/)
+2.	a recent release of [bower](http://bower.io/) and/or npm (comes with
+	node.js)
+3.	any static web server, such as
+	[Spring Boot](http://projects.spring.io/spring-boot/),
+	[express](http://expressjs.com), or [serv](https://github.com/scothis/serv)
+	(some Rave Starters already come with a web server)
 
 ### From a Rave Starter
 
@@ -64,23 +68,23 @@ or [Quick Start using npm](./quick-start-npm.md).
 
 Rave uses the metadata in the top-level bower.json or package.json files
 to create a package for your application's modules.  The specifics of this
-package depend on the Rave Starter you used or -- if you started
-[from scratch](#from-scratch) -- the choices you made when
-running `bower init` or `npm init`.
+package depend on the Rave Starter you use or the name and moduleType
+you choose if you start [from scratch](#from-scratch).
 
 Many Rave Starters call the application package, "app", which means your app's
 modules will reside in the "app/" module namespace and the "app/" directory
 under the web root.
 
 How you build your application depends on which frameworks and libraries
-you have chosen, of course.  The format in which you author your modules --
-AMD, node, or ES6 -- does *not* depend on the frameworks.  Every
-package, including your app's package, may have a different format.  However,
-each package's modules must be authored in the same format.
+you have chosen, of course.  However, the format in which you author your
+modules -- AMD, node, or ES6 -- does *not* depend on the frameworks.  Every
+package, including the framework packages and your app's package, may have
+a different format.  Pick your favorite format for your app’s modules,
+but be consistent.  Rave won’t mix-and-match formats within a package.
 
 In short, pick your favorite format for all of your app's modules.
 
-AMD, node, and ES6 use module namespace patterns that mimic unix-style file
+AMD, node, and ES6 use module naming semantics that mimic unix-style file
 paths and urls.  Therefore, your module namespaces will mirror your directory
 structures.  For instance, if you have partitioned your app into three
 components named "home", "settings", and "detail", your modules should be
@@ -98,11 +102,11 @@ When referencing modules from within your application, use relative names.
 When referencing modules in other packages, always use absolute names!
 For example, the following code illustrates how to import a sibling module,
 called "controller" (within your app) and a third-party module, named
-"when/lift", that resides in a third-party package.
+"when/function", that resides in a third-party package.
 
 ```js
 var controller = require('./controller'); // relative name
-var lift = require('when/lift'); // absolute name
+var fn = require('when/function'); // absolute name
 ```
 
 For a more complete introduction to JavaScript modules, check out the
@@ -147,7 +151,7 @@ serv 8080
 
 Then open your browser to http://locahost:8080.
 
-You don't have to configure transpilers, file watchers, build tools, etc.
+**You don't have to configure transpilers, file watchers, build tools, etc.**
 Your application configures and assembles itself from the metadata and source
 code it discovers in the directories under the web root.
 
@@ -166,7 +170,7 @@ more exceptions, and checks for common mistakes.
 Most Rave Starters are configured for *debug mode* out of the box.
 
 You'll typically want to switch back to *quiet mode* before deploying your
-application, of course.
+application to production, of course.
 
 Learn more about debugging in the [debugging](./debugging.md) document.
 
