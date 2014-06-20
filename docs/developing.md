@@ -54,7 +54,7 @@ Don't see a Starter for your favorite stack?  Create one!
 
 ### From scratch
 
-Check out [Quick Start using Bower](./docs/quick-start-bower.md)
+Check out [Quick Start using Bower](./quick-start-bower.md)
 or [Quick Start using npm](./quick-start-npm.md).
 
 
