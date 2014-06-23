@@ -1,7 +1,7 @@
 /** @license MIT License (c) copyright 2014 original authors */
 /** @author Brian Cavalier */
 /** @author John Hann */
-var findRequires = require('../lib/findRequires');
+var findRequires = require('../lib/find/requires');
 var captureAmdArgs = require('../lib/captureAmdArgs');
 var amdFactory = require('../lib/amdFactory');
 var addSourceUrl = require('../lib/addSourceUrl');

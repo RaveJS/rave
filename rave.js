@@ -1538,15 +1538,6 @@ function locateAsIs (load) {
 });
 
 
-;define('rave/pipeline/translateAsIs', ['require', 'exports', 'module'], function (require, exports, module, define) {module.exports = translateAsIs;
-
-function translateAsIs (load) {
-	return load.source;
-}
-
-});
-
-
 ;define('rave/lib/path', ['require', 'exports', 'module'], function (require, exports, module, define) {var absUrlRx, findDotsRx;
 
 absUrlRx = /^\/|^[^:]+:\/\//;
@@ -1703,69 +1694,10 @@ function beget (base) {
 });
 
 
-;define('rave/lib/fetchText', ['require', 'exports', 'module'], function (require, exports, module, define) {module.exports = fetchText;
+;define('rave/pipeline/translateAsIs', ['require', 'exports', 'module'], function (require, exports, module, define) {module.exports = translateAsIs;
 
-function fetchText (url, callback, errback) {
-	var xhr;
-	xhr = new XMLHttpRequest();
-	xhr.open('GET', url, true);
-	xhr.onreadystatechange = function () {
-		if (xhr.readyState === 4) {
-			if (xhr.status < 400) {
-				callback(xhr.responseText);
-			}
-			else {
-				errback(
-					new Error(
-						'fetchText() failed. url: "' + url
-						+ '" status: ' + xhr.status + ' - ' + xhr.statusText
-					)
-				);
-			}
-		}
-	};
-	xhr.send(null);
-}
-
-});
-
-
-;define('rave/lib/findRequires', ['require', 'exports', 'module'], function (require, exports, module, define) {module.exports = findRequires;
-
-var findRValueRequiresRx;
-
-findRValueRequiresRx = /require\s*\(\s*(["'])(.*?[^\\])\1\s*\)|(\\["'])|(["'])|(\/\/|\/\*)|(\n|\*\/)/g;
-
-function findRequires (source) {
-	var deps, seen, quote, comment;
-
-	deps = [];
-	seen = {};
-
-	// look for require() (ouside of quotes and comments)
-	source.replace(findRValueRequiresRx, function (m, rq, id, escq, qq, sc, ec) {
-		if (comment) {
-			if (ec === comment) comment = false;
-		}
-		else if (quote) {
-			if (qq === quote) quote = false;
-		}
-		else if (qq) {
-			quote = qq;
-		}
-		else if (sc) {
-			comment = sc === '//' ? '\n' : '*/';
-		}
-		else if (id) {
-			// push [relative] id into deps list and seen map
-			if (!(id in seen)) {
-				seen[id] = true;
-				deps.push(id)
-			}
-		}
-		return ''; // uses least RAM/CPU
-	});
-	return deps;
+function translateAsIs (load) {
+	return load.source;
 }
 
 });
@@ -1779,23 +1711,6 @@ function addSourceUrl (url, source) {
 		+ url.replace(/\s/g, '%20')
 		+ '\n';
 }
-
-});
-
-
-;define('rave/lib/es5Transform', ['require', 'exports', 'module'], function (require, exports, module, define) {module.exports = {
-	fromLoader: function (value) {
-		return value && value.__es5Module ? value.__es5Module : value;
-	},
-	toLoader: function (module) {
-		return {
-			// for real ES6 modules to consume this module
-			'default': module,
-			// for modules transpiled from ES5
-			__es5Module: module
-		};
-	}
-};
 
 });
 
@@ -1940,6 +1855,138 @@ function getName (uid) {
 });
 
 
+;define('rave/lib/fetchText', ['require', 'exports', 'module'], function (require, exports, module, define) {module.exports = fetchText;
+
+function fetchText (url, callback, errback) {
+	var xhr;
+	xhr = new XMLHttpRequest();
+	xhr.open('GET', url, true);
+	xhr.onreadystatechange = function () {
+		if (xhr.readyState === 4) {
+			if (xhr.status < 400) {
+				callback(xhr.responseText);
+			}
+			else {
+				errback(
+					new Error(
+						'fetchText() failed. url: "' + url
+						+ '" status: ' + xhr.status + ' - ' + xhr.statusText
+					)
+				);
+			}
+		}
+	};
+	xhr.send(null);
+}
+
+});
+
+
+;define('rave/lib/es5Transform', ['require', 'exports', 'module'], function (require, exports, module, define) {module.exports = {
+	fromLoader: function (value) {
+		return value && value.__es5Module ? value.__es5Module : value;
+	},
+	toLoader: function (module) {
+		return {
+			// for real ES6 modules to consume this module
+			'default': module,
+			// for modules transpiled from ES5
+			__es5Module: module
+		};
+	}
+};
+
+});
+
+
+;define('rave/lib/find/createCodeFinder', ['require', 'exports', 'module'], function (require, exports, module, define) {module.exports = createCodeFinder;
+
+// exports private functions for testing
+createCodeFinder.checkStateChange = checkStateChange;
+createCodeFinder.composeRx = composeRx;
+createCodeFinder.rxStringContents = rxStringContents;
+
+// regexps used herein
+var codeTransitionsRx = /(\\["'])|(["'])|(\/\/|\/\*)|(\n|\*\/)/g;
+var trimRegExpRx = /^\/|\/[gim]*$/g;
+
+// positions of code transition regexp matches in codeTransitionsRx
+var spliceStart = -4, spliceCount = 4;
+// position of transitions spliced out of matches
+var escq = 0, qq = 1, sc = 2, ec = 3;
+
+/**
+ * Creates a function that will call a callback function with a set of matches
+ * for for each occurrence of a pattern match for a given RegExp.  Only true
+ * JavaScript is searched.  Comments, strings, and (TODO) RegExps are skipped.
+ * The callback is called with a single parameter: an array containing the
+ * result of calling the RegExp's exec() method.
+ * @param {RegExp} codeRx is a RegExp for the code pattern to find.
+ * @returns {function(source:string, callback:function)}
+ */
+function createCodeFinder (codeRx) {
+	var flags, comboRx;
+
+	flags = codeRx.multiline ? 'gm' : 'g'; // we probably don't need ignoreCase
+	comboRx = composeRx(codeRx, codeTransitionsRx, flags);
+
+	return function (source, callback) {
+		var state, matches, transitions;
+
+		state = {};
+
+		while (matches = comboRx.exec(source)) {
+			// remove code transition matches
+			transitions = matches.splice(spliceStart, spliceCount);
+			// check state
+			state = checkStateChange(state, transitions);
+			// if we're in source code, this was a match on codeRx
+			if (state.inUserMatch) {
+				callback(matches);
+			}
+		}
+
+		return source;
+	};
+}
+
+function checkStateChange (state, transitions) {
+	state.inUserMatch = false;
+	if (state.inComment) {
+		if (transitions[ec] === state.inComment) {
+			state.inComment = false;
+		}
+	}
+	else if (state.inQuote) {
+		if (transitions[qq] === state.inQuote) {
+			state.inQuote = false;
+		}
+	}
+	else {
+		if (transitions[qq]) {
+			state.inQuote = transitions[qq];
+		}
+		else if (transitions[sc]) {
+			state.inComment = transitions[sc] === '//' ? '\n' : '*/';
+		}
+		else if (!transitions[ec] && !transitions[escq]) {
+			state.inUserMatch = true;
+		}
+	}
+	return state;
+}
+
+function composeRx (rx1, rx2, flags) {
+	return new RegExp(rxStringContents(rx1) + '|' + rxStringContents(rx2), flags);
+}
+
+function rxStringContents (rx) {
+	return rx.toString().replace(trimRegExpRx, '');
+}
+
+});
+
+
 ;define('rave/pipeline/normalizeCjs', ['require', 'exports', 'module', 'rave/lib/path'], function (require, exports, module, $cram_r0, define) {var path = $cram_r0;
 
 module.exports = normalizeCjs;
@@ -1948,20 +1995,6 @@ var reduceLeadingDots = path.reduceLeadingDots;
 
 function normalizeCjs (name, refererName, refererUrl) {
 	return reduceLeadingDots(String(name), refererName || '');
-}
-
-});
-
-
-;define('rave/pipeline/fetchAsText', ['require', 'exports', 'module', 'rave/lib/fetchText'], function (require, exports, module, $cram_r0, define) {module.exports = fetchAsText;
-
-var fetchText = $cram_r0;
-
-function fetchAsText (load) {
-	return new Promise(function(resolve, reject) {
-		fetchText(load.address, resolve, reject);
-	});
-
 }
 
 });
@@ -2088,6 +2121,20 @@ function sameCommonJSPackages (a, b) {
 });
 
 
+;define('rave/pipeline/fetchAsText', ['require', 'exports', 'module', 'rave/lib/fetchText'], function (require, exports, module, $cram_r0, define) {module.exports = fetchAsText;
+
+var fetchText = $cram_r0;
+
+function fetchAsText (load) {
+	return new Promise(function(resolve, reject) {
+		fetchText(load.address, resolve, reject);
+	});
+
+}
+
+});
+
+
 ;define('rave/pipeline/instantiateJson', ['require', 'exports', 'module', 'rave/lib/es5Transform', 'rave/lib/addSourceUrl'], function (require, exports, module, $cram_r0, $cram_r1, define) {var es5Transform = $cram_r0;
 var addSourceUrl = $cram_r1;
 
@@ -2108,6 +2155,38 @@ function instantiateJson (load) {
 			return new Module(es5Transform.toLoader(eval(source)));
 		}
 	};
+}
+
+});
+
+
+;define('rave/lib/find/requires', ['require', 'exports', 'module', 'rave/lib/find/createCodeFinder'], function (require, exports, module, $cram_r0, define) {module.exports = findRequires;
+
+var createCodeFinder = $cram_r0;
+
+var findRValueRequiresRx = /require\s*\(\s*(["'])(.*?[^\\])\1\s*\)/g;
+var idMatch = 2;
+
+var finder = createCodeFinder(findRValueRequiresRx);
+
+function findRequires (source) {
+	var deps, seen;
+
+	deps = [];
+	seen = {};
+
+	finder(source, function (matches) {
+		var id = matches[idMatch];
+		if (id) {
+			// push [relative] id into deps list and seen map
+			if (!(id in seen)) {
+				seen[id] = true;
+				deps.push(id)
+			}
+		}
+	});
+
+	return deps;
 }
 
 });
@@ -2204,7 +2283,7 @@ function nodeFactory (loader, load) {
 });
 
 
-;define('rave/pipeline/instantiateNode', ['require', 'exports', 'module', 'rave/lib/findRequires', 'rave/lib/nodeFactory', 'rave/lib/addSourceUrl'], function (require, exports, module, $cram_r0, $cram_r1, $cram_r2, define) {var findRequires = $cram_r0;
+;define('rave/pipeline/instantiateNode', ['require', 'exports', 'module', 'rave/lib/find/requires', 'rave/lib/nodeFactory', 'rave/lib/addSourceUrl'], function (require, exports, module, $cram_r0, $cram_r1, $cram_r2, define) {var findRequires = $cram_r0;
 var nodeFactory = $cram_r1;
 var addSourceUrl = $cram_r2;
 

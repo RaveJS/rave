@@ -3,9 +3,9 @@ var assert = buster.assert;
 var refute = buster.refute;
 var fail = buster.assertions.fail;
 
-var findRequires = require('../../lib/findRequires');
+var findRequires = require('../../lib/find/requires');
 
-buster.testCase('findRequires', {
+buster.testCase('find/requires', {
 
 	'// should find require("<id>")': function () {
 		assert(false, 'not implemented');
