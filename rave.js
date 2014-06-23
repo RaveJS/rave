@@ -1538,6 +1538,15 @@ function locateAsIs (load) {
 });
 
 
+;define('rave/pipeline/translateAsIs', ['require', 'exports', 'module'], function (require, exports, module, define) {module.exports = translateAsIs;
+
+function translateAsIs (load) {
+	return load.source;
+}
+
+});
+
+
 ;define('rave/lib/path', ['require', 'exports', 'module'], function (require, exports, module, define) {var absUrlRx, findDotsRx;
 
 absUrlRx = /^\/|^[^:]+:\/\//;
@@ -1607,12 +1616,12 @@ function ensureEndSlash (path) {
  * @returns {string} a url with an extension.
  */
 function ensureExt (path, ext) {
-	var hasExt = path.lastIndexOf('.') > path.lastIndexOf('/');
+	var hasExt = path.lastIndexOf(ext) > path.lastIndexOf('/');
 	return hasExt ? path : path + ext;
 }
 
 /**
- * REmoves a file extension from a path.
+ * Removes a file extension from a path.
  * @param {string} path
  * @returns {string} path without a file extension.
  */
@@ -1694,10 +1703,28 @@ function beget (base) {
 });
 
 
-;define('rave/pipeline/translateAsIs', ['require', 'exports', 'module'], function (require, exports, module, define) {module.exports = translateAsIs;
+;define('rave/lib/fetchText', ['require', 'exports', 'module'], function (require, exports, module, define) {module.exports = fetchText;
 
-function translateAsIs (load) {
-	return load.source;
+function fetchText (url, callback, errback) {
+	var xhr;
+	xhr = new XMLHttpRequest();
+	xhr.open('GET', url, true);
+	xhr.onreadystatechange = function () {
+		if (xhr.readyState === 4) {
+			if (xhr.status < 400) {
+				callback(xhr.responseText);
+			}
+			else {
+				errback(
+					new Error(
+						'fetchText() failed. url: "' + url
+						+ '" status: ' + xhr.status + ' - ' + xhr.statusText
+					)
+				);
+			}
+		}
+	};
+	xhr.send(null);
 }
 
 });
@@ -1711,6 +1738,23 @@ function addSourceUrl (url, source) {
 		+ url.replace(/\s/g, '%20')
 		+ '\n';
 }
+
+});
+
+
+;define('rave/lib/es5Transform', ['require', 'exports', 'module'], function (require, exports, module, define) {module.exports = {
+	fromLoader: function (value) {
+		return value && value.__es5Module ? value.__es5Module : value;
+	},
+	toLoader: function (module) {
+		return {
+			// for real ES6 modules to consume this module
+			'default': module,
+			// for modules transpiled from ES5
+			__es5Module: module
+		};
+	}
+};
 
 });
 
@@ -1855,50 +1899,6 @@ function getName (uid) {
 });
 
 
-;define('rave/lib/fetchText', ['require', 'exports', 'module'], function (require, exports, module, define) {module.exports = fetchText;
-
-function fetchText (url, callback, errback) {
-	var xhr;
-	xhr = new XMLHttpRequest();
-	xhr.open('GET', url, true);
-	xhr.onreadystatechange = function () {
-		if (xhr.readyState === 4) {
-			if (xhr.status < 400) {
-				callback(xhr.responseText);
-			}
-			else {
-				errback(
-					new Error(
-						'fetchText() failed. url: "' + url
-						+ '" status: ' + xhr.status + ' - ' + xhr.statusText
-					)
-				);
-			}
-		}
-	};
-	xhr.send(null);
-}
-
-});
-
-
-;define('rave/lib/es5Transform', ['require', 'exports', 'module'], function (require, exports, module, define) {module.exports = {
-	fromLoader: function (value) {
-		return value && value.__es5Module ? value.__es5Module : value;
-	},
-	toLoader: function (module) {
-		return {
-			// for real ES6 modules to consume this module
-			'default': module,
-			// for modules transpiled from ES5
-			__es5Module: module
-		};
-	}
-};
-
-});
-
-
 ;define('rave/lib/find/createCodeFinder', ['require', 'exports', 'module'], function (require, exports, module, define) {module.exports = createCodeFinder;
 
 // exports private functions for testing
@@ -1919,10 +1919,11 @@ var escq = 0, qq = 1, sc = 2, ec = 3;
  * Creates a function that will call a callback function with a set of matches
  * for for each occurrence of a pattern match for a given RegExp.  Only true
  * JavaScript is searched.  Comments, strings, and (TODO) RegExps are skipped.
- * The callback is called with a single parameter: an array containing the
- * result of calling the RegExp's exec() method.
+ * The onMatch callback is called with a single parameter: an array containing
+ * the result of calling the RegExp's exec() method.  If onMatch returns false,
+ * the pattern matching stops.
  * @param {RegExp} codeRx is a RegExp for the code pattern to find.
- * @returns {function(source:string, callback:function)}
+ * @returns {function(source:string, onMatch:function):string}
  */
 function createCodeFinder (codeRx) {
 	var flags, comboRx;
@@ -1930,10 +1931,11 @@ function createCodeFinder (codeRx) {
 	flags = codeRx.multiline ? 'gm' : 'g'; // we probably don't need ignoreCase
 	comboRx = composeRx(codeRx, codeTransitionsRx, flags);
 
-	return function (source, callback) {
+	return function (source, onMatch) {
 		var state, matches, transitions;
 
 		state = {};
+		comboRx.lastIndex = 0; // reset
 
 		while (matches = comboRx.exec(source)) {
 			// remove code transition matches
@@ -1942,7 +1944,8 @@ function createCodeFinder (codeRx) {
 			state = checkStateChange(state, transitions);
 			// if we're in source code, this was a match on codeRx
 			if (state.inUserMatch) {
-				callback(matches);
+				// if onMatch cancels, return
+				if (onMatch(matches) === false) return source;
 			}
 		}
 
@@ -1982,6 +1985,20 @@ function composeRx (rx1, rx2, flags) {
 
 function rxStringContents (rx) {
 	return rx.toString().replace(trimRegExpRx, '');
+}
+
+});
+
+
+;define('rave/pipeline/fetchAsText', ['require', 'exports', 'module', 'rave/lib/fetchText'], function (require, exports, module, $cram_r0, define) {module.exports = fetchAsText;
+
+var fetchText = $cram_r0;
+
+function fetchAsText (load) {
+	return new Promise(function(resolve, reject) {
+		fetchText(load.address, resolve, reject);
+	});
+
 }
 
 });
@@ -2116,20 +2133,6 @@ function toFastOverride (override) {
 
 function sameCommonJSPackages (a, b) {
 	return parse(a).pkgName === parse(b).pkgName;
-}
-
-});
-
-
-;define('rave/pipeline/fetchAsText', ['require', 'exports', 'module', 'rave/lib/fetchText'], function (require, exports, module, $cram_r0, define) {module.exports = fetchAsText;
-
-var fetchText = $cram_r0;
-
-function fetchAsText (load) {
-	return new Promise(function(resolve, reject) {
-		fetchText(load.address, resolve, reject);
-	});
-
 }
 
 });
