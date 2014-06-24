@@ -1,7 +1,7 @@
 /** @license MIT License (c) copyright 2014 original authors */
 /** @author Brian Cavalier */
 /** @author John Hann */
-var findRequires = require('../lib/findRequires');
+var findRequires = require('../lib/find/requires');
 var captureAmdArgs = require('../lib/captureAmdArgs');
 var amdFactory = require('../lib/amdFactory');
 var addSourceUrl = require('../lib/addSourceUrl');
@@ -29,7 +29,7 @@ function instantiateAmd (load) {
 
 	if (defineArgs.depsList == null && arity > 0) {
 		// is using load.source faster than defineArgs.factory.toString()?
-		defineArgs.requires = findRequires(load.source);
+		defineArgs.requires = findOrThrow(load);
 		defineArgs.depsList = scopedVars.slice(0, arity);
 		defineArgs.isCjs = arity > 1;
 		deps = deps.concat(defineArgs.requires);
@@ -63,6 +63,16 @@ function captureOrThrow (load) {
 	catch (ex) {
 		ex.message = 'Error while capturing AMD define: '
 			+ load.name + '. ' + ex.message;
+		throw ex;
+	}
+}
+
+function findOrThrow (load) {
+	try {
+		return findRequires(load.source);
+	}
+	catch (ex) {
+		ex.message += ' ' + load.name + ' ' + load.address;
 		throw ex;
 	}
 }
