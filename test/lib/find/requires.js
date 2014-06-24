@@ -3,7 +3,7 @@ var assert = buster.assert;
 var refute = buster.refute;
 var fail = buster.assertions.fail;
 
-var findRequires = require('../../lib/find/requires');
+var findRequires = require('../../../lib/find/requires');
 
 buster.testCase('find/requires', {
 

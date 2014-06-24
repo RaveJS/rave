@@ -2,13 +2,13 @@ var buster = require('buster');
 var assert = buster.assert;
 var refute = buster.refute;
 
-var createCodeFinder = require('../../lib/find/createCodeFinder');
+var createCodeFinder = require('../../../lib/find/createCodeFinder');
 
 var testSource = 'module.exports = function foo () { /* alert("moo"); */ alert("foo"); alert("bar"); }';
 
 buster.testCase('lib/find/createCodeFinder', {
 
-	createCodeFinder: {
+	'createCodeFinder': {
 		'should create a function': function () {
 			assert.isFunction(createCodeFinder(/ /));
 		},
@@ -40,59 +40,43 @@ buster.testCase('lib/find/createCodeFinder', {
 			var count = 0;
 			finder(testSource, function () { count++; });
 			assert.same(count, 1, 'alert("foo");');
+		},
+		'should skip over escaped quotes': function () {
+			var finder = createCodeFinder(/possibly/);
+			var str = "alert('this can\\'t possibly work');";
+			var count = 0;
+			finder(str, function () { count++; });
+			assert.same(count, 0);
+		},
+		'should throw when a string or comment is unterminated': function () {
+			var str, finder;
+			finder = createCodeFinder(/foo/);
+			str = 'bar(); /* here is a comment\n\n';
+			assert.exception(function () {
+				finder(str, function () {});
+			});
+			str = 'var bar = " here is a string\n\n';
+			assert.exception(function () {
+				finder(str, function () {});
+			});
 		}
 	},
 
-	checkStateChange: {
-		'should set inSource flag to false if already in a comment or quote': function () {
-			var state = {};
-			var transitions = [];
-			state.inComment = true;
-			createCodeFinder.checkStateChange(state, transitions);
-			refute(state.inSource, 'in a comment');
-			state.inQuote = true;
-			createCodeFinder.checkStateChange(state, transitions);
-			refute(state.inSource, 'in a quote');
+	'skipTo': {
+		'should skip past the given string': function () {
+			var str = 'foo bar foo';
+			var pos = createCodeFinder.skipTo(str, /foo/g, 0);
+			assert.same(pos, 3, 'from start of string');
+			pos = createCodeFinder.skipTo(str, /foo/g, 3);
+			assert.same(pos, 11, 'from middle of string');
 		},
-		'should set inSource flag to false if entering a comment or quote': function () {
-			var state = {};
-			var transitions = [];
-			transitions[2] = '//';
-			createCodeFinder.checkStateChange(state, transitions);
-			refute(state.inSource, 'entering a comment');
-			transitions[1] = '"';
-			createCodeFinder.checkStateChange(state, transitions);
-			refute(state.inSource, 'entering a quote');
-		},
-		'should set inComment state to false if leaving comment': function () {
-			var state = { inComment: '\n' };
-			var transitions = [];
-			transitions[3] = '\n';
-			createCodeFinder.checkStateChange(state, transitions);
-			refute(state.inComment, 'leaving a line comment');
-			state.inComment = '*/';
-			transitions[3] = '*/';
-			createCodeFinder.checkStateChange(state, transitions);
-			refute(state.inComment, 'leaving a block comment');
-		},
-		'should set inQuote state to false if leaving quote': function () {
-			var state = { inQuote: '"' };
-			var transitions = [];
-			transitions[1] = '"';
-			createCodeFinder.checkStateChange(state, transitions);
-			refute(state.inQuote, 'leaving a double quote');
-			state.inQuote = "'";
-			transitions[1] = "'";
-			createCodeFinder.checkStateChange(state, transitions);
-			refute(state.inQuote, 'leaving a quote');
-		},
-		'should set inSource flag to true if not entering other state': function () {
-			var state = {};
-			var transitions = [];
-			createCodeFinder.checkStateChange(state, transitions);
-			assert(state.inUserMatch, 'indicate user match');
-		},
-		'// should text more combinations of states and transitions': function () {}
+		'should throw when a pattern isn\'t found': function () {
+			var str;
+			assert.exception(function () {
+				str = 'this is a string';
+				createCodeFinder.skipTo(str, /foo/g, 0);
+			});
+		}
 	},
 
 	composeRx: {

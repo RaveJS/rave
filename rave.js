@@ -1902,26 +1902,23 @@ function getName (uid) {
 ;define('rave/lib/find/createCodeFinder', ['require', 'exports', 'module'], function (require, exports, module, define) {module.exports = createCodeFinder;
 
 // exports private functions for testing
-createCodeFinder.checkStateChange = checkStateChange;
 createCodeFinder.composeRx = composeRx;
 createCodeFinder.rxStringContents = rxStringContents;
 
 // regexps used herein
-var codeTransitionsRx = /(\\["'])|(["'])|(\/\/|\/\*)|(\n|\*\/)/g;
+var codeTransitionsRx = /"|'|\/\/|\/\*/g;
 var trimRegExpRx = /^\/|\/[gim]*$/g;
 
-// positions of code transition regexp matches in codeTransitionsRx
-var spliceStart = -4, spliceCount = 4;
-// position of transitions spliced out of matches
-var escq = 0, qq = 1, sc = 2, ec = 3;
+var quotes = { '"': '"', "'": "'" };
+var comments = { '//': '\n', '/*': '*/' };
 
 /**
  * Creates a function that will call a callback function with a set of matches
  * for for each occurrence of a pattern match for a given RegExp.  Only true
  * JavaScript is searched.  Comments, strings, and (TODO) RegExps are skipped.
  * The onMatch callback is called with a single parameter: an array containing
- * the result of calling the RegExp's exec() method.  If onMatch returns false,
- * the pattern matching stops.
+ * the result of calling the RegExp's exec() method.  If onMatch returns a
+ * very large number, the pattern matching stops.
  * @param {RegExp} codeRx is a RegExp for the code pattern to find.
  * @returns {function(source:string, onMatch:function):string}
  */
@@ -1932,51 +1929,46 @@ function createCodeFinder (codeRx) {
 	comboRx = composeRx(codeRx, codeTransitionsRx, flags);
 
 	return function (source, onMatch) {
-		var state, matches, transitions;
+		var matches, index;
 
-		state = {};
 		comboRx.lastIndex = 0; // reset
 
 		while (matches = comboRx.exec(source)) {
-			// remove code transition matches
-			transitions = matches.splice(spliceStart, spliceCount);
-			// check state
-			state = checkStateChange(state, transitions);
-			// if we're in source code, this was a match on codeRx
-			if (state.inUserMatch) {
-				// if onMatch cancels, return
-				if (onMatch(matches) === false) return source;
+
+			index = comboRx.lastIndex;
+
+			// check for transitions into quotes, comments
+			if (matches[0] in quotes) {
+				index = skipToEndOfQuote(source, matches[0], index);
 			}
+			else if (matches[0] in comments) {
+				index = skipTo(source, comments[matches[0]], index);
+			}
+			else {
+				index = onMatch(matches) || index;
+			}
+
+			// if comboRx.lastIndex is negative, a skipXXX function failed
+			if (index < 0) {
+				throw new Error('Unexpected end while scanning. ' + source);
+			}
+
+			comboRx.lastIndex = index;
 		}
 
 		return source;
 	};
 }
 
-function checkStateChange (state, transitions) {
-	state.inUserMatch = false;
-	if (state.inComment) {
-		if (transitions[ec] === state.inComment) {
-			state.inComment = false;
-		}
-	}
-	else if (state.inQuote) {
-		if (transitions[qq] === state.inQuote) {
-			state.inQuote = false;
-		}
-	}
-	else {
-		if (transitions[qq]) {
-			state.inQuote = transitions[qq];
-		}
-		else if (transitions[sc]) {
-			state.inComment = transitions[sc] === '//' ? '\n' : '*/';
-		}
-		else if (!transitions[ec] && !transitions[escq]) {
-			state.inUserMatch = true;
-		}
-	}
-	return state;
+function skipToEndOfQuote (source, quote, index) {
+	index = skipTo(source, quote, index);
+	return source.charAt(index - 1) === '\\'
+		? skipToEndOfQuote(source, quote, index + 6)
+		: index;
+}
+
+function skipTo (source, str, index) {
+	return source.indexOf(str, index) + str.length;
 }
 
 function composeRx (rx1, rx2, flags) {
@@ -1985,6 +1977,19 @@ function composeRx (rx1, rx2, flags) {
 
 function rxStringContents (rx) {
 	return rx.toString().replace(trimRegExpRx, '');
+}
+
+});
+
+
+;define('rave/pipeline/normalizeCjs', ['require', 'exports', 'module', 'rave/lib/path'], function (require, exports, module, $cram_r0, define) {var path = $cram_r0;
+
+module.exports = normalizeCjs;
+
+var reduceLeadingDots = path.reduceLeadingDots;
+
+function normalizeCjs (name, refererName, refererUrl) {
+	return reduceLeadingDots(String(name), refererName || '');
 }
 
 });
@@ -1999,19 +2004,6 @@ function fetchAsText (load) {
 		fetchText(load.address, resolve, reject);
 	});
 
-}
-
-});
-
-
-;define('rave/pipeline/normalizeCjs', ['require', 'exports', 'module', 'rave/lib/path'], function (require, exports, module, $cram_r0, define) {var path = $cram_r0;
-
-module.exports = normalizeCjs;
-
-var reduceLeadingDots = path.reduceLeadingDots;
-
-function normalizeCjs (name, refererName, refererUrl) {
-	return reduceLeadingDots(String(name), refererName || '');
 }
 
 });

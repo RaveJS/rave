@@ -21,16 +21,15 @@ buster.testCase('lib/metadata/bower', {
 
 		'should set main to main basename': function() {
 			var dsc = bower.createDescriptor({
-				main: 'deep/path/to/main.js'
+				main: 'deep/path/to/main'
 			});
 
-			assert.equals(dsc.main, 'main.js');
+			assert.equals(dsc.main, 'main');
 		},
 
-		'should remove main extension if moduleType !== globals': function() {
+		'should remove main\'s extension': function() {
 			var dsc = bower.createDescriptor({
-				main: 'deep/path/to/main.js',
-				moduleType: ['amd']
+				main: 'deep/path/to/main.js'
 			});
 
 			assert.equals(dsc.main, 'main');
@@ -44,10 +43,10 @@ buster.testCase('lib/metadata/bower', {
 			assert.equals(dsc.moduleType, ['a', 'b']);
 		},
 
-		'should default moduleType to ["globals"] if not specified': function() {
+		'should default moduleType to [] if not specified': function() {
 			var dsc = bower.createDescriptor({});
 
-			assert.equals(dsc.moduleType, ['globals']);
+			assert.equals(dsc.moduleType, []);
 		}
 	}
 
