@@ -11,7 +11,7 @@ function instantiateNode (load) {
 	var loader, deps, factory;
 
 	loader = load.metadata.rave.loader;
-	deps = findRequires(load.source);
+	deps = findOrThrow(load);
 
 	// if debugging, add sourceURL
 	if (load.metadata.rave.debug) {
@@ -27,3 +27,14 @@ function instantiateNode (load) {
 		}
 	};
 }
+
+function findOrThrow (load) {
+	try {
+		return findRequires(load.source);
+	}
+	catch (ex) {
+		ex.message += ' ' + load.name + ' ' + load.address;
+		throw ex;
+	}
+}
+
