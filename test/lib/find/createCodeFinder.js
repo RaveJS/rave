@@ -74,6 +74,13 @@ buster.testCase('lib/find/createCodeFinder', {
 			var count = 0;
 			finder(str, function () { count++; });
 			assert.same(count, 1);
+		},
+		'should not fail on a blank string': function () {
+			var finder = createCodeFinder(/foo/);
+			var str = "var bar = '';";
+			refute.exception(function () {
+				finder(str, function () {});
+			});
 		}
 	},
 

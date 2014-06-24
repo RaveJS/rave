@@ -1730,6 +1730,80 @@ function fetchText (url, callback, errback) {
 });
 
 
+;define('rave/load/specificity', ['require', 'exports', 'module'], function (require, exports, module, define) {exports.compare = compareFilters;
+exports.pkgSpec = packageSpecificity;
+exports.patSpec = patternSpecificity;
+exports.extSpec = extensionSpecificity;
+exports.predSpec = predicateSpecificity;
+
+function packageSpecificity (filter) {
+	if (!filter.package || filter.package === '*') return 0;
+//	else if (filter.package.indexOf('*') >= 0) return 1;
+	else return 1;
+}
+
+function patternSpecificity (filter) {
+	return filter.pattern ? 1 : 0;
+}
+
+function extensionSpecificity (filter) {
+	return filter.extensions && filter.extensions.length
+		? 1 / filter.extensions.length
+		: 0;
+}
+
+function predicateSpecificity (filter) {
+	return filter.predicate ? 1 : 0;
+}
+
+function compareFilters (a, b) {
+	// packages have highest priority
+	var diff = packageSpecificity(a) - packageSpecificity(b);
+	// after packages, patterns are priority
+	if (diff === 0) diff = patternSpecificity(a) - patternSpecificity(b);
+	// next priority is extensions
+	if (diff === 0) diff = extensionSpecificity(a) - extensionSpecificity(b);
+	// last priority is custom predicates
+	if (diff === 0) diff = predicateSpecificity(a) - predicateSpecificity(b);
+	// sort higher specificity filters to beginning of array
+	return -diff;
+}
+
+
+});
+
+
+;define('rave/lib/uid', ['require', 'exports', 'module'], function (require, exports, module, define) {exports.create = createUid;
+exports.parse = parseUid;
+exports.getName = getName;
+
+function createUid (descriptor, normalized) {
+	return /*descriptor.metaType + ':' +*/ descriptor.name
+		+ (descriptor.version ? '@' + descriptor.version : '')
+		+ (normalized ? '#' + normalized : '');
+}
+
+
+function parseUid (uid) {
+	var uparts = uid.split('#');
+	var name = uparts.pop();
+	var nparts = name.split('/');
+	return {
+		name: name,
+		pkgName: nparts.shift(),
+		modulePath: nparts.join('/'),
+		pkgUid: uparts[0]
+	};
+}
+
+
+function getName (uid) {
+	return uid.split("#").pop();
+}
+
+});
+
+
 ;define('rave/load/predicate', ['require', 'exports', 'module'], function (require, exports, module, define) {exports.composePredicates = composePredicates;
 exports.createPackageMatcher = createPackageMatcher;
 exports.createPatternMatcher = createPatternMatcher;
@@ -1796,80 +1870,6 @@ function always () { return true; }
 });
 
 
-;define('rave/lib/uid', ['require', 'exports', 'module'], function (require, exports, module, define) {exports.create = createUid;
-exports.parse = parseUid;
-exports.getName = getName;
-
-function createUid (descriptor, normalized) {
-	return /*descriptor.metaType + ':' +*/ descriptor.name
-		+ (descriptor.version ? '@' + descriptor.version : '')
-		+ (normalized ? '#' + normalized : '');
-}
-
-
-function parseUid (uid) {
-	var uparts = uid.split('#');
-	var name = uparts.pop();
-	var nparts = name.split('/');
-	return {
-		name: name,
-		pkgName: nparts.shift(),
-		modulePath: nparts.join('/'),
-		pkgUid: uparts[0]
-	};
-}
-
-
-function getName (uid) {
-	return uid.split("#").pop();
-}
-
-});
-
-
-;define('rave/load/specificity', ['require', 'exports', 'module'], function (require, exports, module, define) {exports.compare = compareFilters;
-exports.pkgSpec = packageSpecificity;
-exports.patSpec = patternSpecificity;
-exports.extSpec = extensionSpecificity;
-exports.predSpec = predicateSpecificity;
-
-function packageSpecificity (filter) {
-	if (!filter.package || filter.package === '*') return 0;
-//	else if (filter.package.indexOf('*') >= 0) return 1;
-	else return 1;
-}
-
-function patternSpecificity (filter) {
-	return filter.pattern ? 1 : 0;
-}
-
-function extensionSpecificity (filter) {
-	return filter.extensions && filter.extensions.length
-		? 1 / filter.extensions.length
-		: 0;
-}
-
-function predicateSpecificity (filter) {
-	return filter.predicate ? 1 : 0;
-}
-
-function compareFilters (a, b) {
-	// packages have highest priority
-	var diff = packageSpecificity(a) - packageSpecificity(b);
-	// after packages, patterns are priority
-	if (diff === 0) diff = patternSpecificity(a) - patternSpecificity(b);
-	// next priority is extensions
-	if (diff === 0) diff = extensionSpecificity(a) - extensionSpecificity(b);
-	// last priority is custom predicates
-	if (diff === 0) diff = predicateSpecificity(a) - predicateSpecificity(b);
-	// sort higher specificity filters to beginning of array
-	return -diff;
-}
-
-
-});
-
-
 ;define('rave/lib/addSourceUrl', ['require', 'exports', 'module'], function (require, exports, module, define) {module.exports = addSourceUrl;
 
 function addSourceUrl (url, source) {
@@ -1907,18 +1907,21 @@ createCodeFinder.rxStringContents = rxStringContents;
 createCodeFinder.skipTo = skipTo;
 
 var trimRegExpRx = /^\/|\/[gim]*$/g;
+
 // Look for code transitions.
 var codeTransitionsRx = composeRx(
-	// Detect strings (non-blank) and comments.
-	/('(?!')|"(?!")|\/\/|\/\*)/,
+	// Detect strings, blank strings, and comments.
+	/(''?|""?|\/\/|\/\*)/,
 	// Detect RegExps by excluding division sign and line comment
 	/(?:[\-+*\/=\,%&|^!(;\{\[<>]\s*)(\/)(?!\/)/,
 	'g'
 );
 
 // RegExps to find end of strings, comments, RegExps in code
-// The string RegExps can't detect blank strings, so we filter those in advance.
+// We can't detect blank strings easily, so we handle those specifically.
 var skippers = {
+	"''": false,
+	'""': false,
 	"'": /\\\\'|[^\\]'/g,
 	'"': /\\\\"|[^\\]"/g,
 	'//': /\n|$/g,
@@ -1962,8 +1965,10 @@ function createCodeFinder (codeRx) {
 			}
 			// check for transitions into quotes, comments
 			else if (trans in skippers) {
-				// skip over them
-				index = skipTo(source, skippers[trans], index);
+				// skip over them, possibly using a regexp to find the end
+				if (skippers[trans]) {
+					index = skipTo(source, skippers[trans], index);
+				}
 			}
 
 			comboRx.lastIndex = index;
@@ -1978,8 +1983,8 @@ function skipTo (source, rx, index) {
 
 	if (!rx.exec(source)) {
 		throw new Error(
-				'Unterminated comment, string, or RegExp at '
-				+ index + ' near ' + source.slice(index - 50, 100)
+			'Unterminated comment, string, or RegExp at '
+			+ index + ' near ' + source.slice(index - 50, 100)
 		);
 	}
 
@@ -2304,7 +2309,7 @@ function instantiateNode (load) {
 	var loader, deps, factory;
 
 	loader = load.metadata.rave.loader;
-	deps = findRequires(load.source);
+	deps = findOrThrow(load);
 
 	// if debugging, add sourceURL
 	if (load.metadata.rave.debug) {
@@ -2320,6 +2325,17 @@ function instantiateNode (load) {
 		}
 	};
 }
+
+function findOrThrow (load) {
+	try {
+		return findRequires(load.source);
+	}
+	catch (ex) {
+		ex.message += ' ' + load.name + ' ' + load.address;
+		throw ex;
+	}
+}
+
 
 });
 
