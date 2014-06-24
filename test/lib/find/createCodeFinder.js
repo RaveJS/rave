@@ -5,6 +5,7 @@ var refute = buster.refute;
 var createCodeFinder = require('../../../lib/find/createCodeFinder');
 
 var testSource = 'module.exports = function foo () { /* alert("moo"); */ alert("foo"); alert("bar"); }';
+var testSource2 = 'var whack = 3 / /bar\\/foo/; var foo = 42;';
 
 buster.testCase('lib/find/createCodeFinder', {
 
@@ -32,8 +33,11 @@ buster.testCase('lib/find/createCodeFinder', {
 			finder(testSource, function () { count++; });
 			assert.same(count, 0, 'foo');
 		},
-		'// should ignore text inside RegExps': function () {
-			// TODO
+		'should ignore text inside RegExps': function () {
+			var finder = createCodeFinder(/foo/);
+			var count = 0;
+			finder(testSource2, function () { count++; });
+			assert.same(count, 1);
 		},
 		'should find a code snippet with a string, if requested': function () {
 			var finder = createCodeFinder(/alert\("foo"\);/);
@@ -48,7 +52,7 @@ buster.testCase('lib/find/createCodeFinder', {
 			finder(str, function () { count++; });
 			assert.same(count, 0);
 		},
-		'should throw when a string or comment is unterminated': function () {
+		'should throw when a string, comment, or RegExp is unterminated': function () {
 			var str, finder;
 			finder = createCodeFinder(/foo/);
 			str = 'bar(); /* here is a comment\n\n';
@@ -59,6 +63,17 @@ buster.testCase('lib/find/createCodeFinder', {
 			assert.exception(function () {
 				finder(str, function () {});
 			});
+			str = 'var bar = /bad|regexp;\n\n';
+			assert.exception(function () {
+				finder(str, function () {});
+			});
+		},
+		'should not confuse division and RegExp': function () {
+			var finder = createCodeFinder(/foo/);
+			var str = "var bar = 3 / x; foo();";
+			var count = 0;
+			finder(str, function () { count++; });
+			assert.same(count, 1);
 		}
 	},
 

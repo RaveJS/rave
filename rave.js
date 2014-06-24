@@ -1538,15 +1538,6 @@ function locateAsIs (load) {
 });
 
 
-;define('rave/pipeline/translateAsIs', ['require', 'exports', 'module'], function (require, exports, module, define) {module.exports = translateAsIs;
-
-function translateAsIs (load) {
-	return load.source;
-}
-
-});
-
-
 ;define('rave/lib/path', ['require', 'exports', 'module'], function (require, exports, module, define) {var absUrlRx, findDotsRx;
 
 absUrlRx = /^\/|^[^:]+:\/\//;
@@ -1703,6 +1694,15 @@ function beget (base) {
 });
 
 
+;define('rave/pipeline/translateAsIs', ['require', 'exports', 'module'], function (require, exports, module, define) {module.exports = translateAsIs;
+
+function translateAsIs (load) {
+	return load.source;
+}
+
+});
+
+
 ;define('rave/lib/fetchText', ['require', 'exports', 'module'], function (require, exports, module, define) {module.exports = fetchText;
 
 function fetchText (url, callback, errback) {
@@ -1726,35 +1726,6 @@ function fetchText (url, callback, errback) {
 	};
 	xhr.send(null);
 }
-
-});
-
-
-;define('rave/lib/addSourceUrl', ['require', 'exports', 'module'], function (require, exports, module, define) {module.exports = addSourceUrl;
-
-function addSourceUrl (url, source) {
-	return source
-		+ '\n//# sourceURL='
-		+ url.replace(/\s/g, '%20')
-		+ '\n';
-}
-
-});
-
-
-;define('rave/lib/es5Transform', ['require', 'exports', 'module'], function (require, exports, module, define) {module.exports = {
-	fromLoader: function (value) {
-		return value && value.__es5Module ? value.__es5Module : value;
-	},
-	toLoader: function (module) {
-		return {
-			// for real ES6 modules to consume this module
-			'default': module,
-			// for modules transpiled from ES5
-			__es5Module: module
-		};
-	}
-};
 
 });
 
@@ -1825,6 +1796,37 @@ function always () { return true; }
 });
 
 
+;define('rave/lib/uid', ['require', 'exports', 'module'], function (require, exports, module, define) {exports.create = createUid;
+exports.parse = parseUid;
+exports.getName = getName;
+
+function createUid (descriptor, normalized) {
+	return /*descriptor.metaType + ':' +*/ descriptor.name
+		+ (descriptor.version ? '@' + descriptor.version : '')
+		+ (normalized ? '#' + normalized : '');
+}
+
+
+function parseUid (uid) {
+	var uparts = uid.split('#');
+	var name = uparts.pop();
+	var nparts = name.split('/');
+	return {
+		name: name,
+		pkgName: nparts.shift(),
+		modulePath: nparts.join('/'),
+		pkgUid: uparts[0]
+	};
+}
+
+
+function getName (uid) {
+	return uid.split("#").pop();
+}
+
+});
+
+
 ;define('rave/load/specificity', ['require', 'exports', 'module'], function (require, exports, module, define) {exports.compare = compareFilters;
 exports.pkgSpec = packageSpecificity;
 exports.patSpec = patternSpecificity;
@@ -1868,54 +1870,66 @@ function compareFilters (a, b) {
 });
 
 
-;define('rave/lib/uid', ['require', 'exports', 'module'], function (require, exports, module, define) {exports.create = createUid;
-exports.parse = parseUid;
-exports.getName = getName;
+;define('rave/lib/addSourceUrl', ['require', 'exports', 'module'], function (require, exports, module, define) {module.exports = addSourceUrl;
 
-function createUid (descriptor, normalized) {
-	return /*descriptor.metaType + ':' +*/ descriptor.name
-		+ (descriptor.version ? '@' + descriptor.version : '')
-		+ (normalized ? '#' + normalized : '');
+function addSourceUrl (url, source) {
+	return source
+		+ '\n//# sourceURL='
+		+ url.replace(/\s/g, '%20')
+		+ '\n';
 }
 
-
-function parseUid (uid) {
-	var uparts = uid.split('#');
-	var name = uparts.pop();
-	var nparts = name.split('/');
-	return {
-		name: name,
-		pkgName: nparts.shift(),
-		modulePath: nparts.join('/'),
-		pkgUid: uparts[0]
-	};
-}
+});
 
 
-function getName (uid) {
-	return uid.split("#").pop();
-}
+;define('rave/lib/es5Transform', ['require', 'exports', 'module'], function (require, exports, module, define) {module.exports = {
+	fromLoader: function (value) {
+		return value && value.__es5Module ? value.__es5Module : value;
+	},
+	toLoader: function (module) {
+		return {
+			// for real ES6 modules to consume this module
+			'default': module,
+			// for modules transpiled from ES5
+			__es5Module: module
+		};
+	}
+};
 
 });
 
 
 ;define('rave/lib/find/createCodeFinder', ['require', 'exports', 'module'], function (require, exports, module, define) {module.exports = createCodeFinder;
 
-// exports private functions for testing
+// Export private functions for testing
 createCodeFinder.composeRx = composeRx;
 createCodeFinder.rxStringContents = rxStringContents;
+createCodeFinder.skipTo = skipTo;
 
-// regexps used herein
-var codeTransitionsRx = /"|'|\/\/|\/\*/g;
 var trimRegExpRx = /^\/|\/[gim]*$/g;
+// Look for code transitions.
+var codeTransitionsRx = composeRx(
+	// Detect strings (non-blank) and comments.
+	/('(?!')|"(?!")|\/\/|\/\*)/,
+	// Detect RegExps by excluding division sign and line comment
+	/(?:[\-+*\/=\,%&|^!(;\{\[<>]\s*)(\/)(?!\/)/,
+	'g'
+);
 
-var quotes = { '"': '"', "'": "'" };
-var comments = { '//': '\n', '/*': '*/' };
+// RegExps to find end of strings, comments, RegExps in code
+// The string RegExps can't detect blank strings, so we filter those in advance.
+var skippers = {
+	"'": /\\\\'|[^\\]'/g,
+	'"': /\\\\"|[^\\]"/g,
+	'//': /\n|$/g,
+	'/*': /\*\//g,
+	'/': /\\\\\/|[^\\]\//g
+};
 
 /**
  * Creates a function that will call a callback function with a set of matches
- * for for each occurrence of a pattern match for a given RegExp.  Only true
- * JavaScript is searched.  Comments, strings, and (TODO) RegExps are skipped.
+ * for each occurrence of a pattern match for a given RegExp.  Only true
+ * JavaScript is searched.  Comments, strings, and RegExps are skipped.
  * The onMatch callback is called with a single parameter: an array containing
  * the result of calling the RegExp's exec() method.  If onMatch returns a
  * very large number, the pattern matching stops.
@@ -1929,7 +1943,7 @@ function createCodeFinder (codeRx) {
 	comboRx = composeRx(codeRx, codeTransitionsRx, flags);
 
 	return function (source, onMatch) {
-		var matches, index;
+		var matches, index, rx, trans;
 
 		comboRx.lastIndex = 0; // reset
 
@@ -1937,20 +1951,19 @@ function createCodeFinder (codeRx) {
 
 			index = comboRx.lastIndex;
 
-			// check for transitions into quotes, comments
-			if (matches[0] in quotes) {
-				index = skipToEndOfQuote(source, matches[0], index);
-			}
-			else if (matches[0] in comments) {
-				index = skipTo(source, comments[matches[0]], index);
-			}
-			else {
+			// pop off matches for regexp and other transitions
+			rx = matches.pop();
+			trans = matches.pop() || rx;
+
+			// if transition patterns not found, this must be a user pattern
+			if (!trans) {
+				// call onMatch and let it optionally skip forward
 				index = onMatch(matches) || index;
 			}
-
-			// if comboRx.lastIndex is negative, a skipXXX function failed
-			if (index < 0) {
-				throw new Error('Unexpected end while scanning. ' + source);
+			// check for transitions into quotes, comments
+			else if (trans in skippers) {
+				// skip over them
+				index = skipTo(source, skippers[trans], index);
 			}
 
 			comboRx.lastIndex = index;
@@ -1960,19 +1973,22 @@ function createCodeFinder (codeRx) {
 	};
 }
 
-function skipToEndOfQuote (source, quote, index) {
-	index = skipTo(source, quote, index);
-	return source.charAt(index - 1) === '\\'
-		? skipToEndOfQuote(source, quote, index + 6)
-		: index;
-}
+function skipTo (source, rx, index) {
+	rx.lastIndex = index;
 
-function skipTo (source, str, index) {
-	return source.indexOf(str, index) + str.length;
+	if (!rx.exec(source)) {
+		throw new Error(
+				'Unterminated comment, string, or RegExp at '
+				+ index + ' near ' + source.slice(index - 50, 100)
+		);
+	}
+
+	return rx.lastIndex;
 }
 
 function composeRx (rx1, rx2, flags) {
-	return new RegExp(rxStringContents(rx1) + '|' + rxStringContents(rx2), flags);
+	return new RegExp(rxStringContents(rx1)
+		+ '|' + rxStringContents(rx2), flags);
 }
 
 function rxStringContents (rx) {
