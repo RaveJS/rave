@@ -114,6 +114,11 @@ function gatherExtensions (context) {
 					applyOverrides(context.packages, extensionMeta.missing, true);
 				}
 
+				if (extensionMeta.overrides) {
+					// apply overrides
+					applyOverrides(context.packages, extensionMeta.overrides);
+				}
+
 				if (extensionMeta.extension) {
 					promises.push(initExtension(context, pkg.name, extensionMeta.extension));
 				}
@@ -127,8 +132,13 @@ function gatherExtensions (context) {
 function applyRavePackageMetadata (context) {
 	var rave = context.app.metadata.metadata.rave;
 
-	if (rave && rave.overrides) {
-		applyOverrides(context.packages, rave.overrides);
+	if (rave) {
+		if (rave.missing) {
+			applyOverrides(context.packages, rave.missing, true);
+		}
+		if (rave.overrides) {
+			applyOverrides(context.packages, rave.overrides);
+		}
 	}
 
 	return context;

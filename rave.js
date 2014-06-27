@@ -1529,10 +1529,10 @@ function toLoader (value) {
 
 
 
-;define('rave/pipeline/locateAsIs', ['require', 'exports', 'module'], function (require, exports, module, define) {module.exports = locateAsIs;
+;define('rave/pipeline/translateAsIs', ['require', 'exports', 'module'], function (require, exports, module, define) {module.exports = translateAsIs;
 
-function locateAsIs (load) {
-	return load.name;
+function translateAsIs (load) {
+	return load.source;
 }
 
 });
@@ -1694,10 +1694,10 @@ function beget (base) {
 });
 
 
-;define('rave/pipeline/translateAsIs', ['require', 'exports', 'module'], function (require, exports, module, define) {module.exports = translateAsIs;
+;define('rave/pipeline/locateAsIs', ['require', 'exports', 'module'], function (require, exports, module, define) {module.exports = locateAsIs;
 
-function translateAsIs (load) {
-	return load.source;
+function locateAsIs (load) {
+	return load.name;
 }
 
 });
@@ -1726,6 +1726,101 @@ function fetchText (url, callback, errback) {
 	};
 	xhr.send(null);
 }
+
+});
+
+
+;define('rave/lib/es5Transform', ['require', 'exports', 'module'], function (require, exports, module, define) {module.exports = {
+	fromLoader: function (value) {
+		return value && value.__es5Module ? value.__es5Module : value;
+	},
+	toLoader: function (module) {
+		return {
+			// for real ES6 modules to consume this module
+			'default': module,
+			// for modules transpiled from ES5
+			__es5Module: module
+		};
+	}
+};
+
+});
+
+
+;define('rave/lib/addSourceUrl', ['require', 'exports', 'module'], function (require, exports, module, define) {module.exports = addSourceUrl;
+
+function addSourceUrl (url, source) {
+	return source
+		+ '\n//# sourceURL='
+		+ url.replace(/\s/g, '%20')
+		+ '\n';
+}
+
+});
+
+
+;define('rave/load/predicate', ['require', 'exports', 'module'], function (require, exports, module, define) {exports.composePredicates = composePredicates;
+exports.createPackageMatcher = createPackageMatcher;
+exports.createPatternMatcher = createPatternMatcher;
+exports.createExtensionsMatcher = createExtensionsMatcher;
+
+function composePredicates (matchPackage, matchPattern, matchExtensions, override) {
+	var predicate, predicates = [];
+
+	predicate = override.predicate || always;
+
+	if (override.package && override.package !== '*') {
+		predicates.push(matchPackage);
+	}
+
+	if (override.pattern) {
+		predicates.push(matchPattern);
+	}
+
+	if (override.extensions) {
+		predicates.push(matchExtensions);
+	}
+
+	return predicates.length > 0
+		? testAllPredicates
+		: predicate;
+
+	function testAllPredicates (load) {
+		for (var i = 0, len = predicates.length; i < len; i++) {
+			if (!predicates[i](load)) return false;
+		}
+		return predicate.apply(this, arguments);
+	}
+}
+
+function createPackageMatcher (samePackage, override) {
+	return function (load) {
+		return samePackage(load.name, override.package);
+	};
+}
+
+function createPatternMatcher (override) {
+	var patternRx = typeof override.pattern === 'string'
+		? new RegExp(override.pattern)
+		: override.pattern;
+	return function (load) {
+		return patternRx.test(load.name);
+	};
+}
+
+function createExtensionsMatcher (override) {
+	var extensions = override.extensions && override.extensions.map(function (ext) {
+		return ext.charAt(0) === '.' ? ext : '.' + ext;
+	});
+	return function (load) {
+		var name = load.name;
+		return extensions.some(function (ext) {
+			return name.slice(-ext.length) === ext;
+		});
+	};
+}
+
+function always () { return true; }
 
 });
 
@@ -1800,101 +1895,6 @@ function parseUid (uid) {
 function getName (uid) {
 	return uid.split("#").pop();
 }
-
-});
-
-
-;define('rave/load/predicate', ['require', 'exports', 'module'], function (require, exports, module, define) {exports.composePredicates = composePredicates;
-exports.createPackageMatcher = createPackageMatcher;
-exports.createPatternMatcher = createPatternMatcher;
-exports.createExtensionsMatcher = createExtensionsMatcher;
-
-function composePredicates (matchPackage, matchPattern, matchExtensions, override) {
-	var predicate, predicates = [];
-
-	predicate = override.predicate || always;
-
-	if (override.package && override.package !== '*') {
-		predicates.push(matchPackage);
-	}
-
-	if (override.pattern) {
-		predicates.push(matchPattern);
-	}
-
-	if (override.extensions) {
-		predicates.push(matchExtensions);
-	}
-
-	return predicates.length > 0
-		? testAllPredicates
-		: predicate;
-
-	function testAllPredicates (load) {
-		for (var i = 0, len = predicates.length; i < len; i++) {
-			if (!predicates[i](load)) return false;
-		}
-		return predicate.apply(this, arguments);
-	}
-}
-
-function createPackageMatcher (samePackage, override) {
-	return function (load) {
-		return samePackage(load.name, override.package);
-	};
-}
-
-function createPatternMatcher (override) {
-	var patternRx = typeof override.pattern === 'string'
-		? new RegExp(override.pattern)
-		: override.pattern;
-	return function (load) {
-		return patternRx.test(load.name);
-	};
-}
-
-function createExtensionsMatcher (override) {
-	var extensions = override.extensions && override.extensions.map(function (ext) {
-		return ext.charAt(0) === '.' ? ext : '.' + ext;
-	});
-	return function (load) {
-		var name = load.name;
-		return extensions.some(function (ext) {
-			return name.slice(-ext.length) === ext;
-		});
-	};
-}
-
-function always () { return true; }
-
-});
-
-
-;define('rave/lib/addSourceUrl', ['require', 'exports', 'module'], function (require, exports, module, define) {module.exports = addSourceUrl;
-
-function addSourceUrl (url, source) {
-	return source
-		+ '\n//# sourceURL='
-		+ url.replace(/\s/g, '%20')
-		+ '\n';
-}
-
-});
-
-
-;define('rave/lib/es5Transform', ['require', 'exports', 'module'], function (require, exports, module, define) {module.exports = {
-	fromLoader: function (value) {
-		return value && value.__es5Module ? value.__es5Module : value;
-	},
-	toLoader: function (module) {
-		return {
-			// for real ES6 modules to consume this module
-			'default': module,
-			// for modules transpiled from ES5
-			__es5Module: module
-		};
-	}
-};
 
 });
 
@@ -2003,6 +2003,20 @@ function rxStringContents (rx) {
 });
 
 
+;define('rave/pipeline/fetchAsText', ['require', 'exports', 'module', 'rave/lib/fetchText'], function (require, exports, module, $cram_r0, define) {module.exports = fetchAsText;
+
+var fetchText = $cram_r0;
+
+function fetchAsText (load) {
+	return new Promise(function(resolve, reject) {
+		fetchText(load.address, resolve, reject);
+	});
+
+}
+
+});
+
+
 ;define('rave/pipeline/normalizeCjs', ['require', 'exports', 'module', 'rave/lib/path'], function (require, exports, module, $cram_r0, define) {var path = $cram_r0;
 
 module.exports = normalizeCjs;
@@ -2016,15 +2030,26 @@ function normalizeCjs (name, refererName, refererUrl) {
 });
 
 
-;define('rave/pipeline/fetchAsText', ['require', 'exports', 'module', 'rave/lib/fetchText'], function (require, exports, module, $cram_r0, define) {module.exports = fetchAsText;
+;define('rave/pipeline/instantiateJson', ['require', 'exports', 'module', 'rave/lib/es5Transform', 'rave/lib/addSourceUrl'], function (require, exports, module, $cram_r0, $cram_r1, define) {var es5Transform = $cram_r0;
+var addSourceUrl = $cram_r1;
 
-var fetchText = $cram_r0;
+module.exports = instantiateJson;
 
-function fetchAsText (load) {
-	return new Promise(function(resolve, reject) {
-		fetchText(load.address, resolve, reject);
-	});
+function instantiateJson (load) {
+	var source;
 
+	source = '(' + load.source + ')';
+
+	// if debugging, add sourceURL
+	if (load.metadata.rave.debug) {
+		source = addSourceUrl(load.address, source);
+	}
+
+	return {
+		execute: function () {
+			return new Module(es5Transform.toLoader(eval(source)));
+		}
+	};
 }
 
 });
@@ -2151,63 +2176,6 @@ function sameCommonJSPackages (a, b) {
 });
 
 
-;define('rave/pipeline/instantiateJson', ['require', 'exports', 'module', 'rave/lib/es5Transform', 'rave/lib/addSourceUrl'], function (require, exports, module, $cram_r0, $cram_r1, define) {var es5Transform = $cram_r0;
-var addSourceUrl = $cram_r1;
-
-module.exports = instantiateJson;
-
-function instantiateJson (load) {
-	var source;
-
-	source = '(' + load.source + ')';
-
-	// if debugging, add sourceURL
-	if (load.metadata.rave.debug) {
-		source = addSourceUrl(load.address, source);
-	}
-
-	return {
-		execute: function () {
-			return new Module(es5Transform.toLoader(eval(source)));
-		}
-	};
-}
-
-});
-
-
-;define('rave/lib/find/requires', ['require', 'exports', 'module', 'rave/lib/find/createCodeFinder'], function (require, exports, module, $cram_r0, define) {module.exports = findRequires;
-
-var createCodeFinder = $cram_r0;
-
-var findRValueRequiresRx = /require\s*\(\s*(["'])(.*?[^\\])\1\s*\)/g;
-var idMatch = 2;
-
-var finder = createCodeFinder(findRValueRequiresRx);
-
-function findRequires (source) {
-	var deps, seen;
-
-	deps = [];
-	seen = {};
-
-	finder(source, function (matches) {
-		var id = matches[idMatch];
-		if (id) {
-			// push [relative] id into deps list and seen map
-			if (!(id in seen)) {
-				seen[id] = true;
-				deps.push(id)
-			}
-		}
-	});
-
-	return deps;
-}
-
-});
-
-
 ;define('rave/lib/createRequire', ['require', 'exports', 'module', 'rave/lib/es5Transform'], function (require, exports, module, $cram_r0, define) {module.exports = createRequire;
 
 var es5Transform = $cram_r0;
@@ -2258,6 +2226,38 @@ function getExports (names, value) {
 	else {
 		return es5Transform.fromLoader(value);
 	}
+}
+
+});
+
+
+;define('rave/lib/find/requires', ['require', 'exports', 'module', 'rave/lib/find/createCodeFinder'], function (require, exports, module, $cram_r0, define) {module.exports = findRequires;
+
+var createCodeFinder = $cram_r0;
+
+var findRValueRequiresRx = /require\s*\(\s*(["'])(.*?[^\\])\1\s*\)/g;
+var idMatch = 2;
+
+var finder = createCodeFinder(findRValueRequiresRx);
+
+function findRequires (source) {
+	var deps, seen;
+
+	deps = [];
+	seen = {};
+
+	finder(source, function (matches) {
+		var id = matches[idMatch];
+		if (id) {
+			// push [relative] id into deps list and seen map
+			if (!(id in seen)) {
+				seen[id] = true;
+				deps.push(id)
+			}
+		}
+	});
+
+	return deps;
 }
 
 });
