@@ -66,6 +66,12 @@ var wrongModuleType = "Possible moduleType mismatch? Module {name} appears \
 to be of type {sourceType}? \nPlease ask the package author to add or update \
 moduleType.";
 
+var overriddenPackage = "Package `{overrider}` overrode metadata properties \
+of package `{overridee}`.";
+
+var defaultedPackage = "Package `{overrider}` provided default metadata for \
+missing properties of package `{overridee}`.";
+
 function startDebug (context) {
 	var rave, enabled;
 
@@ -115,12 +121,10 @@ function startDebug (context) {
 				return normalized;
 			};
 			// log an error if it looks like an incorrect module type was applied
-			// TODO: override instantiate to catch throws of ReferenceError
+			// override instantiate to catch throws of ReferenceError
 			// errors can happen when instantiate hook runs (AMD) or when returned factory runs (node)
-			// if /\bdefine\b in message, module is AMD, but was not declared as AMD
-			// if /\brequire\b in message, module is node, but was not declared as node
-			// if /\bexports\b in message, module is node, but was not declared as node
-			// if /\bmodule\b in message, module is node, but was not declared as node
+			// if /\bdefine\b/ in message, module is AMD, but was not declared as AMD
+			// if /\brequire\b|\exports\b|\bmodule\b/ in message, module is node, but was not declared as node
 			var instantiate = context.loader.instantiate;
 			context.loader.instantiate = function (load) {
 				try {
@@ -170,15 +174,17 @@ function startDebug (context) {
 		});
 	};
 
-	auto.main(context).then(
-		function (context) {
-			return detectExtensionConflict(context);
-		},
-		function (ex) {
-			detectExtensionConflict(context);
-			throw ex;
-		}
-	);
+	auto.main(context)
+		.then(
+			function (context) {
+				return detectExtensionConflict(context);
+			},
+			function (ex) {
+				detectExtensionConflict(context);
+				throw ex;
+			}
+		)
+		.then(logOverrides);
 }
 
 function findVersion (context) {
@@ -321,4 +327,32 @@ function findPersonLink (person) {
 	else {
 		return person.url || person.web || person.homepage || person.email;
 	}
+}
+
+function logOverrides (context) {
+	var seen, name, pkg, extMeta, oname;
+	seen = {};
+	for (name in context.packages) {
+		pkg = context.packages[name];
+		// packages are keyed by versioned and unversioned names
+		if (!(pkg.name in seen) && pkg.metadata && pkg.metadata.rave) {
+			seen[pkg.name] = true;
+			extMeta = pkg.metadata.rave;
+			if (extMeta.missing) {
+				for (oname in extMeta.missing) {
+					if (oname in context.packages) {
+						console.log(render({ overrider: pkg.name, overridee: oname }, defaultedPackage));
+					}
+				}
+			}
+			if (extMeta.overrides) {
+				for (oname in extMeta.overrides) {
+					if (oname in context.packages) {
+						console.log(render({ overrider: pkg.name, overridee: oname }, overriddenPackage));
+					}
+				}
+			}
+		}
+	}
+	return context;
 }

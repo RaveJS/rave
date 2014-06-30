@@ -94,7 +94,7 @@ function configureLoader (context) {
 }
 
 function gatherExtensions (context) {
-	var seen, name, pkg, promises, moduleName;
+	var seen, name, pkg, promises, extensionMeta;
 	seen = {};
 	promises = [];
 	for (name in context.packages) {
@@ -104,12 +104,23 @@ function gatherExtensions (context) {
 			seen[pkg.name] = true;
 			if (pkg.metadata && pkg.metadata.rave) {
 
-				moduleName = typeof pkg.metadata.rave === 'string'
-					? pkg.metadata.rave
-					: pkg.metadata.rave.extension;
+				extensionMeta = pkg.metadata.rave;
+				if (typeof extensionMeta === 'string') {
+					extensionMeta = { extension: extensionMeta };
+				}
 
-				if (moduleName) {
-					promises.push(initExtension(context, pkg.name, moduleName));
+				if (extensionMeta.missing) {
+					// apply missing
+					applyOverrides(context.packages, extensionMeta.missing, true);
+				}
+
+				if (extensionMeta.overrides) {
+					// apply overrides
+					applyOverrides(context.packages, extensionMeta.overrides);
+				}
+
+				if (extensionMeta.extension) {
+					promises.push(initExtension(context, pkg.name, extensionMeta.extension));
 				}
 
 			}
@@ -121,21 +132,28 @@ function gatherExtensions (context) {
 function applyRavePackageMetadata (context) {
 	var rave = context.app.metadata.metadata.rave;
 
-	if (rave && rave.overrides) {
-		applyOverrides(context.packages, rave.overrides);
+	if (rave) {
+		if (rave.missing) {
+			applyOverrides(context.packages, rave.missing, true);
+		}
+		if (rave.overrides) {
+			applyOverrides(context.packages, rave.overrides);
+		}
 	}
 
 	return context;
 }
 
-function applyOverrides (packages, overrides) {
+function applyOverrides (packages, overrides, ifMissing) {
 	var name, pkg, key, pkgOverrides;
 	for (name in overrides) {
 		pkg = packages[name];
 		if (pkg) {
 			pkgOverrides = overrides[name];
 			for (key in pkgOverrides) {
-				pkg[key] = pkgOverrides[key];
+				if (!ifMissing || typeof pkg[key] === 'undefined') {
+					pkg[key] = pkgOverrides[key];
+				}
 			}
 		}
 	}
