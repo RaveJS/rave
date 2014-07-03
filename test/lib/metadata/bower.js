@@ -41,12 +41,6 @@ buster.testCase('lib/metadata/bower', {
 			});
 
 			assert.equals(dsc.moduleType, ['a', 'b']);
-		},
-
-		'should default moduleType to [] if not specified': function() {
-			var dsc = bower.createDescriptor({});
-
-			assert.equals(dsc.moduleType, []);
 		}
 	}
 
