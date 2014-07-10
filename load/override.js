@@ -14,7 +14,7 @@ exports.callHook = callHook;
 exports.callNormalize = callNormalize;
 exports.packageMatch = sameCommonJSPackages;
 
-var notCalled = {};
+var notCalled = false;
 
 function sortByPredicate (overrides) {
 	return overrides.sort(specificity.compare);

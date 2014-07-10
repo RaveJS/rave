@@ -1529,6 +1529,15 @@ function toLoader (value) {
 
 
 
+;define('rave/pipeline/locateAsIs', ['require', 'exports', 'module'], function (require, exports, module, define) {module.exports = locateAsIs;
+
+function locateAsIs (load) {
+	return load.name;
+}
+
+});
+
+
 ;define('rave/pipeline/translateAsIs', ['require', 'exports', 'module'], function (require, exports, module, define) {module.exports = translateAsIs;
 
 function translateAsIs (load) {
@@ -1694,15 +1703,6 @@ function beget (base) {
 });
 
 
-;define('rave/pipeline/locateAsIs', ['require', 'exports', 'module'], function (require, exports, module, define) {module.exports = locateAsIs;
-
-function locateAsIs (load) {
-	return load.name;
-}
-
-});
-
-
 ;define('rave/lib/fetchText', ['require', 'exports', 'module'], function (require, exports, module, define) {module.exports = fetchText;
 
 function fetchText (url, callback, errback) {
@@ -1730,6 +1730,18 @@ function fetchText (url, callback, errback) {
 });
 
 
+;define('rave/lib/addSourceUrl', ['require', 'exports', 'module'], function (require, exports, module, define) {module.exports = addSourceUrl;
+
+function addSourceUrl (url, source) {
+	return source
+		+ '\n//# sourceURL='
+		+ url.replace(/\s/g, '%20')
+		+ '\n';
+}
+
+});
+
+
 ;define('rave/lib/es5Transform', ['require', 'exports', 'module'], function (require, exports, module, define) {module.exports = {
 	fromLoader: function (value) {
 		return value && value.__es5Module ? value.__es5Module : value;
@@ -1743,18 +1755,6 @@ function fetchText (url, callback, errback) {
 		};
 	}
 };
-
-});
-
-
-;define('rave/lib/addSourceUrl', ['require', 'exports', 'module'], function (require, exports, module, define) {module.exports = addSourceUrl;
-
-function addSourceUrl (url, source) {
-	return source
-		+ '\n//# sourceURL='
-		+ url.replace(/\s/g, '%20')
-		+ '\n';
-}
 
 });
 
@@ -1909,17 +1909,17 @@ createCodeFinder.skipTo = skipTo;
 var trimRegExpRx = /^\/|\/[gim]*$/g;
 
 // Look for code transitions.
-var codeTransitionsRx = composeRx(
+var defaultTransitionsRx = composeRx(
 	// Detect strings, blank strings, and comments.
 	/(''?|""?|\/\/|\/\*)/,
-	// Detect RegExps by excluding division sign and line comment
-	/(?:[\-+*\/=\,%&|^!(;\{\[<>]\s*)(\/)(?!\/)/,
+	// Detect RegExps by excluding division sign and comments
+	/(?:[\-+*\/=\,%&|^!(;\{\[<>]\s*)(\/)(?!\/|\*)/,
 	'g'
 );
 
 // RegExps to find end of strings, comments, RegExps in code
 // We can't detect blank strings easily, so we handle those specifically.
-var skippers = {
+var defaultSkippers = {
 	"''": false,
 	'""': false,
 	"'": /\\\\'|[^\\]'/g,
@@ -1937,12 +1937,23 @@ var skippers = {
  * the result of calling the RegExp's exec() method.  If onMatch returns a
  * very large number, the pattern matching stops.
  * @param {RegExp} codeRx is a RegExp for the code pattern to find.
+ * @param {RegExp} [codeTransitionsRx] is a RegExp to detect transitions into
+ *   comments, strings, RegExps, etc.  If omitted, the default RegExp is suited
+ *   to JavaScript code.
+ * @param {function(matches:Array):number} [skip] is a function that returns
+ *   a new position to resume searching the source code.
  * @returns {function(source:string, onMatch:function):string}
  */
-function createCodeFinder (codeRx) {
+function createCodeFinder (codeRx, codeTransitionsRx, skip) {
 	var flags, comboRx;
 
-	flags = codeRx.multiline ? 'gm' : 'g'; // we probably don't need ignoreCase
+	if (!codeTransitionsRx) codeTransitionsRx = defaultTransitionsRx;
+	if (!skip) skip = skipNonCode;
+
+	flags = 'g';
+	if (codeRx.multiline) flags += 'm';
+	if (codeRx.ignoreCase) flags += 'i';
+
 	comboRx = composeRx(codeRx, codeTransitionsRx, flags);
 
 	return function (source, onMatch) {
@@ -1952,30 +1963,33 @@ function createCodeFinder (codeRx) {
 
 		while (matches = comboRx.exec(source)) {
 
-			index = comboRx.lastIndex;
+			index = skip(matches);
 
-			// pop off matches for regexp and other transitions
-			rx = matches.pop();
-			trans = matches.pop() || rx;
-
-			// if transition patterns not found, this must be a user pattern
-			if (!trans) {
+			if (index < 0) {
 				// call onMatch and let it optionally skip forward
-				index = onMatch(matches) || index;
-			}
-			// check for transitions into quotes, comments
-			else if (trans in skippers) {
-				// skip over them, possibly using a regexp to find the end
-				if (skippers[trans]) {
-					index = skipTo(source, skippers[trans], index);
-				}
+				index = onMatch(matches);
 			}
 
-			comboRx.lastIndex = index;
+			if (index >= 0) {
+				comboRx.lastIndex = index;
+			}
+
 		}
 
 		return source;
 	};
+}
+
+function skipNonCode (matches) {
+	var rx, trans, index;
+	// pop off matches for regexp and other transitions
+	rx = matches.pop();
+	trans = matches.pop() || rx;
+	if (!trans) return -1;
+	if (defaultSkippers[trans]) {
+		index = matches.index + matches[0].length;
+		return skipTo(matches.input, defaultSkippers[trans], index);
+	}
 }
 
 function skipTo (source, rx, index) {
@@ -2003,20 +2017,6 @@ function rxStringContents (rx) {
 });
 
 
-;define('rave/pipeline/fetchAsText', ['require', 'exports', 'module', 'rave/lib/fetchText'], function (require, exports, module, $cram_r0, define) {module.exports = fetchAsText;
-
-var fetchText = $cram_r0;
-
-function fetchAsText (load) {
-	return new Promise(function(resolve, reject) {
-		fetchText(load.address, resolve, reject);
-	});
-
-}
-
-});
-
-
 ;define('rave/pipeline/normalizeCjs', ['require', 'exports', 'module', 'rave/lib/path'], function (require, exports, module, $cram_r0, define) {var path = $cram_r0;
 
 module.exports = normalizeCjs;
@@ -2030,26 +2030,15 @@ function normalizeCjs (name, refererName, refererUrl) {
 });
 
 
-;define('rave/pipeline/instantiateJson', ['require', 'exports', 'module', 'rave/lib/es5Transform', 'rave/lib/addSourceUrl'], function (require, exports, module, $cram_r0, $cram_r1, define) {var es5Transform = $cram_r0;
-var addSourceUrl = $cram_r1;
+;define('rave/pipeline/fetchAsText', ['require', 'exports', 'module', 'rave/lib/fetchText'], function (require, exports, module, $cram_r0, define) {module.exports = fetchAsText;
 
-module.exports = instantiateJson;
+var fetchText = $cram_r0;
 
-function instantiateJson (load) {
-	var source;
+function fetchAsText (load) {
+	return new Promise(function(resolve, reject) {
+		fetchText(load.address, resolve, reject);
+	});
 
-	source = '(' + load.source + ')';
-
-	// if debugging, add sourceURL
-	if (load.metadata.rave.debug) {
-		source = addSourceUrl(load.address, source);
-	}
-
-	return {
-		execute: function () {
-			return new Module(es5Transform.toLoader(eval(source)));
-		}
-	};
 }
 
 });
@@ -2067,7 +2056,7 @@ exports.callHook = callHook;
 exports.callNormalize = callNormalize;
 exports.packageMatch = sameCommonJSPackages;
 
-var notCalled = {};
+var notCalled = false;
 
 function sortByPredicate (overrides) {
 	return overrides.sort(specificity.compare);
@@ -2176,6 +2165,63 @@ function sameCommonJSPackages (a, b) {
 });
 
 
+;define('rave/pipeline/instantiateJson', ['require', 'exports', 'module', 'rave/lib/es5Transform', 'rave/lib/addSourceUrl'], function (require, exports, module, $cram_r0, $cram_r1, define) {var es5Transform = $cram_r0;
+var addSourceUrl = $cram_r1;
+
+module.exports = instantiateJson;
+
+function instantiateJson (load) {
+	var source;
+
+	source = '(' + load.source + ')';
+
+	// if debugging, add sourceURL
+	if (load.metadata.rave.debug) {
+		source = addSourceUrl(load.address, source);
+	}
+
+	return {
+		execute: function () {
+			return new Module(es5Transform.toLoader(eval(source)));
+		}
+	};
+}
+
+});
+
+
+;define('rave/lib/find/requires', ['require', 'exports', 'module', 'rave/lib/find/createCodeFinder'], function (require, exports, module, $cram_r0, define) {module.exports = findRequires;
+
+var createCodeFinder = $cram_r0;
+
+var findRValueRequiresRx = /require\s*\(\s*(["'])(.*?[^\\])\1\s*\)/g;
+var idMatch = 2;
+
+var finder = createCodeFinder(findRValueRequiresRx);
+
+function findRequires (source) {
+	var deps, seen;
+
+	deps = [];
+	seen = {};
+
+	finder(source, function (matches) {
+		var id = matches[idMatch];
+		if (id) {
+			// push [relative] id into deps list and seen map
+			if (!(id in seen)) {
+				seen[id] = true;
+				deps.push(id)
+			}
+		}
+	});
+
+	return deps;
+}
+
+});
+
+
 ;define('rave/lib/createRequire', ['require', 'exports', 'module', 'rave/lib/es5Transform'], function (require, exports, module, $cram_r0, define) {module.exports = createRequire;
 
 var es5Transform = $cram_r0;
@@ -2226,38 +2272,6 @@ function getExports (names, value) {
 	else {
 		return es5Transform.fromLoader(value);
 	}
-}
-
-});
-
-
-;define('rave/lib/find/requires', ['require', 'exports', 'module', 'rave/lib/find/createCodeFinder'], function (require, exports, module, $cram_r0, define) {module.exports = findRequires;
-
-var createCodeFinder = $cram_r0;
-
-var findRValueRequiresRx = /require\s*\(\s*(["'])(.*?[^\\])\1\s*\)/g;
-var idMatch = 2;
-
-var finder = createCodeFinder(findRValueRequiresRx);
-
-function findRequires (source) {
-	var deps, seen;
-
-	deps = [];
-	seen = {};
-
-	finder(source, function (matches) {
-		var id = matches[idMatch];
-		if (id) {
-			// push [relative] id into deps list and seen map
-			if (!(id in seen)) {
-				seen[id] = true;
-				deps.push(id)
-			}
-		}
-	});
-
-	return deps;
 }
 
 });

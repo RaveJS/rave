@@ -9,7 +9,7 @@ var metadata = require('../lib/metadata');
 
 function locatePackage (load) {
 	var options, parts, packageName, modulePath, moduleName, descriptor,
-		location, ext;
+		location;
 
 	options = load.metadata.rave;
 
@@ -23,13 +23,15 @@ function locatePackage (load) {
 	if (!descriptor) throw new Error('Package not found: ' + load.name);
 
 	moduleName = modulePath || descriptor.main;
-	location = descriptor.location;
-	ext = options.defaultExt || '.js';
+	if (!load.metadata.dontAddExt) {
+		moduleName = path.ensureExt(moduleName, '.js')
+	}
 
-	// prepend baseUrl
+	location = descriptor.location;
 	if (!path.isAbsUrl(location) && options.baseUrl) {
+		// prepend baseUrl
 		location = path.joinPaths(options.baseUrl, location);
 	}
 
-	return path.joinPaths(location, path.ensureExt(moduleName, ext));
+	return path.joinPaths(location, moduleName);
 }
