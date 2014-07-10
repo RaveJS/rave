@@ -1,0 +1,8 @@
+/**
+ * @license or whatever
+ */
+define(['require', 'exports'], function (require, exports) {
+	var meow = {};
+	meow.foo = 42;
+	exports.meow = meow;
+});

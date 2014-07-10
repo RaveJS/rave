@@ -1,0 +1,8 @@
+/**
+ * @license or whatever
+ */
+define(['./foo', './bar'], function () {
+	var meow = {};
+	meow.foo = 42;
+	return meow;
+});

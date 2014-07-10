@@ -1,0 +1,12 @@
+/**
+ * @license or whatever
+ */
+(function (define) { define(function (require) {
+	var meow = {};
+	return meow;
+});
+}(
+	typeof define === 'function' && define.amd
+		? define
+		: function (factory) { module.exports = factory(require); }
+));

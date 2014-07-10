@@ -1,0 +1,17 @@
+/**
+ * @license or whatever
+ */
+(function (global) {
+	var meow = {};
+	// crazy UMD is crazy
+	// this module prefers node/commonjs
+	if (typeof module === 'object') {
+		module.exports = meow;
+	}
+	else if (typeof define === 'function' && define.amd) {
+		define(function () { return meow; });
+	}
+	else if (global) {
+		global.meow = meow;
+	}
+}(typeof self !== 'undefined' && self || typeof global !== 'undefined' && global));
