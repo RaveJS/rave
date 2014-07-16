@@ -30,7 +30,7 @@ context = (document ? mergeBrowserOptions : mergeNodeOptions)({
 	raveMain: defaultMain,
 	raveScript: rave.scriptUrl,
 	baseUrl: rave.baseUrl,
-	loader: new Loader({})
+	loader: new Reflect.Loader({})
 });
 
 loader = context.loader;
