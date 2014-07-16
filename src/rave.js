@@ -144,7 +144,7 @@ function simpleDefine (loader) {
 		else {
 			value = {}; // es6 needs an object
 		}
-		loader.set(id, new Module(value));
+		loader.set(id, loader.newModule(value));
 	};
 }
 

@@ -23,7 +23,7 @@ function instantiateNode (load) {
 	return {
 		deps: deps,
 		execute: function () {
-			return new Module(factory.apply(this, arguments));
+			return loader.newModule(factory.apply(this, arguments));
 		}
 	};
 }

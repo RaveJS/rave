@@ -9,7 +9,7 @@ var metadata = require('../lib/metadata');
 var path = require('../lib/path');
 
 function instantiateScript (load) {
-	var packages, pkg, deps;
+	var packages, pkg, deps, factory, loader;
 
 	// if debugging, add sourceURL
 	if (load.metadata.rave.debug) {
@@ -23,12 +23,14 @@ function instantiateScript (load) {
 		deps = pkgMains(packages, pkg.deps)
 	}
 
-	var factory = globalFactory(this, load);
+	factory = globalFactory(this, load);
+	loader = load.metadata.rave.loader;
+
 	return {
 		deps: deps,
 		execute: function () {
 			factory();
-			return new Module({});
+			return loader.newModule({});
 		}
 	};
 

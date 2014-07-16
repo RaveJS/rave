@@ -2792,7 +2792,7 @@ function simpleDefine (loader) {
 		else {
 			value = {}; // es6 needs an object
 		}
-		loader.set(id, new Module(value));
+		loader.set(id, loader.newModule(value));
 	};
 }
 
@@ -3453,9 +3453,10 @@ var addSourceUrl = $cram_r1;
 module.exports = instantiateJson;
 
 function instantiateJson (load) {
-	var source;
+	var source, loader;
 
 	source = '(' + load.source + ')';
+	loader = load.metadata.rave.loader;
 
 	// if debugging, add sourceURL
 	if (load.metadata.rave.debug) {
@@ -3464,7 +3465,7 @@ function instantiateJson (load) {
 
 	return {
 		execute: function () {
-			return new Module(es5Transform.toLoader(eval(source)));
+			return loader.newModule(es5Transform.toLoader(eval(source)));
 		}
 	};
 }
@@ -3517,14 +3518,15 @@ function createRequire (loader, refId) {
 	// parameter.
 	require.async = function (id) {
 		var abs, args;
-		try {
-			abs = loader.normalize(id, refId);
-		}
-		catch (ex) {
-			return Promise.reject(ex);
-		}
+//		try {
+//			abs = loader.normalize(id, refId);
+//		}
+//		catch (ex) {
+//			return Promise.reject(ex);
+//		}
 		args = arguments;
-		return loader.import(abs).then(function (value) {
+//		return loader.import(abs).then(function (value) {
+		return loader.import(id, { name: refId }).then(function (value) {
 			return getExports(args[1], value);
 		});
 	};
@@ -3617,7 +3619,7 @@ function instantiateNode (load) {
 	return {
 		deps: deps,
 		execute: function () {
-			return new Module(factory.apply(this, arguments));
+			return loader.newModule(factory.apply(this, arguments));
 		}
 	};
 }

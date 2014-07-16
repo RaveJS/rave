@@ -51,7 +51,7 @@ function instantiateAmd (load) {
 	return {
 		deps: deps,
 		execute: function () {
-			return new Module(factory.apply(loader, arguments));
+			return loader.newModule(factory.apply(loader, arguments));
 		}
 	};
 }

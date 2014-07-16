@@ -7,9 +7,10 @@ var addSourceUrl = require('../lib/addSourceUrl');
 module.exports = instantiateJson;
 
 function instantiateJson (load) {
-	var source;
+	var source, loader;
 
 	source = '(' + load.source + ')';
+	loader = load.metadata.rave.loader;
 
 	// if debugging, add sourceURL
 	if (load.metadata.rave.debug) {
@@ -18,7 +19,7 @@ function instantiateJson (load) {
 
 	return {
 		execute: function () {
-			return new Module(es5Transform.toLoader(eval(source)));
+			return loader.newModule(es5Transform.toLoader(eval(source)));
 		}
 	};
 }
