@@ -5,7 +5,7 @@ var fs = require('fs');
 
 var eml, template, hooks, rave, built;
 
-eml = fs.readFileSync('./node_modules/es6-module-loader/lib/es6-module-loader.js');
+eml = fs.readFileSync('./node_modules/es6-module-loader/dist/es6-module-loader.js');
 template = fs.readFileSync('./src/_template.js');
 hooks = fs.readFileSync('./build/temp/hooks.js');
 rave = fs.readFileSync('./src/rave.js');
