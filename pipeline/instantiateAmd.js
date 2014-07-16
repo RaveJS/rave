@@ -2,16 +2,17 @@
 /** @author Brian Cavalier */
 /** @author John Hann */
 var findRequires = require('../lib/find/requires');
-var captureAmdArgs = require('../lib/captureAmdArgs');
+var captureAmdDefines = require('../lib/captureAmdDefines');
 var amdFactory = require('../lib/amdFactory');
 var addSourceUrl = require('../lib/addSourceUrl');
+var parseUid = require('../lib/uid').parse;
 
 module.exports = instantiateAmd;
 
 var scopedVars = ['require', 'exports', 'module'];
 
 function instantiateAmd (load) {
-	var loader, defineArgs, arity, factory, deps, isCjs, i;
+	var loader, defines, mainDefine, arity, factory, deps, isCjs, i;
 
 	loader = load.metadata.rave.loader;
 
@@ -20,21 +21,25 @@ function instantiateAmd (load) {
 		load.source = addSourceUrl(load.address, load.source);
 	}
 
-	// the safest way to capture the many define() variations is to run it
-	defineArgs = captureOrThrow(load);
-	arity = defineArgs.factory.length;
+	// the surest way to capture the many define() variations is to run it
+	defines = captureOrThrow(load);
+	mainDefine = defines.anon || defines.named.pop();
+
+	// TODO: figure out which named define is the right one
+	// TODO: do something with the remaining named defines
+
+	arity = mainDefine.factory.length;
 
 	// copy deps so we can remove items below!
 	deps = defineArgs.depsList ? defineArgs.depsList.slice() : [];
 
-	if (defineArgs.depsList == null && arity > 0) {
-		// is using load.source faster than defineArgs.factory.toString()?
-		defineArgs.requires = findOrThrow(load);
-		defineArgs.depsList = scopedVars.slice(0, arity);
-		deps = deps.concat(defineArgs.requires);
+	if (mainDefine.depsList == null && arity > 0) {
+		mainDefine.requires = findOrThrow(load, mainDefine.factory.toString());
+		mainDefine.depsList = scopedVars.slice(0, arity);
+		deps = deps.concat(mainDefine.requires);
 	}
 
-	factory = amdFactory(loader, defineArgs, load);
+	factory = amdFactory(loader, mainDefine, load);
 
 	// remove "require", "exports", "module" from loader deps
 	for (i = deps.length - 1; i >= 0; i--) {
@@ -53,18 +58,18 @@ function instantiateAmd (load) {
 
 function captureOrThrow (load) {
 	try {
-		return captureAmdArgs(load.source);
+		return captureAmdDefines(load.source);
 	}
 	catch (ex) {
-		ex.message = 'Error while capturing AMD define: '
+		ex.message = 'Error while parsing AMD: '
 			+ load.name + '. ' + ex.message;
 		throw ex;
 	}
 }
 
-function findOrThrow (load) {
+function findOrThrow (load, source) {
 	try {
-		return findRequires(load.source);
+		return findRequires(source);
 	}
 	catch (ex) {
 		ex.message += ' ' + load.name + ' ' + load.address;

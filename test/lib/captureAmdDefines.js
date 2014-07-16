@@ -3,14 +3,14 @@ var assert = buster.assert;
 var refute = buster.refute;
 var fail = buster.assertions.fail;
 
-var captureAmdArgs = require('../../lib/captureAmdArgs');
+var captureAmdArgs = require('../../lib/captureAmdDefines');
 
 var nameOptions = { '': 1, 'name': 1 };
 var depCounts = { 'none': 1, 0: 1, 1: 1, 3: 1 };
 var factoryOptions = { '""': 1, '{}': 1, 'function () {}': 1 };
 var depsList = [ 'dep1', 'dep2', 'dep3' ];
 
-buster.testCase('captureAmdArgs', {
+buster.testCase('captureAmdDefines', {
 
 	'should not fail on many variations of define()': function () {
 		for (var name in nameOptions) {
@@ -31,25 +31,25 @@ buster.testCase('captureAmdArgs', {
 	'should always return a factory': function () {
 		var def;
 		def = generateDefine(null, null, '{}');
-		assert.isFunction(captureAmdArgs(def).factory, 'factory is object');
+		assert.isFunction(captureAmdArgs(def).anon.factory, 'factory is object');
 		def = generateDefine(null, null, '"foo"');
-		assert.isFunction(captureAmdArgs(def).factory, 'factory is string');
+		assert.isFunction(captureAmdArgs(def).anon.factory, 'factory is string');
 		def = generateDefine(null, null, '/foo/g');
-		assert.isFunction(captureAmdArgs(def).factory, 'factory is RegExp');
+		assert.isFunction(captureAmdArgs(def).anon.factory, 'factory is RegExp');
 	},
 
 	'should detect a named module': function () {
 		var def;
 		def = generateDefine('foo', null, '{}');
-		assert.equals('foo', captureAmdArgs(def).name);
+		assert.equals('foo', captureAmdArgs(def).named[0].name);
 	},
 
 	'should detect dependencies': function () {
 		var def;
 		def = generateDefine('foo', ['bar', 'baz'], '{}');
-		assert.equals(['bar', 'baz'], captureAmdArgs(def).depsList, 'named module');
+		assert.equals(['bar', 'baz'], captureAmdArgs(def).named[0].depsList, 'named module');
 		def = generateDefine(null, ['bar', 'baz'], '{}');
-		assert.equals(['bar', 'baz'], captureAmdArgs(def).depsList, 'anonymous module');
+		assert.equals(['bar', 'baz'], captureAmdArgs(def).anon.depsList, 'anonymous module');
 	}
 
 });
