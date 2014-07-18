@@ -2985,28 +2985,43 @@ function beget (base) {
 });
 
 
-;define('rave/lib/fetchText', ['require', 'exports', 'module'], function (require, exports, module, define) {module.exports = fetchText;
+;define('rave/lib/es5SideRegistry', ['require', 'exports', 'module'], function (require, exports, module, define) {exports.set = add;
+exports.get = get;
+exports.has = has;
+exports.remove = remove;
 
-function fetchText (url, callback, errback) {
-	var xhr;
-	xhr = new XMLHttpRequest();
-	xhr.open('GET', url, true);
-	xhr.onreadystatechange = function () {
-		if (xhr.readyState === 4) {
-			if (xhr.status < 400) {
-				callback(xhr.responseText);
-			}
-			else {
-				errback(
-					new Error(
-						'fetchText() failed. url: "' + url
-						+ '" status: ' + xhr.status + ' - ' + xhr.statusText
-					)
-				);
-			}
-		}
+// shared registry
+var registry = {};
+
+function add (id, execute) {
+	return registry[id] = executeOnce(id, execute);
+}
+
+function get (id) {
+	return registry[id]();
+}
+
+function has (id) {
+	return id in registry;
+}
+
+function remove (id) {
+	var execute = registry[id];
+	delete registry[id];
+	return execute;
+}
+
+function executeOnce (id, execute) {
+	return function () {
+		var value = execute.apply(this, arguments);
+		// replace registry entry with a simple execute function
+		add(id, simpleExecute(value));
+		return value;
 	};
-	xhr.send(null);
+}
+
+function simpleExecute (value) {
+	return function () { return value; };
 }
 
 });
@@ -3037,6 +3052,33 @@ function addSourceUrl (url, source) {
 		};
 	}
 };
+
+});
+
+
+;define('rave/lib/fetchText', ['require', 'exports', 'module'], function (require, exports, module, define) {module.exports = fetchText;
+
+function fetchText (url, callback, errback) {
+	var xhr;
+	xhr = new XMLHttpRequest();
+	xhr.open('GET', url, true);
+	xhr.onreadystatechange = function () {
+		if (xhr.readyState === 4) {
+			if (xhr.status < 400) {
+				callback(xhr.responseText);
+			}
+			else {
+				errback(
+					new Error(
+						'fetchText() failed. url: "' + url
+						+ '" status: ' + xhr.status + ' - ' + xhr.statusText
+					)
+				);
+			}
+		}
+	};
+	xhr.send(null);
+}
 
 });
 
@@ -3299,6 +3341,19 @@ function rxStringContents (rx) {
 });
 
 
+;define('rave/pipeline/normalizeCjs', ['require', 'exports', 'module', 'rave/lib/path'], function (require, exports, module, $cram_r0, define) {var path = $cram_r0;
+
+module.exports = normalizeCjs;
+
+var reduceLeadingDots = path.reduceLeadingDots;
+
+function normalizeCjs (name, refererName, refererUrl) {
+	return reduceLeadingDots(String(name), refererName || '');
+}
+
+});
+
+
 ;define('rave/pipeline/fetchAsText', ['require', 'exports', 'module', 'rave/lib/fetchText'], function (require, exports, module, $cram_r0, define) {module.exports = fetchAsText;
 
 var fetchText = $cram_r0;
@@ -3308,19 +3363,6 @@ function fetchAsText (load) {
 		fetchText(load.address, resolve, reject);
 	});
 
-}
-
-});
-
-
-;define('rave/pipeline/normalizeCjs', ['require', 'exports', 'module', 'rave/lib/path'], function (require, exports, module, $cram_r0, define) {var path = $cram_r0;
-
-module.exports = normalizeCjs;
-
-var reduceLeadingDots = path.reduceLeadingDots;
-
-function normalizeCjs (name, refererName, refererUrl) {
-	return reduceLeadingDots(String(name), refererName || '');
 }
 
 });
@@ -3583,21 +3625,21 @@ function getExports (names, value) {
 });
 
 
-;define('rave/pipeline/instantiateNode', ['require', 'exports', 'module', 'rave/lib/find/requires', 'rave/lib/nodeFactory', 'rave/lib/addSourceUrl', 'rave/lib/es5Transform', 'rave/lib/createRequire'], function (require, exports, module, $cram_r0, $cram_r1, $cram_r2, $cram_r3, $cram_r4, define) {var findRequires = $cram_r0;
+;define('rave/pipeline/instantiateNode', ['require', 'exports', 'module', 'rave/lib/find/requires', 'rave/lib/nodeFactory', 'rave/lib/addSourceUrl', 'rave/lib/es5Transform', 'rave/lib/es5SideRegistry', 'rave/lib/createRequire'], function (require, exports, module, $cram_r0, $cram_r1, $cram_r2, $cram_r3, $cram_r4, $cram_r5, define) {var findRequires = $cram_r0;
 var nodeFactory = $cram_r1;
 var addSourceUrl = $cram_r2;
 var es5Transform = $cram_r3;
-var createRequire = $cram_r4;
+var es5SideRegistry = $cram_r4;
+var createRequire = $cram_r5;
 
 module.exports = instantiateNode;
 
 function instantiateNode (load) {
-	var loader, deps, depMap, require, factory;
+	var loader, deps, depsMap, require, factory;
 
 	loader = load.metadata.rave.loader;
 	deps = findOrThrow(load);
-
-	depMap = {};
+	depsMap = {};
 
 	// if debugging, add sourceURL
 	if (load.metadata.rave.debug) {
@@ -3607,21 +3649,39 @@ function instantiateNode (load) {
 	require = createRequire(getSync, getAsync);
 	factory = nodeFactory(require, load);
 
-	return {
-		deps: deps,
-		execute: function () {
-			return loader.newModule(factory.apply(this, arguments));
-		}
-	};
+	es5SideRegistry.set(load.name, execute);
+
+	// normalize deps (async) and save in depMap so getSync can run sync
+	return Promise.all(deps.map(normalizeDep))
+		.then(function () {
+			return {
+				deps: deps,
+				execute: function () {
+					var value = es5SideRegistry.get(load.name);
+					// remove from registry
+					es5SideRegistry.remove(load.name);
+					return value;
+				}
+			};
+		});
+
+	function execute () {
+		return loader.newModule(factory());
+	}
+
+	function normalizeDep (dep) {
+		return Promise.resolve(loader.normalize(dep, load.name, load.address))
+			.then(function (normalized) {
+				depsMap[dep] = normalized;
+			});
+	}
 
 	function getSync (id) {
-		var abs;
-		// build depMap as needed
-		abs = depMap[id];
-		if (abs == null) {
-			abs = depMap[id] = loader.normalize(id, load.name);
-		}
-		return es5Transform.fromLoader(loader.get(abs));
+		// TODO: normalize is async!!!!! we need to resolve these ahead of time and keep a map (see above)
+		var abs = depsMap[id];
+		return es5SideRegistry.has(abs)
+			? es5SideRegistry.get(abs)
+			: es5Transform.fromLoader(loader.get(abs));
 	}
 
 	function getAsync (id) {
