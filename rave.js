@@ -2678,7 +2678,7 @@ context = (document ? mergeBrowserOptions : mergeNodeOptions)({
 	raveMain: defaultMain,
 	raveScript: rave.scriptUrl,
 	baseUrl: rave.baseUrl,
-	loader: new Loader({})
+	loader: new Reflect.Loader({})
 });
 
 loader = context.loader;
@@ -3299,19 +3299,6 @@ function rxStringContents (rx) {
 });
 
 
-;define('rave/pipeline/normalizeCjs', ['require', 'exports', 'module', 'rave/lib/path'], function (require, exports, module, $cram_r0, define) {var path = $cram_r0;
-
-module.exports = normalizeCjs;
-
-var reduceLeadingDots = path.reduceLeadingDots;
-
-function normalizeCjs (name, refererName, refererUrl) {
-	return reduceLeadingDots(String(name), refererName || '');
-}
-
-});
-
-
 ;define('rave/pipeline/fetchAsText', ['require', 'exports', 'module', 'rave/lib/fetchText'], function (require, exports, module, $cram_r0, define) {module.exports = fetchAsText;
 
 var fetchText = $cram_r0;
@@ -3321,6 +3308,19 @@ function fetchAsText (load) {
 		fetchText(load.address, resolve, reject);
 	});
 
+}
+
+});
+
+
+;define('rave/pipeline/normalizeCjs', ['require', 'exports', 'module', 'rave/lib/path'], function (require, exports, module, $cram_r0, define) {var path = $cram_r0;
+
+module.exports = normalizeCjs;
+
+var reduceLeadingDots = path.reduceLeadingDots;
+
+function normalizeCjs (name, refererName, refererUrl) {
+	return reduceLeadingDots(String(name), refererName || '');
 }
 
 });
@@ -3505,66 +3505,9 @@ function findRequires (source) {
 });
 
 
-;define('rave/lib/createRequire', ['require', 'exports', 'module', 'rave/lib/es5Transform'], function (require, exports, module, $cram_r0, define) {module.exports = createRequire;
+;define('rave/lib/nodeFactory', ['require', 'exports', 'module', 'rave/lib/es5Transform'], function (require, exports, module, $cram_r0, define) {module.exports = nodeFactory;
 
 var es5Transform = $cram_r0;
-
-function createRequire (loader, refId) {
-
-	var require = function (id) { return syncRequire(id); };
-
-	// Implement proposed require.async, just like Montage Require:
-	// https://github.com/montagejs/mr, but with an added `names`
-	// parameter.
-	require.async = function (id) {
-		var abs, args;
-//		try {
-//			abs = loader.normalize(id, refId);
-//		}
-//		catch (ex) {
-//			return Promise.reject(ex);
-//		}
-		args = arguments;
-//		return loader.import(abs).then(function (value) {
-		return loader.import(id, { name: refId }).then(function (value) {
-			return getExports(args[1], value);
-		});
-	};
-
-	require.named = syncRequire;
-
-	return require;
-
-	function syncRequire (id, names) {
-		var abs, value;
-		abs = loader.normalize(id, refId);
-		value = loader.get(abs);
-		return getExports(names, value);
-	}
-}
-
-function getExports (names, value) {
-	var exports, i;
-	// only attempt to get names if an array-like object was supplied
-	if (Object(names) === names && names.hasOwnProperty('length')) {
-		exports = {};
-		for (i = 0; i < names.length; i++) {
-			exports[names[i]] = value[names[i]];
-		}
-		return exports;
-	}
-	else {
-		return es5Transform.fromLoader(value);
-	}
-}
-
-});
-
-
-;define('rave/lib/nodeFactory', ['require', 'exports', 'module', 'rave/lib/es5Transform', 'rave/lib/createRequire'], function (require, exports, module, $cram_r0, $cram_r1, define) {module.exports = nodeFactory;
-
-var es5Transform = $cram_r0;
-var createRequire = $cram_r1;
 
 var nodeEval = new Function(
 	'require', 'exports', 'module', 'global',
@@ -3575,14 +3518,13 @@ var _global;
 
 _global = typeof global !== 'undefined' ? global : window;
 
-function nodeFactory (loader, load) {
-	var name, source, exports, module, require;
+function nodeFactory (require, load) {
+	var name, source, exports, module;
 
 	name = load.name;
 	source = load.source;
 	exports = {};
 	module = { id: name, uri: load.address, exports: exports };
-	require = createRequire(loader, name);
 
 	return function () {
 		// TODO: use loader.global when es6-module-loader implements it
@@ -3597,24 +3539,73 @@ function nodeFactory (loader, load) {
 });
 
 
-;define('rave/pipeline/instantiateNode', ['require', 'exports', 'module', 'rave/lib/find/requires', 'rave/lib/nodeFactory', 'rave/lib/addSourceUrl'], function (require, exports, module, $cram_r0, $cram_r1, $cram_r2, define) {var findRequires = $cram_r0;
+;define('rave/lib/createRequire', ['require', 'exports', 'module', 'rave/lib/es5Transform'], function (require, exports, module, $cram_r0, define) {module.exports = createRequire;
+
+var es5Transform = $cram_r0;
+
+function createRequire (syncGet, asyncGet) {
+
+	// Implement proposed require.async, just like Montage Require:
+	// https://github.com/montagejs/mr, but with an added `names`
+	// parameter.
+	require.async = function (id) {
+		var names;
+		names = arguments[1];
+		return asyncGet(id).then(function (value) {
+			return getExports(names, value);
+		});
+	};
+
+	require.named = namedRequire;
+
+	return require;
+
+	function require (id) {
+		return syncGet(id);
+	}
+
+	function namedRequire (id, names) {
+		return names
+			? getExports(names, syncGet(id))
+			: require(id);
+	}
+}
+
+function getExports (names, value) {
+	var exports, i;
+	exports = {};
+	for (i = 0; i < names.length; i++) {
+		exports[names[i]] = value[names[i]];
+	}
+	return exports;
+}
+
+});
+
+
+;define('rave/pipeline/instantiateNode', ['require', 'exports', 'module', 'rave/lib/find/requires', 'rave/lib/nodeFactory', 'rave/lib/addSourceUrl', 'rave/lib/es5Transform', 'rave/lib/createRequire'], function (require, exports, module, $cram_r0, $cram_r1, $cram_r2, $cram_r3, $cram_r4, define) {var findRequires = $cram_r0;
 var nodeFactory = $cram_r1;
 var addSourceUrl = $cram_r2;
+var es5Transform = $cram_r3;
+var createRequire = $cram_r4;
 
 module.exports = instantiateNode;
 
 function instantiateNode (load) {
-	var loader, deps, factory;
+	var loader, deps, depMap, require, factory;
 
 	loader = load.metadata.rave.loader;
 	deps = findOrThrow(load);
+
+	depMap = {};
 
 	// if debugging, add sourceURL
 	if (load.metadata.rave.debug) {
 		load.source = addSourceUrl(load.address, load.source);
 	}
 
-	factory = nodeFactory(loader, load);
+	require = createRequire(getSync, getAsync);
+	factory = nodeFactory(require, load);
 
 	return {
 		deps: deps,
@@ -3622,6 +3613,22 @@ function instantiateNode (load) {
 			return loader.newModule(factory.apply(this, arguments));
 		}
 	};
+
+	function getSync (id) {
+		var abs;
+		// build depMap as needed
+		abs = depMap[id];
+		if (abs == null) {
+			abs = depMap[id] = loader.normalize(id, load.name);
+		}
+		return es5Transform.fromLoader(loader.get(abs));
+	}
+
+	function getAsync (id) {
+		return loader
+			.import(id, load.name)
+			.then(es5Transform.fromLoader);
+	}
 }
 
 function findOrThrow (load) {

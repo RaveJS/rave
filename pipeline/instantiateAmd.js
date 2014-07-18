@@ -5,13 +5,15 @@ var findRequires = require('../lib/find/requires');
 var captureAmdArgs = require('../lib/captureAmdArgs');
 var amdFactory = require('../lib/amdFactory');
 var addSourceUrl = require('../lib/addSourceUrl');
+var es5Transform = require('../lib/es5Transform');
+var createRequire = require('../lib/createRequire');
 
 module.exports = instantiateAmd;
 
 var scopedVars = ['require', 'exports', 'module'];
 
 function instantiateAmd (load) {
-	var loader, defineArgs, arity, factory, deps, isCjs, i;
+	var loader, defineArgs, arity, cjsRequire, factory, deps, depMap, i;
 
 	loader = load.metadata.rave.loader;
 
@@ -26,6 +28,7 @@ function instantiateAmd (load) {
 
 	// copy deps so we can remove items below!
 	deps = defineArgs.depsList ? defineArgs.depsList.slice() : [];
+	depMap = {};
 
 	if (defineArgs.depsList == null && arity > 0) {
 		// is using load.source faster than defineArgs.factory.toString()?
@@ -39,7 +42,9 @@ function instantiateAmd (load) {
 		defineArgs.isCjs = hasCommonJSDep(deps);
 	}
 
-	factory = amdFactory(loader, defineArgs, load);
+	cjsRequire = createRequire(getSync, getAsync);
+
+	factory = amdFactory(cjsRequire, defineArgs, load);
 
 	// remove "require", "exports", "module" from loader deps
 	for (i = deps.length - 1; i >= 0; i--) {
@@ -54,6 +59,22 @@ function instantiateAmd (load) {
 			return loader.newModule(factory.apply(loader, arguments));
 		}
 	};
+
+	function getSync (id) {
+		var abs;
+		// build depMap as needed
+		abs = depMap[id];
+		if (abs == null) {
+			abs = depMap[id] = loader.normalize(id, load.name);
+		}
+		return es5Transform.fromLoader(loader.get(abs));
+	}
+
+	function getAsync (id) {
+		return loader
+			.import(id, load.name)
+			.then(es5Transform.fromLoader);
+	}
 }
 
 function captureOrThrow (load) {
