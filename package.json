@@ -35,7 +35,8 @@
   "devDependencies": {
     "buster": "~0.6",
     "cram": "0.8.0",
-    "es6-module-loader": "git://github.com/ModuleLoader/es6-module-loader#v0.7.1"
+	"when": "~3.0",
+    "es6-module-loader": "0.7.1"
   },
   "scripts": {
     "test": "buster test",
