@@ -6,6 +6,7 @@ var captureAmdArgs = require('../lib/captureAmdArgs');
 var amdFactory = require('../lib/amdFactory');
 var addSourceUrl = require('../lib/addSourceUrl');
 var es5Transform = require('../lib/es5Transform');
+var es5SideRegistry = require('../lib/es5SideRegistry');
 var createRequire = require('../lib/createRequire');
 
 module.exports = instantiateAmd;
@@ -13,7 +14,7 @@ module.exports = instantiateAmd;
 var scopedVars = ['require', 'exports', 'module'];
 
 function instantiateAmd (load) {
-	var loader, defineArgs, arity, cjsRequire, factory, deps, depMap, i;
+	var loader, defineArgs, arity, cjsRequire, factory, deps, depsMap, i;
 
 	loader = load.metadata.rave.loader;
 
@@ -28,7 +29,7 @@ function instantiateAmd (load) {
 
 	// copy deps so we can remove items below!
 	deps = defineArgs.depsList ? defineArgs.depsList.slice() : [];
-	depMap = {};
+	depsMap = {};
 
 	if (defineArgs.depsList == null && arity > 0) {
 		// is using load.source faster than defineArgs.factory.toString()?
@@ -46,6 +47,8 @@ function instantiateAmd (load) {
 
 	factory = amdFactory(cjsRequire, defineArgs, load);
 
+	es5SideRegistry.set(load.name, execute);
+
 	// remove "require", "exports", "module" from loader deps
 	for (i = deps.length - 1; i >= 0; i--) {
 		if (scopedVars.indexOf(deps[i]) >= 0) {
@@ -53,21 +56,38 @@ function instantiateAmd (load) {
 		}
 	}
 
-	return {
-		deps: deps,
-		execute: function () {
-			return loader.newModule(factory.apply(loader, arguments));
-		}
-	};
+	// normalize deps (async) and save in depMap so getSync can run sync
+	return Promise.all(deps.map(normalizeDep))
+		.then(function () {
+			return {
+				deps: deps,
+				execute: function () {
+					var value = es5SideRegistry.get(load.name);
+					// remove from registry
+					es5SideRegistry.remove(load.name);
+					return value;
+				}
+			};
+		});
+
+	function execute () {
+		return loader.newModule(factory());
+	}
+
+	function normalizeDep (dep) {
+		return Promise.resolve(loader.normalize(dep, load.name, load.address))
+			.then(function (normalized) {
+				depsMap[dep] = normalized;
+			});
+	}
 
 	function getSync (id) {
-		var abs;
-		// build depMap as needed
-		abs = depMap[id];
-		if (abs == null) {
-			abs = depMap[id] = loader.normalize(id, load.name);
-		}
-		return es5Transform.fromLoader(loader.get(abs));
+		var abs, value;
+		abs = depsMap[id];
+		value = es5SideRegistry.has(abs)
+			? es5SideRegistry.get(abs)
+			: loader.get(abs);
+		return es5Transform.fromLoader(value);
 	}
 
 	function getAsync (id) {
