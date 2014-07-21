@@ -3368,32 +3368,6 @@ function normalizeCjs (name, refererName, refererUrl) {
 });
 
 
-;define('rave/pipeline/instantiateJson', ['require', 'exports', 'module', 'rave/lib/es5Transform', 'rave/lib/addSourceUrl'], function (require, exports, module, $cram_r0, $cram_r1, define) {var es5Transform = $cram_r0;
-var addSourceUrl = $cram_r1;
-
-module.exports = instantiateJson;
-
-function instantiateJson (load) {
-	var source, loader;
-
-	source = '(' + load.source + ')';
-	loader = load.metadata.rave.loader;
-
-	// if debugging, add sourceURL
-	if (load.metadata.rave.debug) {
-		source = addSourceUrl(load.address, source);
-	}
-
-	return {
-		execute: function () {
-			return loader.newModule(es5Transform.toLoader(eval(source)));
-		}
-	};
-}
-
-});
-
-
 ;define('rave/load/override', ['require', 'exports', 'module', 'rave/load/predicate', 'rave/load/specificity', 'rave/lib/uid'], function (require, exports, module, $cram_r0, $cram_r1, $cram_r2, define) {var predicate = $cram_r0;
 var specificity = $cram_r1;
 var parse = $cram_r2.parse;
@@ -3515,34 +3489,26 @@ function sameCommonJSPackages (a, b) {
 });
 
 
-;define('rave/lib/nodeFactory', ['require', 'exports', 'module', 'rave/lib/es5Transform'], function (require, exports, module, $cram_r0, define) {module.exports = nodeFactory;
+;define('rave/pipeline/instantiateJson', ['require', 'exports', 'module', 'rave/lib/es5Transform', 'rave/lib/addSourceUrl'], function (require, exports, module, $cram_r0, $cram_r1, define) {var es5Transform = $cram_r0;
+var addSourceUrl = $cram_r1;
 
-var es5Transform = $cram_r0;
+module.exports = instantiateJson;
 
-var nodeEval = new Function(
-	'require', 'exports', 'module', 'global',
-	'eval(arguments[4]);'
-);
+function instantiateJson (load) {
+	var source, loader;
 
-var _global;
+	source = '(' + load.source + ')';
+	loader = load.metadata.rave.loader;
 
-_global = typeof global !== 'undefined' ? global : window;
+	// if debugging, add sourceURL
+	if (load.metadata.rave.debug) {
+		source = addSourceUrl(load.address, source);
+	}
 
-function nodeFactory (require, load) {
-	var name, source, exports, module;
-
-	name = load.name;
-	source = load.source;
-	exports = {};
-	module = { id: name, uri: load.address, exports: exports };
-
-	return function () {
-		// TODO: use loader.global when es6-module-loader implements it
-		nodeEval(require, module.exports, module, _global, source);
-		// figure out what author intended to export
-		return exports === module.exports
-			? exports // a set of named exports
-			: es5Transform.toLoader(module.exports); // a single default export
+	return {
+		execute: function () {
+			return loader.newModule(es5Transform.toLoader(eval(source)));
+		}
 	};
 }
 
@@ -3576,6 +3542,40 @@ function findRequires (source) {
 	});
 
 	return deps;
+}
+
+});
+
+
+;define('rave/lib/nodeFactory', ['require', 'exports', 'module', 'rave/lib/es5Transform'], function (require, exports, module, $cram_r0, define) {module.exports = nodeFactory;
+
+var es5Transform = $cram_r0;
+
+var nodeEval = new Function(
+	'require', 'exports', 'module', 'global',
+	'eval(arguments[4]);'
+);
+
+var _global;
+
+_global = typeof global !== 'undefined' ? global : window;
+
+function nodeFactory (require, load) {
+	var name, source, exports, module;
+
+	name = load.name;
+	source = load.source;
+	exports = {};
+	module = { id: name, uri: load.address, exports: exports };
+
+	return function () {
+		// TODO: use loader.global when es6-module-loader implements it
+		nodeEval(require, module.exports, module, _global, source);
+		// figure out what author intended to export
+		return exports === module.exports
+			? exports // a set of named exports
+			: es5Transform.toLoader(module.exports); // a single default export
+	};
 }
 
 });
