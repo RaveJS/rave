@@ -2811,6 +2811,24 @@ function toLoader (value) {
 
 
 
+;define('rave/pipeline/locateAsIs', ['require', 'exports', 'module'], function (require, exports, module, define) {module.exports = locateAsIs;
+
+function locateAsIs (load) {
+	return load.name;
+}
+
+});
+
+
+;define('rave/pipeline/translateAsIs', ['require', 'exports', 'module'], function (require, exports, module, define) {module.exports = translateAsIs;
+
+function translateAsIs (load) {
+	return load.source;
+}
+
+});
+
+
 ;define('rave/lib/path', ['require', 'exports', 'module'], function (require, exports, module, define) {var absUrlRx, findDotsRx;
 
 absUrlRx = /^\/|^[^:]+:\/\//;
@@ -2953,24 +2971,6 @@ function splitDirAndFile (url) {
 });
 
 
-;define('rave/pipeline/locateAsIs', ['require', 'exports', 'module'], function (require, exports, module, define) {module.exports = locateAsIs;
-
-function locateAsIs (load) {
-	return load.name;
-}
-
-});
-
-
-;define('rave/pipeline/translateAsIs', ['require', 'exports', 'module'], function (require, exports, module, define) {module.exports = translateAsIs;
-
-function translateAsIs (load) {
-	return load.source;
-}
-
-});
-
-
 ;define('rave/lib/beget', ['require', 'exports', 'module'], function (require, exports, module, define) {module.exports = beget;
 
 function Begetter () {}
@@ -2980,6 +2980,45 @@ function beget (base) {
 	obj = new Begetter();
 	Begetter.prototype = null;
 	return obj;
+}
+
+});
+
+
+;define('rave/lib/fetchText', ['require', 'exports', 'module'], function (require, exports, module, define) {module.exports = fetchText;
+
+function fetchText (url, callback, errback) {
+	var xhr;
+	xhr = new XMLHttpRequest();
+	xhr.open('GET', url, true);
+	xhr.onreadystatechange = function () {
+		if (xhr.readyState === 4) {
+			if (xhr.status < 400) {
+				callback(xhr.responseText);
+			}
+			else {
+				errback(
+					new Error(
+						'fetchText() failed. url: "' + url
+						+ '" status: ' + xhr.status + ' - ' + xhr.statusText
+					)
+				);
+			}
+		}
+	};
+	xhr.send(null);
+}
+
+});
+
+
+;define('rave/lib/addSourceUrl', ['require', 'exports', 'module'], function (require, exports, module, define) {module.exports = addSourceUrl;
+
+function addSourceUrl (url, source) {
+	return source
+		+ '\n//# sourceURL='
+		+ url.replace(/\s/g, '%20')
+		+ '\n';
 }
 
 });
@@ -2998,18 +3037,6 @@ function beget (base) {
 		};
 	}
 };
-
-});
-
-
-;define('rave/lib/addSourceUrl', ['require', 'exports', 'module'], function (require, exports, module, define) {module.exports = addSourceUrl;
-
-function addSourceUrl (url, source) {
-	return source
-		+ '\n//# sourceURL='
-		+ url.replace(/\s/g, '%20')
-		+ '\n';
-}
 
 });
 
@@ -3051,33 +3078,6 @@ function executeOnce (id, execute) {
 
 function simpleExecute (value) {
 	return function () { return value; };
-}
-
-});
-
-
-;define('rave/lib/fetchText', ['require', 'exports', 'module'], function (require, exports, module, define) {module.exports = fetchText;
-
-function fetchText (url, callback, errback) {
-	var xhr;
-	xhr = new XMLHttpRequest();
-	xhr.open('GET', url, true);
-	xhr.onreadystatechange = function () {
-		if (xhr.readyState === 4) {
-			if (xhr.status < 400) {
-				callback(xhr.responseText);
-			}
-			else {
-				errback(
-					new Error(
-						'fetchText() failed. url: "' + url
-						+ '" status: ' + xhr.status + ' - ' + xhr.statusText
-					)
-				);
-			}
-		}
-	};
-	xhr.send(null);
 }
 
 });
@@ -3341,6 +3341,20 @@ function rxStringContents (rx) {
 });
 
 
+;define('rave/pipeline/fetchAsText', ['require', 'exports', 'module', 'rave/lib/fetchText'], function (require, exports, module, $cram_r0, define) {module.exports = fetchAsText;
+
+var fetchText = $cram_r0;
+
+function fetchAsText (load) {
+	return new Promise(function(resolve, reject) {
+		fetchText(load.address, resolve, reject);
+	});
+
+}
+
+});
+
+
 ;define('rave/pipeline/normalizeCjs', ['require', 'exports', 'module', 'rave/lib/path'], function (require, exports, module, $cram_r0, define) {var path = $cram_r0;
 
 module.exports = normalizeCjs;
@@ -3354,15 +3368,27 @@ function normalizeCjs (name, refererName, refererUrl) {
 });
 
 
-;define('rave/pipeline/fetchAsText', ['require', 'exports', 'module', 'rave/lib/fetchText'], function (require, exports, module, $cram_r0, define) {module.exports = fetchAsText;
+;define('rave/pipeline/instantiateJson', ['require', 'exports', 'module', 'rave/lib/es5Transform', 'rave/lib/addSourceUrl'], function (require, exports, module, $cram_r0, $cram_r1, define) {var es5Transform = $cram_r0;
+var addSourceUrl = $cram_r1;
 
-var fetchText = $cram_r0;
+module.exports = instantiateJson;
 
-function fetchAsText (load) {
-	return new Promise(function(resolve, reject) {
-		fetchText(load.address, resolve, reject);
-	});
+function instantiateJson (load) {
+	var source, loader;
 
+	source = '(' + load.source + ')';
+	loader = load.metadata.rave.loader;
+
+	// if debugging, add sourceURL
+	if (load.metadata.rave.debug) {
+		source = addSourceUrl(load.address, source);
+	}
+
+	return {
+		execute: function () {
+			return loader.newModule(es5Transform.toLoader(eval(source)));
+		}
+	};
 }
 
 });
@@ -3489,26 +3515,34 @@ function sameCommonJSPackages (a, b) {
 });
 
 
-;define('rave/pipeline/instantiateJson', ['require', 'exports', 'module', 'rave/lib/es5Transform', 'rave/lib/addSourceUrl'], function (require, exports, module, $cram_r0, $cram_r1, define) {var es5Transform = $cram_r0;
-var addSourceUrl = $cram_r1;
+;define('rave/lib/nodeFactory', ['require', 'exports', 'module', 'rave/lib/es5Transform'], function (require, exports, module, $cram_r0, define) {module.exports = nodeFactory;
 
-module.exports = instantiateJson;
+var es5Transform = $cram_r0;
 
-function instantiateJson (load) {
-	var source, loader;
+var nodeEval = new Function(
+	'require', 'exports', 'module', 'global',
+	'eval(arguments[4]);'
+);
 
-	source = '(' + load.source + ')';
-	loader = load.metadata.rave.loader;
+var _global;
 
-	// if debugging, add sourceURL
-	if (load.metadata.rave.debug) {
-		source = addSourceUrl(load.address, source);
-	}
+_global = typeof global !== 'undefined' ? global : window;
 
-	return {
-		execute: function () {
-			return loader.newModule(es5Transform.toLoader(eval(source)));
-		}
+function nodeFactory (require, load) {
+	var name, source, exports, module;
+
+	name = load.name;
+	source = load.source;
+	exports = {};
+	module = { id: name, uri: load.address, exports: exports };
+
+	return function () {
+		// TODO: use loader.global when es6-module-loader implements it
+		nodeEval(require, module.exports, module, _global, source);
+		// figure out what author intended to export
+		return exports === module.exports
+			? exports // a set of named exports
+			: es5Transform.toLoader(module.exports); // a single default export
 	};
 }
 
@@ -3547,40 +3581,6 @@ function findRequires (source) {
 });
 
 
-;define('rave/lib/nodeFactory', ['require', 'exports', 'module', 'rave/lib/es5Transform'], function (require, exports, module, $cram_r0, define) {module.exports = nodeFactory;
-
-var es5Transform = $cram_r0;
-
-var nodeEval = new Function(
-	'require', 'exports', 'module', 'global',
-	'eval(arguments[4]);'
-);
-
-var _global;
-
-_global = typeof global !== 'undefined' ? global : window;
-
-function nodeFactory (require, load) {
-	var name, source, exports, module;
-
-	name = load.name;
-	source = load.source;
-	exports = {};
-	module = { id: name, uri: load.address, exports: exports };
-
-	return function () {
-		// TODO: use loader.global when es6-module-loader implements it
-		nodeEval(require, module.exports, module, _global, source);
-		// figure out what author intended to export
-		return exports === module.exports
-			? exports // a set of named exports
-			: es5Transform.toLoader(module.exports); // a single default export
-	};
-}
-
-});
-
-
 ;define('rave/lib/createRequire', ['require', 'exports', 'module', 'rave/lib/es5Transform'], function (require, exports, module, $cram_r0, define) {module.exports = createRequire;
 
 var es5Transform = $cram_r0;
@@ -3594,7 +3594,7 @@ function createRequire (syncGet, asyncGet) {
 		var names;
 		names = arguments[1];
 		return asyncGet(id).then(function (value) {
-			return getExports(names, value);
+			return names ? getExports(names, value) : value;
 		});
 	};
 
@@ -3687,7 +3687,7 @@ function instantiateNode (load) {
 
 	function getAsync (id) {
 		return loader
-			.import(id, load.name)
+			.import(id, { name: load.name })
 			.then(es5Transform.fromLoader);
 	}
 }

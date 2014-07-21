@@ -92,7 +92,7 @@ function instantiateAmd (load) {
 
 	function getAsync (id) {
 		return loader
-			.import(id, load.name)
+			.import(id, { name: load.name })
 			.then(es5Transform.fromLoader);
 	}
 }
