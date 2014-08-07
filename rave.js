@@ -111,7 +111,7 @@
         handler.q = [];
 
         // Create and return the promise (reusing the callback variable)
-        callback.call(callback = { then: function (resolved, rejected) { return handler(resolved, rejected); }, 
+        callback.call(callback = { then: function (resolved, rejected) { return handler(resolved, rejected); },
                                     catch: function (rejected)           { return handler(0,        rejected); } },
                       function(value)  { handler(is, 1,  value); },
                       function(reason) { handler(is, 0, reason); });
@@ -176,24 +176,24 @@
 
     /*
     *********************************************************************************************
-      
+
       Loader Polyfill
 
         - Implemented exactly to the 2013-12-02 Specification Draft -
           https://github.com/jorendorff/js-loaders/blob/e60d3651/specs/es6-modules-2013-12-02.pdf
           with the only exceptions as described here
 
-        - Abstract functions have been combined where possible, and their associated functions 
+        - Abstract functions have been combined where possible, and their associated functions
           commented
 
-        - Declarative Module Support is entirely disabled, and an error will be thrown if 
+        - Declarative Module Support is entirely disabled, and an error will be thrown if
           the instantiate loader hook returns undefined
 
         - With this assumption, instead of Link, LinkDynamicModules is run directly
 
         - ES6 support is thus provided through the translate function of the System loader
 
-        - EnsureEvaluated is removed, but may in future implement dynamic execution pending 
+        - EnsureEvaluated is removed, but may in future implement dynamic execution pending
           issue - https://github.com/jorendorff/js-loaders/issues/63
 
         - Realm implementation is entirely omitted. As such, Loader.global and Loader.realm
@@ -245,7 +245,7 @@
     }
 
     // Define an IE-friendly shim good-enough for purposes
-    var indexOf = Array.prototype.indexOf || function (item) { 
+    var indexOf = Array.prototype.indexOf || function (item) {
       for (var i = 0, thisLen = this.length; i < thisLen; i++) {
         if (this[i] === item) {
           return i;
@@ -308,7 +308,7 @@
       );
     }
     function proceedToFetch(loader, load, p) {
-      proceedToTranslate(loader, load, 
+      proceedToTranslate(loader, load,
         p
         // CallFetch
         .then(function(address) {
@@ -316,7 +316,7 @@
             return undefined;
           load.address = address;
           return loader.fetch({ name: load.name, metadata: load.metadata, address: address });
-        })        
+        })
       );
     }
     function proceedToTranslate(loader, load, p) {
@@ -390,7 +390,7 @@
         for (var i = 0, l = linkSets.length; i < l; i++)
           updateLinkSetOnLoad(linkSets[i], load);
       }
-      
+
       // LoadFailed
       , function(exc) {
         assert('is loading on fail', load.status == 'loading');
@@ -462,7 +462,7 @@
           return;
         }
       } */
-      
+
       if (linkSet.loadingCount > 0)
         return;
 
@@ -644,7 +644,7 @@
           throw new TypeError('Realms not implemented in polyfill');
         }
       });
-      
+
       this._modules = {};
       this._loads = [];
     }
@@ -734,21 +734,21 @@
 
     /*
     *********************************************************************************************
-      
+
       System Loader Implementation
 
         - Implemented to https://github.com/jorendorff/js-loaders/blob/master/browser-loader.js,
           except for Instantiate function
 
-        - Instantiate function determines if ES6 module syntax is being used, if so parses with 
+        - Instantiate function determines if ES6 module syntax is being used, if so parses with
           Traceur and returns a dynamic InstantiateResult for loading ES6 module syntax in ES5.
-        
-        - Custom loaders thus can be implemented by using this System.instantiate function as 
+
+        - Custom loaders thus can be implemented by using this System.instantiate function as
           the fallback loading scenario, after other module format detections.
 
         - Traceur is loaded dynamically when module syntax is detected by a regex (with over-
-          classification), either from require('traceur') on the server, or the 
-          'data-traceur-src' property on the current script in the browser, or if not set, 
+          classification), either from require('traceur') on the server, or the
+          'data-traceur-src' property on the current script in the browser, or if not set,
           'traceur.js' in the same URL path as the current script in the browser.
 
         - <script type="module"> supported, but <module> tag not
@@ -787,10 +787,10 @@
         });
         return output.join('').replace(/^\//, input.charAt(0) === '/' ? '/' : '');
       }
-     
+
       href = parseURI(href || '');
       base = parseURI(base || '');
-     
+
       return !href || !base ? null : (href.protocol || base.protocol) +
         (href.protocol || href.authority ? href.authority : base.authority) +
         removeDotSegments(href.protocol || href.authority || href.pathname.charAt(0) === '/' ? href.pathname : (href.pathname ? ((base.authority && !base.pathname ? '/' : '') + base.pathname.slice(0, base.pathname.lastIndexOf('/') + 1) + href.pathname) : base.pathname)) +
@@ -949,7 +949,7 @@
         }
 
         // normal eval (non-module code)
-        // note that anonymous modules (load.name == undefined) are always 
+        // note that anonymous modules (load.name == undefined) are always
         // anonymous <module> tags, so we use Traceur for these
         if (!load.metadata.es6 && load.name && (load.metadata.es6 === false || !load.source.match(es6RegEx))) {
           return {
@@ -1072,7 +1072,7 @@
 
     // es6 module forwarding - allow detecting without Traceur
     var aliasRegEx = /^\s*export\s*\*\s*from\s*(?:'([^']+)'|"([^"]+)")/;
-    
+
     // dynamically load traceur when needed
     // populates the traceur, reporter and moduleLoaderTransfomer variables
 
@@ -1089,7 +1089,7 @@
         return Promise.resolve(require('traceur'));
       }).call(exports.System, 'traceur', { address: traceurSrc }).then(function(_traceur) {
         traceurPromise = null;
-        
+
         if (isBrowser)
           _traceur = global.traceur;
 
@@ -1108,7 +1108,7 @@
     function createModuleLoaderTransformer(ParseTreeFactory, ParseTreeTransformer) {
       var createAssignmentExpression = ParseTreeFactory.createAssignmentExpression;
       var createVariableDeclaration = ParseTreeFactory.createVariableDeclaration;
-      
+
       var createCallExpression = ParseTreeFactory.createCallExpression;
 
       var createVariableDeclarationList = ParseTreeFactory.createVariableDeclarationList;
@@ -1213,13 +1213,13 @@
             return exportStarStatement;
           }
         }
-        
+
         // export var p = 4;
         else if (declaration.type == 'VARIABLE_STATEMENT') {
           // export var p = ...
           var varDeclaration = declaration.declarations.declarations[0];
           varDeclaration.initialiser = createAssignmentExpression(
-            this.createExportExpression(varDeclaration.lvalue.identifierToken.value), 
+            this.createExportExpression(varDeclaration.lvalue.identifierToken.value),
             this.transformAny(varDeclaration.initialiser)
           );
           return declaration;
@@ -1227,9 +1227,9 @@
         // export function q() {}
         else if (declaration.type == 'FUNCTION_DECLARATION') {
           var varDeclaration = createVariableDeclaration(
-            declaration.name.identifierToken.value, 
+            declaration.name.identifierToken.value,
             createAssignmentStatement(
-              this.createExportExpression(declaration.name.identifierToken.value), 
+              this.createExportExpression(declaration.name.identifierToken.value),
               this.transformAny(declaration)
             )
           );
@@ -1239,11 +1239,11 @@
         // export default ...
         else if (declaration.type == 'EXPORT_DEFAULT') {
           return createAssignmentStatement(
-            this.createExportExpression('default'), 
+            this.createExportExpression('default'),
             this.transformAny(declaration.expression)
           );
         }
-         
+
         return tree;
       }
       return ModuleLoaderTransformer;
@@ -1873,7 +1873,7 @@ exports.parse = parseUid;
 exports.getName = getName;
 
 function createUid (descriptor, normalized) {
-	return /*descriptor.metaType + ':' +*/ descriptor.name
+	return /*descriptor.pmType + ':' +*/ descriptor.name
 		+ (descriptor.version ? '@' + descriptor.version : '')
 		+ (normalized ? '#' + normalized : '');
 }
