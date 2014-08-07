@@ -130,24 +130,25 @@ function gatherExtensions (context) {
 }
 
 function applyRavePackageMetadata (context) {
-	var rave = context.app.metadata.metadata.rave;
+	var app = context.app;
+	var rave = app.metadata.metadata.rave;
 
 	if (rave) {
 		if (rave.missing) {
-			applyOverrides(context.packages, rave.missing, true);
+			applyOverrides(context.packages, rave.missing, app.metadata, true);
 		}
 		if (rave.overrides) {
-			applyOverrides(context.packages, rave.overrides);
+			applyOverrides(context.packages, rave.overrides, app.metadata);
 		}
 	}
 
 	return context;
 }
 
-function applyOverrides (packages, overrides, ifMissing) {
+function applyOverrides (packages, overrides, fromPkg, ifMissing) {
 	var name, pkg, key, pkgOverrides;
 	for (name in overrides) {
-		pkg = packages[name];
+		pkg = metadata.findDepPackage(packages, fromPkg, name);
 		if (pkg) {
 			pkgOverrides = overrides[name];
 			for (key in pkgOverrides) {

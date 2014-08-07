@@ -338,6 +338,7 @@ function logOverrides (context) {
 		if (!(pkg.name in seen) && pkg.metadata && pkg.metadata.rave) {
 			seen[pkg.name] = true;
 			extMeta = pkg.metadata.rave;
+			// TODO: ensure that overridee is found
 			if (extMeta.missing) {
 				for (oname in extMeta.missing) {
 					if (oname in context.packages) {
