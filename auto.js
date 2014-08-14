@@ -128,18 +128,18 @@ function gatherExtensions (context) {
 }
 
 function applyRavePackageMetadata (context) {
-	var app = context.app;
-	var rave = app.metadata.rave;
-// TODO: this seems redundant with gatherExtensions
-	if (rave) {
-		if (rave.missing) {
-			applyOverrides(context.packages, rave.missing, app.metadata, true);
+	// TODO: stop applying app metadata twice, but still ensure that all root metadata files are processed somehow
+	context.metadata.forEach(function (metadata) {
+		var rave = metadata.rave;
+		if (rave) {
+			if (rave.missing) {
+				applyOverrides(context.packages, rave.missing, metadata, true);
+			}
+			if (rave.overrides) {
+				applyOverrides(context.packages, rave.overrides, metadata);
+			}
 		}
-		if (rave.overrides) {
-			applyOverrides(context.packages, rave.overrides, app.metadata);
-		}
-	}
-
+	});
 	return context;
 }
 
