@@ -111,12 +111,12 @@ function gatherExtensions (context) {
 
 				if (extensionMeta.missing) {
 					// apply missing
-					applyOverrides(context.packages, extensionMeta.missing, true);
+					applyOverrides(context.packages, extensionMeta.missing, pkg, true);
 				}
 
 				if (extensionMeta.overrides) {
 					// apply overrides
-					applyOverrides(context.packages, extensionMeta.overrides);
+					applyOverrides(context.packages, extensionMeta.overrides, pkg);
 				}
 
 				if (extensionMeta.extension) {
