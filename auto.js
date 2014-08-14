@@ -7,6 +7,7 @@ var beget = require('./lib/beget');
 var path = require('./lib/path');
 var pkg = require('./lib/package');
 var override = require('./load/override');
+var crawl = require('./lib/auto/crawl');
 
 module.exports = {
 	main: autoConfigure,
@@ -20,20 +21,25 @@ function autoConfigure (context) {
 
 	if (!context.raveMeta) context.raveMeta = defaultMeta;
 
-	urls = context.raveMeta.split(/\s*,\s*/);
+//	urls = context.raveMeta.split(/\s*,\s*/);
 
 	context.packages = {};
 
 	applyLoaderHooks = this.applyLoaderHooks;
 
-	// TODO: consider returning this promise to rave.js to handle rejections
-	return pmap(urls, function (url) {
-		return metadata.crawl(context, url)['catch'](logMissing)
-	}).then(done)['catch'](failHard);
+	return crawl(context.raveMeta)
+		['catch'](logMissing)
+		.then(done)
+		['catch'](failHard);
 
-	function done (metadatas) {
+//	return pmap(urls, function (url) {
+//		return metadata.crawl(context, url)['catch'](logMissing)
+//	}).then(done)['catch'](failHard);
 
-		context = gatherAppMetadata(context, metadatas);
+	function done (allMetadata) {
+
+		context.packages = allMetadata.packages;
+		context = gatherAppMetadata(context, allMetadata.roots);
 		return configureLoader(context)
 			.then(applyRavePackageMetadata)
 			.then(gatherExtensions)
@@ -59,17 +65,9 @@ function autoConfigure (context) {
 function gatherAppMetadata (context, metadatas) {
 	// TODO: if no main modules found, look for one in a conventional place
 	// TODO: warn if multiple main modules were found, but only the first was run
-	var i, meta, first;
-	context.metadata = [];
-	for (i = 0; i < metadatas.length; i++) {
-		meta = metadatas[i];
-		// skip missing metadata files
-		if (meta) {
-			// save metadata
-			context.metadata.push(meta);
-			if (!first) first = meta;
-		}
-	}
+	var first;
+	context.metadata = metadatas;
+	first = context.metadata[0];
 	if (first) {
 		context.app = {
 			name: first.name,
@@ -102,9 +100,9 @@ function gatherExtensions (context) {
 		// packages are keyed by versioned and unversioned names
 		if (!(pkg.name in seen)) {
 			seen[pkg.name] = true;
-			if (pkg.metadata && pkg.metadata.rave) {
+			if (pkg.rave) {
 
-				extensionMeta = pkg.metadata.rave;
+				extensionMeta = pkg.rave;
 				if (typeof extensionMeta === 'string') {
 					extensionMeta = { extension: extensionMeta };
 				}
@@ -131,8 +129,8 @@ function gatherExtensions (context) {
 
 function applyRavePackageMetadata (context) {
 	var app = context.app;
-	var rave = app.metadata.metadata.rave;
-
+	var rave = app.metadata.rave;
+// TODO: this seems redundant with gatherExtensions
 	if (rave) {
 		if (rave.missing) {
 			applyOverrides(context.packages, rave.missing, app.metadata, true);
