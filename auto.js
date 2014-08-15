@@ -28,6 +28,7 @@ function autoConfigure (context) {
 	applyLoaderHooks = this.applyLoaderHooks;
 
 	return crawl(context.raveMeta)
+		.then(failIfNone)
 		.then(done)
 		['catch'](failHard);
 
@@ -49,6 +50,13 @@ function autoConfigure (context) {
 				return !alreadyRanMain && initApplication(context);
 			});
 	}
+}
+
+function failIfNone (allMetadata) {
+	if (allMetadata.roots.length === 0) {
+		throw new Error('No metadata files found.');
+	}
+	return allMetadata;
 }
 
 function gatherAppMetadata (context, metadatas) {
