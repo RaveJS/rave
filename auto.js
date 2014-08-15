@@ -157,12 +157,14 @@ function createExtensionApi (context, extension) {
 }
 
 function applyLoaderHooks (context, extensions) {
-	return pmap(extensions, function (extension) {
-		var api = extension.api;
-		if (!api) return;
-		if (api.load) {
-			context.load.overrides = context.load.overrides.concat(api.load);
-		}
+	return Promise.all(extensions).then(function (extensions) {
+		return extensions.map(function (extension) {
+			var api = extension.api;
+			if (!api) return;
+			if (api.load) {
+				context.load.overrides = context.load.overrides.concat(api.load);
+			}
+		});
 	}).then(function () {
 		var hooks = override.hooks(context.load.nativeHooks, context.load.overrides);
 		for (var name in hooks) {
@@ -175,7 +177,7 @@ function applyLoaderHooks (context, extensions) {
 
 function applyFirstMain (context, extensions) {
 	var appliedMain;
-	map(extensions, function (extension) {
+	extensions.map(function (extension) {
 		var api = extension.api;
 		if (api && api.main) {
 			if (appliedMain) {
@@ -219,18 +221,4 @@ function logNoMetadata (context) {
 
 function failHard (ex) {
 	setTimeout(function () { throw ex; }, 0);
-}
-
-function pmap (array, f) {
-	return Promise.all(map(array, function (x) {
-		return Promise.resolve(x).then(f);
-	}));
-}
-
-function map (array, f) {
-	var r = [];
-	for (var i = 0; i < array.length; ++i) {
-		r[i] = f(array[i]);
-	}
-	return r;
 }
