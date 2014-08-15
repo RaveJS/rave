@@ -28,13 +28,8 @@ function autoConfigure (context) {
 	applyLoaderHooks = this.applyLoaderHooks;
 
 	return crawl(context.raveMeta)
-		['catch'](logMissing)
 		.then(done)
 		['catch'](failHard);
-
-//	return pmap(urls, function (url) {
-//		return metadata.crawl(context, url)['catch'](logMissing)
-//	}).then(done)['catch'](failHard);
 
 	function done (allMetadata) {
 
@@ -54,11 +49,6 @@ function autoConfigure (context) {
 			.then(function (alreadyRanMain) {
 				return !alreadyRanMain && initApplication(context);
 			});
-	}
-
-	function logMissing (ex) {
-		console.error('Did not find metadata file', ex);
-		console.error(ex.stack);
 	}
 }
 
