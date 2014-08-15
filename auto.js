@@ -36,7 +36,6 @@ function autoConfigure (context) {
 		context.packages = allMetadata.packages;
 		context = gatherAppMetadata(context, allMetadata.roots);
 		return configureLoader(context)
-			.then(applyRavePackageMetadata)
 			.then(gatherExtensions)
 			.then(function (extensions) {
 				// TODO: remove || [] when Promise shim is fixed
@@ -91,22 +90,10 @@ function gatherExtensions (context) {
 		if (!(pkg.name in seen)) {
 			seen[pkg.name] = true;
 			if (pkg.rave) {
-
 				extensionMeta = pkg.rave;
 				if (typeof extensionMeta === 'string') {
 					extensionMeta = { extension: extensionMeta };
 				}
-
-				if (extensionMeta.missing) {
-					// apply missing
-					applyOverrides(context.packages, extensionMeta.missing, pkg, true);
-				}
-
-				if (extensionMeta.overrides) {
-					// apply overrides
-					applyOverrides(context.packages, extensionMeta.overrides, pkg);
-				}
-
 				if (extensionMeta.extension) {
 					promises.push(initExtension(context, pkg.name, extensionMeta.extension));
 				}
@@ -115,22 +102,6 @@ function gatherExtensions (context) {
 		}
 	}
 	return Promise.all(promises);
-}
-
-function applyRavePackageMetadata (context) {
-	// TODO: stop applying app metadata twice, but still ensure that all root metadata files are processed somehow
-	context.metadata.forEach(function (metadata) {
-		var rave = metadata.rave;
-		if (rave) {
-			if (rave.missing) {
-				applyOverrides(context.packages, rave.missing, metadata, true);
-			}
-			if (rave.overrides) {
-				applyOverrides(context.packages, rave.overrides, metadata);
-			}
-		}
-	});
-	return context;
 }
 
 function applyOverrides (packages, overrides, fromPkg, ifMissing) {
