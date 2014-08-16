@@ -1,6 +1,6 @@
 {
   "name": "rave",
-  "version": "0.2.1",
+  "version": "0.3.0",
   "description": "Zero-configuration application bootstrap and development.",
   "main": "rave",
   "keywords": [

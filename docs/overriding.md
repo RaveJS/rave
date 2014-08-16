@@ -16,7 +16,7 @@ Rave provides two metadata properties to provide the correct info.
 - "rave.missing" - provides metadata that is missing from third-party packages
 - "rave.overrides" - overrides problematic metadata in third-party packages
 
-As of rave 0.2.1, you can only override or provide missing values for
+As of rave 0.3.0, you can only override or provide missing values for
 packages that are also specified in the "dependencies" property (also:
 "peerDependencies" property in package.json). See [Overriding metadata from
 rave extensions](#overriding-metadata-from-rave-extensions) and [Overriding
