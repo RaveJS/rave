@@ -38,12 +38,11 @@ buster.testCase('lib/convert/npm', {
 			data = npmFixups(data);
 			assert.equals(data.main, "main");
 		},
-		'create a map if browser is an object': function () {
+		'create a mapFunc if browser is an object': function () {
 			var npmFixups = npm.npmFixups;
 			var data = createData();
 			data.browser = {};
 			data = npmFixups(data);
-			assert.isObject(data.map);
 			assert.isFunction(data.mapFunc);
 		},
 		'should provide moduleType if missing': function () {
