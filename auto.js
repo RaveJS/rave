@@ -7,7 +7,7 @@ var beget = require('./lib/beget');
 var path = require('./lib/path');
 var pkg = require('./lib/package');
 var override = require('./load/override');
-var crawl = require('./lib/auto/crawl');
+var crawl = require('./lib/crawl');
 
 module.exports = {
 	main: autoConfigure,
