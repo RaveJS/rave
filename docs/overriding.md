@@ -34,7 +34,7 @@ for third-party packages.  Since the metadata is only provided if it is
 *missing*, rave will only provide it until the third-party package author
 includes it in a later release.
 
-For example, "modernizr", as of version 2.8.3 when installed via bower,
+For example, "almostAwesomeLib", when installed via bower,
 does not install a bower.json or package.json at all.  Rave does a decent
 job of guessing the missing information, but to remove any doubt, you should
 provide the critical values in your app's bower.json file:
@@ -43,10 +43,10 @@ provide the critical values in your app's bower.json file:
 {
 	"rave": {
 		"missing": {
-			"modernizr": {
-				"name": "modernizr",
-				"main": "modernizr.js",
-				"moduleType": [ "globals" ],
+			"almostAwesomeLib": {
+				"name": "almostAwesomeLib",
+				"main": "almostAwesomeLib.js",
+				"moduleType": [ "amd", "node" ],
 				"version": "0.0.0"
 			}
 		}
@@ -70,17 +70,17 @@ rave allows app developers and extension authors to override third-party
 metadata.  Unlike "rave.missing", "rave.overrides" does not check for existence
 before overriding.  It blindly overrides the metadata value.
 
-For instance, when installed via npm, the "angular" package specifies a "main"
-property that specifies a version meant for testing under node (as of
-version v1.2.21).  To fix the "angular" package, include the following
+For instance, when installed via npm, the "foobarley" package specifies a "main"
+property that specifies a version meant for testing under node.
+To fix the "foobarley" package, include the following
 snippet in your package.json:
 
 ```js
 {
 	"rave": {
 		"overrides": {
-			"angular": {
-				"browser": "lib/angular.js"
+			"foobarley": {
+				"browser": "lib/foobarley.js"
 			}
 		}
 	}
@@ -88,10 +88,34 @@ snippet in your package.json:
 }
 ```
 
-Note that we used "browser" instead of "main".  You could use "main", but
-"browser" is the *de facto* way to distinguish browser-only modules from node
-modules.  As of version 0.2.0, rave supports the "browser" property as
-defined in this [gist](https://gist.github.com/defunctzombie/4339901).
+Note that the example specified "browser" instead of "main".  You could use
+"main", but "browser" is the *de facto* way to distinguish browser-only
+modules from node modules in package.json.
+
+As of version 0.2.0, rave supports the "browser" property as defined in this
+[gist](https://gist.github.com/defunctzombie/4339901).
+
+
+## Overriding non-standard metadata
+
+There is only one non-standard metadata value that you can specify for
+"rave.overrides" or "rave.missing": it is "rootUrl".  It exists for bower and
+allows you to specify an alternate directory for the root of the package.
+
+```js
+{
+	"rave": {
+		"missing": {
+			"foobarley": {
+				"rootUrl": "lib/browser/"
+			}
+		}
+	}
+}
+```
+
+In npm, the standard "directories.lib" property may be used instead of
+"rootUrl".
 
 ## Overriding metadata from rave extensions
 
