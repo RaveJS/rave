@@ -54,12 +54,12 @@ buster.testCase('lib/convert/bower', {
 			data = bowerFixups(data);
 			assert.equals(data.main, "name");
 		},
-		'should adopt rootUrl of metadata as location': function () {
+		'should adopt directories.lib of metadata as location': function () {
 			var bowerFixups = bower.bowerFixups;
 			var data = createData();
-			data.metadata.rootUrl = "root";
+			data.metadata.directories = { lib: "location" };
 			data = bowerFixups(data);
-			assert.equals(data.location, "root");
+			assert.equals(data.location, "location");
 		},
 		'should append main\'s directory to location': function () {
 			var bowerFixups = bower.bowerFixups;
