@@ -45,12 +45,6 @@ buster.testCase('lib/convert/npm', {
 			data = npmFixups(data);
 			assert.isFunction(data.mapFunc);
 		},
-		'should provide moduleType if missing': function () {
-			var npmFixups = npm.npmFixups;
-			var data = createData();
-			data = npmFixups(data);
-			assert.isArray(data.moduleType);
-		},
 		'should adopt directories.lib of metadata as location': function () {
 			var npmFixups = npm.npmFixups;
 			var data = createData();
