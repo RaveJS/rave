@@ -14,11 +14,6 @@ buster.testCase('lib/convert/bower', {
 	},
 
 	bowerFixups: {
-		'should add version property if missing': function () {
-			var bowerFixups = bower.bowerFixups;
-			var data = bowerFixups(createData());
-			assert(data.version);
-		},
 		'should provide a main property if missing': function () {
 			var bowerFixups = bower.bowerFixups;
 			var data = createData();

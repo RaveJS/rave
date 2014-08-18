@@ -76,11 +76,11 @@ buster.testCase('lib/crawl/common', {
 	},
 
 	start: {
-		'should return a promise for a tuple of the result of the injected function': function () {
+		'should return a function that returns a promise for a tuple of the result of the injected function': function () {
 			var start = common.start;
 			var func = this.spy(x2);
 			var context = {}, value = 5;
-			return start(func, context, value).then(function (tuple) {
+			return start(func)(context, value).then(function (tuple) {
 				assert.same(tuple[0], context);
 				assert.same(tuple[1], value * 2);
 				assert.calledOnce(func);
