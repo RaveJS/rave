@@ -2,8 +2,8 @@
 /** @author Brian Cavalier */
 /** @author John Hann */
 var findRequires = require('../lib/find/requires');
-var captureAmdDefines = require('../lib/captureAmdDefines');
-var amdFactory = require('../lib/amdFactory');
+var captureDefines = require('../lib/amd/captureDefines');
+var amdFactory = require('../lib/amd/factory');
 var addSourceUrl = require('../lib/addSourceUrl');
 var processBundle = require('../lib/amd/bundle').process;
 
@@ -61,7 +61,7 @@ function instantiateAmd (load) {
 
 function captureOrThrow (load) {
 	try {
-		return captureAmdDefines(load.source);
+		return captureDefines(load.source);
 	}
 	catch (ex) {
 		ex.message = 'Error while parsing AMD: '

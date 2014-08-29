@@ -3,9 +3,9 @@ var assert = buster.assert;
 var refute = buster.refute;
 var fail = buster.assertions.fail;
 
-var amdFactory = require('../../lib/amdFactory');
+var amdFactory = require('../../../lib/amd/factory');
 
-buster.testCase('amdFactory', {
+buster.testCase('rave/lib/amd/factory', {
 
 	'// test this': function () {
 		assert(false);
