@@ -31,12 +31,7 @@ function instantiateAmd (load) {
 		// is using load.source faster than defineArgs.factory.toString()?
 		defineArgs.requires = findOrThrow(load);
 		defineArgs.depsList = scopedVars.slice(0, arity);
-		defineArgs.isCjs = arity > 1;
 		deps = deps.concat(defineArgs.requires);
-	}
-	else {
-		// check if module requires `module` or `exports`
-		defineArgs.isCjs = hasCommonJSDep(deps);
 	}
 
 	factory = amdFactory(loader, defineArgs, load);
@@ -75,12 +70,4 @@ function findOrThrow (load) {
 		ex.message += ' ' + load.name + ' ' + load.address;
 		throw ex;
 	}
-}
-
-function hasCommonJSDep (deps) {
-	// check if module requires `module` or `exports`
-	for (var i = deps.length - 1; i >= 0; i--) {
-		if (deps[i] === 'exports' || deps[i] === 'module') return true;
-	}
-	return false;
 }
