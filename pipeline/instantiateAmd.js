@@ -5,14 +5,14 @@ var findRequires = require('../lib/find/requires');
 var captureAmdDefines = require('../lib/captureAmdDefines');
 var amdFactory = require('../lib/amdFactory');
 var addSourceUrl = require('../lib/addSourceUrl');
-var parseUid = require('../lib/uid').parse;
+var processBundle = require('../lib/amd/bundle').process;
 
 module.exports = instantiateAmd;
 
 var scopedVars = ['require', 'exports', 'module'];
 
 function instantiateAmd (load) {
-	var loader, defines, mainDefine, arity, factory, deps, isCjs, i;
+	var loader, defines, mainDefine, arity, factory, deps, i;
 
 	loader = load.metadata.rave.loader;
 
@@ -23,15 +23,18 @@ function instantiateAmd (load) {
 
 	// the surest way to capture the many define() variations is to run it
 	defines = captureOrThrow(load);
-	mainDefine = defines.anon || defines.named.pop();
 
-	// TODO: figure out which named define is the right one
-	// TODO: do something with the remaining named defines
+	if (defines.named.length <= 1) {
+		mainDefine = defines.anon || defines.named.pop()
+	}
+	else {
+		mainDefine = processBundle(load, defines.named);
+	}
 
 	arity = mainDefine.factory.length;
 
 	// copy deps so we can remove items below!
-	deps = defineArgs.depsList ? defineArgs.depsList.slice() : [];
+	deps = mainDefine.depsList ? mainDefine.depsList.slice() : [];
 
 	if (mainDefine.depsList == null && arity > 0) {
 		mainDefine.requires = findOrThrow(load, mainDefine.factory.toString());
