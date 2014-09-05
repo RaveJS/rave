@@ -1547,6 +1547,20 @@ function translateAsIs (load) {
 });
 
 
+;define('rave/lib/beget', ['require', 'exports', 'module'], function (require, exports, module, define) {module.exports = beget;
+
+function Begetter () {}
+function beget (base) {
+	var obj;
+	Begetter.prototype = base;
+	obj = new Begetter();
+	Begetter.prototype = null;
+	return obj;
+}
+
+});
+
+
 ;define('rave/lib/path', ['require', 'exports', 'module'], function (require, exports, module, define) {var absUrlRx, findDotsRx;
 
 absUrlRx = /^\/|^[^:]+:\/\//;
@@ -1684,20 +1698,6 @@ function splitDirAndFile (url) {
 		parts.join('/'),
 		file
 	];
-}
-
-});
-
-
-;define('rave/lib/beget', ['require', 'exports', 'module'], function (require, exports, module, define) {module.exports = beget;
-
-function Begetter () {}
-function beget (base) {
-	var obj;
-	Begetter.prototype = base;
-	obj = new Begetter();
-	Begetter.prototype = null;
-	return obj;
 }
 
 });
@@ -2017,19 +2017,6 @@ function rxStringContents (rx) {
 });
 
 
-;define('rave/pipeline/normalizeCjs', ['require', 'exports', 'module', 'rave/lib/path'], function (require, exports, module, $cram_r0, define) {var path = $cram_r0;
-
-module.exports = normalizeCjs;
-
-var reduceLeadingDots = path.reduceLeadingDots;
-
-function normalizeCjs (name, refererName, refererUrl) {
-	return reduceLeadingDots(String(name), refererName || '');
-}
-
-});
-
-
 ;define('rave/pipeline/fetchAsText', ['require', 'exports', 'module', 'rave/lib/fetchText'], function (require, exports, module, $cram_r0, define) {module.exports = fetchAsText;
 
 var fetchText = $cram_r0;
@@ -2039,6 +2026,19 @@ function fetchAsText (load) {
 		fetchText(load.address, resolve, reject);
 	});
 
+}
+
+});
+
+
+;define('rave/pipeline/normalizeCjs', ['require', 'exports', 'module', 'rave/lib/path'], function (require, exports, module, $cram_r0, define) {var path = $cram_r0;
+
+module.exports = normalizeCjs;
+
+var reduceLeadingDots = path.reduceLeadingDots;
+
+function normalizeCjs (name, refererName, refererUrl) {
+	return reduceLeadingDots(String(name), refererName || '');
 }
 
 });
