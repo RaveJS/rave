@@ -1389,7 +1389,7 @@ rave.simpleDefine = simpleDefine;
 rave.scriptUrl = getCurrentScript();
 rave.scriptPath = getPathFromUrl(rave.scriptUrl);
 rave.baseUrl = document
-	? getPathFromUrl(document.location.origin + document.location.pathname)
+	? getPathFromUrl(window.location.origin + window.location.pathname)
 	: __dirname;
 
 context = (document ? mergeBrowserOptions : mergeNodeOptions)({
