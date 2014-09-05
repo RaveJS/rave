@@ -112,21 +112,6 @@ function gatherExtensions (context) {
 	return Promise.all(promises);
 }
 
-function applyOverrides (packages, overrides, fromPkg, ifMissing) {
-	var name, pkg, key, pkgOverrides;
-	for (name in overrides) {
-		pkg = metadata.findDepPackage(packages, fromPkg, name);
-		if (pkg) {
-			pkgOverrides = overrides[name];
-			for (key in pkgOverrides) {
-				if (!ifMissing || typeof pkg[key] === 'undefined') {
-					pkg[key] = pkgOverrides[key];
-				}
-			}
-		}
-	}
-}
-
 function initExtension (context, packageName, moduleName) {
 	return fetchExtension(path.joinPaths(packageName, moduleName))
 		.then(extractExtensionCtor)
