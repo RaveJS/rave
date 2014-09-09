@@ -107,6 +107,11 @@ function startDebug (context) {
 
 	var applyHooks = auto.applyLoaderHooks;
 	auto.applyLoaderHooks = function (context, extensions) {
+
+		if (!('rave' in context.packages)) {
+			throw new Error('rave package not found.  Did you forget to use --save when installing?');
+		}
+
 		return applyHooks.call(this, context, extensions).then(function (result) {
 			var normalize = context.loader.normalize;
 			// log an error if rave encounters an unknown package
