@@ -1,3 +1,4 @@
+/*===promise===*/
 /*===loader===*/
 
 // es6-module-loader doesn't export to the current scope in node
