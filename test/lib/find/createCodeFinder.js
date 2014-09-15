@@ -110,17 +110,6 @@ buster.testCase('lib/find/createCodeFinder', {
 			var combo = createCodeFinder.composeRx(/foo/, /bar/, 'gim');
 			assert.same(combo.toString().slice(-3), 'gim');
 		}
-	},
-
-	rxStringContents: {
-		'should remove only leading and trailing slashes from a RegExp.totring()': function () {
-			var rx = /foo\/bar/;
-			assert.same(createCodeFinder.rxStringContents(rx), 'foo\\/bar');
-		},
-		'should remove trailing options RegExp.totring()': function () {
-			var rx = /foo|bar/gim;
-			assert.same(createCodeFinder.rxStringContents(rx), 'foo|bar');
-		}
 	}
 
 });
