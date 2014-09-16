@@ -2650,7 +2650,8 @@ function fetchText (url, callback, errback) {
 function addSourceUrl (url, source) {
 	return source
 		+ '\n//# sourceURL='
-		+ url.replace(/\s/g, '%20')
+		// TODO: Safari 6 and 7 fail to recognize sourceURL when it has a port
+		+ encodeURI(url)
 		+ '\n';
 }
 
@@ -2818,15 +2819,12 @@ function getName (uid) {
 
 // Export private functions for testing
 createCodeFinder.composeRx = composeRx;
-createCodeFinder.rxStringContents = rxStringContents;
 createCodeFinder.skipTo = skipTo;
-
-var trimRegExpRx = /^\/|\/[gim]*$/g;
 
 // Look for code transitions.
 var defaultTransitionsRx = composeRx(
-	// Detect strings, blank strings, and comments.
-	/(''?|""?|\/\/|\/\*)/,
+	// Detect strings, blank strings, double escapes, and comments.
+	/(''?|""?|\\\\|\/\/|\/\*)/,
 	// Detect RegExps by excluding division sign and comments
 	/(?:[\-+*\/=\,%&|^!(;\{\[<>]\s*)(\/)(?!\/|\*)/,
 	'g'
@@ -2837,11 +2835,12 @@ var defaultTransitionsRx = composeRx(
 var defaultSkippers = {
 	"''": false,
 	'""': false,
-	"'": /\\\\'|[^\\]'/g,
-	'"': /\\\\"|[^\\]"/g,
+	'\\\\': false,
+	"'": /[^\\]'/g,
+	'"': /[^\\]"/g,
 	'//': /\n|$/g,
 	'/*': /\*\//g,
-	'/': /\\\\\/|[^\\]\//g
+	'/': /[^\\]\//g
 };
 
 /**
@@ -2872,7 +2871,7 @@ function createCodeFinder (codeRx, codeTransitionsRx, skip) {
 	comboRx = composeRx(codeRx, codeTransitionsRx, flags);
 
 	return function (source, onMatch) {
-		var matches, index, rx, trans;
+		var matches, index;
 
 		comboRx.lastIndex = 0; // reset
 
@@ -2910,7 +2909,7 @@ function skipNonCode (matches) {
 function skipTo (source, rx, index) {
 	rx.lastIndex = index;
 
-	if (!rx.exec(source)) {
+	if (!rx.test(source)) {
 		throw new Error(
 			'Unterminated comment, string, or RegExp at '
 			+ index + ' near ' + source.slice(index - 50, 100)
@@ -2921,12 +2920,20 @@ function skipTo (source, rx, index) {
 }
 
 function composeRx (rx1, rx2, flags) {
-	return new RegExp(rxStringContents(rx1)
-		+ '|' + rxStringContents(rx2), flags);
+	return new RegExp(rx1.source + '|' + rx2.source, flags);
 }
 
-function rxStringContents (rx) {
-	return rx.toString().replace(trimRegExpRx, '');
+});
+
+
+;define('rave/pipeline/normalizeCjs', ['require', 'exports', 'module', 'rave/lib/path'], function (require, exports, module, $cram_r0, define) {var path = $cram_r0;
+
+module.exports = normalizeCjs;
+
+var reduceLeadingDots = path.reduceLeadingDots;
+
+function normalizeCjs (name, refererName, refererUrl) {
+	return reduceLeadingDots(String(name), refererName || '');
 }
 
 });
@@ -2941,19 +2948,6 @@ function fetchAsText (load) {
 		fetchText(load.address, resolve, reject);
 	});
 
-}
-
-});
-
-
-;define('rave/pipeline/normalizeCjs', ['require', 'exports', 'module', 'rave/lib/path'], function (require, exports, module, $cram_r0, define) {var path = $cram_r0;
-
-module.exports = normalizeCjs;
-
-var reduceLeadingDots = path.reduceLeadingDots;
-
-function normalizeCjs (name, refererName, refererUrl) {
-	return reduceLeadingDots(String(name), refererName || '');
 }
 
 });
