@@ -2444,19 +2444,19 @@ function toLoader (value) {
 
 
 
-;define('rave/pipeline/locateAsIs', ['require', 'exports', 'module'], function (require, exports, module, define) {module.exports = locateAsIs;
+;define('rave/pipeline/translateAsIs', ['require', 'exports', 'module'], function (require, exports, module, define) {module.exports = translateAsIs;
 
-function locateAsIs (load) {
-	return load.name;
+function translateAsIs (load) {
+	return load.source;
 }
 
 });
 
 
-;define('rave/pipeline/translateAsIs', ['require', 'exports', 'module'], function (require, exports, module, define) {module.exports = translateAsIs;
+;define('rave/pipeline/locateAsIs', ['require', 'exports', 'module'], function (require, exports, module, define) {module.exports = locateAsIs;
 
-function translateAsIs (load) {
-	return load.source;
+function locateAsIs (load) {
+	return load.name;
 }
 
 });
@@ -2650,7 +2650,6 @@ function fetchText (url, callback, errback) {
 function addSourceUrl (url, source) {
 	return source
 		+ '\n//# sourceURL='
-		// TODO: Safari 6 and 7 fail to recognize sourceURL when it has a port
 		+ encodeURI(url)
 		+ '\n';
 }
@@ -2926,6 +2925,20 @@ function composeRx (rx1, rx2, flags) {
 });
 
 
+;define('rave/pipeline/fetchAsText', ['require', 'exports', 'module', 'rave/lib/fetchText'], function (require, exports, module, $cram_r0, define) {module.exports = fetchAsText;
+
+var fetchText = $cram_r0;
+
+function fetchAsText (load) {
+	return new Promise(function(resolve, reject) {
+		fetchText(load.address, resolve, reject);
+	});
+
+}
+
+});
+
+
 ;define('rave/pipeline/normalizeCjs', ['require', 'exports', 'module', 'rave/lib/path'], function (require, exports, module, $cram_r0, define) {var path = $cram_r0;
 
 module.exports = normalizeCjs;
@@ -2939,15 +2952,26 @@ function normalizeCjs (name, refererName, refererUrl) {
 });
 
 
-;define('rave/pipeline/fetchAsText', ['require', 'exports', 'module', 'rave/lib/fetchText'], function (require, exports, module, $cram_r0, define) {module.exports = fetchAsText;
+;define('rave/pipeline/instantiateJson', ['require', 'exports', 'module', 'rave/lib/es5Transform', 'rave/lib/addSourceUrl'], function (require, exports, module, $cram_r0, $cram_r1, define) {var es5Transform = $cram_r0;
+var addSourceUrl = $cram_r1;
 
-var fetchText = $cram_r0;
+module.exports = instantiateJson;
 
-function fetchAsText (load) {
-	return new Promise(function(resolve, reject) {
-		fetchText(load.address, resolve, reject);
-	});
+function instantiateJson (load) {
+	var source;
 
+	source = '(' + load.source + ')';
+
+	// if debugging, add sourceURL
+	if (load.metadata.rave.debug) {
+		source = addSourceUrl(load.address, source);
+	}
+
+	return {
+		execute: function () {
+			return new Module(es5Transform.toLoader(eval(source)));
+		}
+	};
 }
 
 });
@@ -3069,31 +3093,6 @@ function toFastOverride (override) {
 
 function sameCommonJSPackages (a, b) {
 	return parse(a).pkgName === parse(b).pkgName;
-}
-
-});
-
-
-;define('rave/pipeline/instantiateJson', ['require', 'exports', 'module', 'rave/lib/es5Transform', 'rave/lib/addSourceUrl'], function (require, exports, module, $cram_r0, $cram_r1, define) {var es5Transform = $cram_r0;
-var addSourceUrl = $cram_r1;
-
-module.exports = instantiateJson;
-
-function instantiateJson (load) {
-	var source;
-
-	source = '(' + load.source + ')';
-
-	// if debugging, add sourceURL
-	if (load.metadata.rave.debug) {
-		source = addSourceUrl(load.address, source);
-	}
-
-	return {
-		execute: function () {
-			return new Module(es5Transform.toLoader(eval(source)));
-		}
-	};
 }
 
 });
