@@ -3,7 +3,10 @@
 /** @author John Hann */
 var auto = require('./auto');
 var uid = require('./lib/uid');
-//var override = require('./load/override');
+var amdEval = require('./lib/debug/amdEval');
+var nodeEval = require('./lib/debug/nodeEval');
+var scriptEval = require('./lib/debug/scriptEval');
+var es5Transform = require('./lib/es5Transform');
 var metadata = require('./lib/metadata');
 
 module.exports = {
@@ -104,6 +107,12 @@ function startDebug (context) {
 
 		console.log(message);
 	};
+
+	// override code evaluator modules with debuggable versions
+	context.loader.set('rave/lib/amd/eval', new Module(es5Transform.toLoader(amdEval)));
+	context.loader.set('rave/lib/node/eval', new Module(es5Transform.toLoader(nodeEval)));
+	context.loader.set('rave/lib/script/eval', new Module(es5Transform.toLoader(scriptEval)));
+
 
 	var applyHooks = auto.applyLoaderHooks;
 	auto.applyLoaderHooks = function (context, extensions) {
