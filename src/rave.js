@@ -1,15 +1,14 @@
 /** @license MIT License (c) copyright 2014 original authors */
 /** @author Brian Cavalier */
 /** @author John Hann */
-var rave, document, defaultMain, debugMain, hooksName,
+var rave, doc, defaultMain, hooksName,
 	context, loader, define;
 
 rave = exports || {};
 
-document = global.document;
+doc = global.document;
 
-defaultMain = 'rave/auto';
-debugMain = 'rave/debug';
+defaultMain = 'rave/debug';
 hooksName = 'rave/src/hooks';
 
 // export testable functions
@@ -22,11 +21,11 @@ rave.simpleDefine = simpleDefine;
 // initialize
 rave.scriptUrl = getCurrentScript();
 rave.scriptPath = getPathFromUrl(rave.scriptUrl);
-rave.baseUrl = document
+rave.baseUrl = doc
 	? getPathFromUrl(window.location.origin + window.location.pathname)
 	: __dirname;
 
-context = (document ? mergeBrowserOptions : mergeNodeOptions)({
+context = (doc ? mergeBrowserOptions : mergeNodeOptions)({
 	debug: true,
 	raveMain: defaultMain,
 	raveScript: rave.scriptUrl,
@@ -41,11 +40,6 @@ define.amd = {};
 function boot (context) {
 	var main = context.raveMain;
 	try {
-		// check if we should load debugMain instead
-		if (context.debug || context.raveDebug) {
-			// don't override main if user changed it with <html> attr
-			if (context.raveMain === defaultMain) context.raveMain = debugMain;
-		}
 		// apply hooks overrides to loader
 		var hooks = fromLoader(loader.get(hooksName));
 		// extend loader
@@ -71,7 +65,7 @@ function getCurrentScript () {
 	var stack, matches;
 
 	// HTML5 way
-	if (document && document.currentScript) return document.currentScript.src;
+	if (doc && doc.currentScript) return doc.currentScript.src;
 
 	// From https://gist.github.com/cphoover/6228063
 	// (Note: Ben Alman's shortcut doesn't work everywhere.)
@@ -90,14 +84,12 @@ function getPathFromUrl (url) {
 }
 
 function mergeBrowserOptions (context) {
-	var el = document.documentElement, i, attr, prop;
-	for (i = 0; i < el.attributes.length; i++) {
-		attr = el.attributes[i];
-		prop = attr.name.slice(5).replace(/(?:data)?-(.)/g, camelize);
-		if (prop) context[prop] = attr.value || true;
+	var el = doc.documentElement, i, attr, prop;
+	var meta = el.getAttribute('data-rave-meta');
+	if (meta) {
+		context.raveMeta = meta;
 	}
 	return context;
-	function camelize (m, l) { return l.toUpperCase();}
 }
 
 function mergeNodeOptions (context) {
