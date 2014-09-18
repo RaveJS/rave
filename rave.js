@@ -2308,6 +2308,7 @@ rave.baseUrl = document
 	: __dirname;
 
 context = (document ? mergeBrowserOptions : mergeNodeOptions)({
+	debug: true,
 	raveMain: defaultMain,
 	raveScript: rave.scriptUrl,
 	baseUrl: rave.baseUrl,
@@ -2448,6 +2449,15 @@ function toLoader (value) {
 
 function locateAsIs (load) {
 	return load.name;
+}
+
+});
+
+
+;define('rave/pipeline/translateAsIs', ['require', 'exports', 'module'], function (require, exports, module, define) {module.exports = translateAsIs;
+
+function translateAsIs (load) {
+	return load.source;
 }
 
 });
@@ -2595,15 +2605,6 @@ function splitDirAndFile (url) {
 });
 
 
-;define('rave/pipeline/translateAsIs', ['require', 'exports', 'module'], function (require, exports, module, define) {module.exports = translateAsIs;
-
-function translateAsIs (load) {
-	return load.source;
-}
-
-});
-
-
 ;define('rave/lib/beget', ['require', 'exports', 'module'], function (require, exports, module, define) {module.exports = beget;
 
 function Begetter () {}
@@ -2613,18 +2614,6 @@ function beget (base) {
 	obj = new Begetter();
 	Begetter.prototype = null;
 	return obj;
-}
-
-});
-
-
-;define('rave/lib/addSourceUrl', ['require', 'exports', 'module'], function (require, exports, module, define) {module.exports = addSourceUrl;
-
-function addSourceUrl (url, source) {
-	return source
-		+ '\n//# sourceURL='
-		+ encodeURI(url)
-		+ '\n';
 }
 
 });
@@ -2652,6 +2641,18 @@ function fetchText (url, callback, errback) {
 		}
 	};
 	xhr.send(null);
+}
+
+});
+
+
+;define('rave/lib/addSourceUrl', ['require', 'exports', 'module'], function (require, exports, module, define) {module.exports = addSourceUrl;
+
+function addSourceUrl (url, source) {
+	return source
+		+ '\n//# sourceURL='
+		+ encodeURI(url)
+		+ '\n';
 }
 
 });
@@ -2814,18 +2815,6 @@ function getName (uid) {
 });
 
 
-;define('rave/lib/node/eval', ['require', 'exports', 'module'], function (require, exports, module, define) {module.exports = nodeEval;
-
-function nodeEval (global, require, exports, module, source) {
-	// Note: V8 intermittently fails if we embed eval() in new Function()
-	// and source has "use strict" in it
-	new Function ('require', 'exports', 'module', 'global', source)
-		.call(exports, require, exports, module, global, source);
-}
-
-});
-
-
 ;define('rave/lib/find/createCodeFinder', ['require', 'exports', 'module'], function (require, exports, module, define) {module.exports = createCodeFinder;
 
 // Export private functions for testing
@@ -2932,6 +2921,18 @@ function skipTo (source, rx, index) {
 
 function composeRx (rx1, rx2, flags) {
 	return new RegExp(rx1.source + '|' + rx2.source, flags);
+}
+
+});
+
+
+;define('rave/lib/node/eval', ['require', 'exports', 'module'], function (require, exports, module, define) {module.exports = nodeEval;
+
+function nodeEval (global, require, exports, module, source) {
+	// Note: V8 intermittently fails if we embed eval() in new Function()
+	// and source has "use strict" in it
+	new Function ('require', 'exports', 'module', 'global', source)
+		.call(exports, require, exports, module, global, source);
 }
 
 });

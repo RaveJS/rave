@@ -27,6 +27,7 @@ rave.baseUrl = document
 	: __dirname;
 
 context = (document ? mergeBrowserOptions : mergeNodeOptions)({
+	debug: true,
 	raveMain: defaultMain,
 	raveScript: rave.scriptUrl,
 	baseUrl: rave.baseUrl,
