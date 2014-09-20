@@ -3,6 +3,11 @@
 /** @author John Hann */
 var metadata = require('./lib/metadata');
 var fromMetadata = require('./lib/hooksFromMetadata');
+var normalizeCjs = require('./pipeline/normalizeCjs');
+var locateAsIs = require('./pipeline/locateAsIs');
+var fetchAsText = require('./pipeline/fetchAsText');
+var translateAsIs = require('./pipeline/translateAsIs');
+var instantiateJs = require('./pipeline/instantiateJs');
 var beget = require('./lib/beget');
 var path = require('./lib/path');
 var pkg = require('./lib/package');
@@ -79,7 +84,14 @@ function gatherAppMetadata (context, metadatas) {
 }
 
 function configureLoader (context) {
-	var overrides = fromMetadata(context);
+	var hooks = {
+		normalize: normalizeCjs,
+		locate: locateAsIs,
+		fetch: fetchAsText,
+		translate: translateAsIs,
+		instantiate: instantiateJs
+	};
+	var overrides = fromMetadata(hooks, context);
 	context.load.overrides = overrides;
 	var hooks = override.hooks(context.load.nativeHooks, overrides);
 	for (var name in hooks) {
