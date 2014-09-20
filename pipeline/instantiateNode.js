@@ -2,8 +2,7 @@
 /** @author Brian Cavalier */
 /** @author John Hann */
 var findRequires = require('../lib/find/requires');
-var nodeFactory = require('../lib/nodeFactory');
-var addSourceUrl = require('../lib/addSourceUrl');
+var nodeFactory = require('../lib/node/factory');
 
 module.exports = instantiateNode;
 
@@ -12,11 +11,6 @@ function instantiateNode (load) {
 
 	loader = load.metadata.rave.loader;
 	deps = findOrThrow(load);
-
-	// if debugging, add sourceURL
-	if (load.metadata.rave.debug) {
-		load.source = addSourceUrl(load.address, load.source);
-	}
 
 	factory = nodeFactory(loader, load);
 

@@ -1,24 +1,15 @@
 /** @license MIT License (c) copyright 2014 original authors */
 /** @author Brian Cavalier */
 /** @author John Hann */
-var es5Transform = require('../lib/es5Transform');
-var addSourceUrl = require('../lib/addSourceUrl');
+var jsonFactory = require('../lib/json/factory');
 
 module.exports = instantiateJson;
 
 function instantiateJson (load) {
-	var source;
-
-	source = '(' + load.source + ')';
-
-	// if debugging, add sourceURL
-	if (load.metadata.rave.debug) {
-		source = addSourceUrl(load.address, source);
-	}
-
+	var loader = load.metadata.rave.loader;
 	return {
 		execute: function () {
-			return new Module(es5Transform.toLoader(eval(source)));
+			return new Module(jsonFactory(loader, load));
 		}
 	};
 }

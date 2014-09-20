@@ -3,18 +3,12 @@
 /** @author John Hann */
 module.exports = instantiateScript;
 
-var globalFactory = require('../lib/globalFactory');
-var addSourceUrl = require('../lib/addSourceUrl');
+var scriptFactory = require('../lib/script/factory');
 var metadata = require('../lib/metadata');
 var path = require('../lib/path');
 
 function instantiateScript (load) {
 	var packages, pkg, deps;
-
-	// if debugging, add sourceURL
-	if (load.metadata.rave.debug) {
-		load.source = addSourceUrl(load.address, load.source);
-	}
 
 	// find dependencies
 	packages = load.metadata.rave.packages;
@@ -23,7 +17,7 @@ function instantiateScript (load) {
 		deps = pkgMains(packages, pkg.deps)
 	}
 
-	var factory = globalFactory(this, load);
+	var factory = scriptFactory(this, load);
 	return {
 		deps: deps,
 		execute: function () {
