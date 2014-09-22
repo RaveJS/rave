@@ -84,14 +84,14 @@ function gatherAppMetadata (context, metadatas) {
 }
 
 function configureLoader (context) {
-	var hooks = {
+	var baseHooks = {
 		normalize: normalizeCjs,
 		locate: locateAsIs,
 		fetch: fetchAsText,
 		translate: translateAsIs,
 		instantiate: instantiateJs
 	};
-	var overrides = fromMetadata(hooks, context);
+	var overrides = fromMetadata(baseHooks, context);
 	context.load.overrides = overrides;
 	var hooks = override.hooks(context.load.nativeHooks, overrides);
 	for (var name in hooks) {
