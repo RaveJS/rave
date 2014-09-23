@@ -2638,35 +2638,6 @@ function fetchText (url, callback, errback) {
 });
 
 
-;define('rave/lib/addSourceUrl', ['require', 'exports', 'module'], function (require, exports, module, define) {module.exports = addSourceUrl;
-
-function addSourceUrl (url, source) {
-	return source
-		+ '\n//# sourceURL='
-		+ encodeURI(url)
-		+ '\n';
-}
-
-});
-
-
-;define('rave/lib/es5Transform', ['require', 'exports', 'module'], function (require, exports, module, define) {module.exports = {
-	fromLoader: function (value) {
-		return value && value.__es5Module ? value.__es5Module : value;
-	},
-	toLoader: function (module) {
-		return {
-			// for real ES6 modules to consume this module
-			'default': module,
-			// for modules transpiled from ES5
-			__es5Module: module
-		};
-	}
-};
-
-});
-
-
 ;define('rave/load/predicate', ['require', 'exports', 'module'], function (require, exports, module, define) {exports.composePredicates = composePredicates;
 exports.createPackageMatcher = createPackageMatcher;
 exports.createPatternMatcher = createPatternMatcher;
@@ -2918,6 +2889,23 @@ function composeRx (rx1, rx2, flags) {
 });
 
 
+;define('rave/lib/es5Transform', ['require', 'exports', 'module'], function (require, exports, module, define) {module.exports = {
+	fromLoader: function (value) {
+		return value && value.__es5Module ? value.__es5Module : value;
+	},
+	toLoader: function (module) {
+		return {
+			// for real ES6 modules to consume this module
+			'default': module,
+			// for modules transpiled from ES5
+			__es5Module: module
+		};
+	}
+};
+
+});
+
+
 ;define('rave/lib/node/eval', ['require', 'exports', 'module'], function (require, exports, module, define) {module.exports = nodeEval;
 
 function nodeEval (global, require, exports, module, source) {
@@ -2925,6 +2913,28 @@ function nodeEval (global, require, exports, module, source) {
 	// and source has "use strict" in it
 	new Function ('require', 'exports', 'module', 'global', source)
 		.call(exports, require, exports, module, global, source);
+}
+
+});
+
+
+;define('rave/lib/json/eval', ['require', 'exports', 'module'], function (require, exports, module, define) {module.exports = jsonEval;
+
+function jsonEval (source) {
+	return eval('(' + source + ')');
+}
+
+});
+
+
+;define('rave/pipeline/normalizeCjs', ['require', 'exports', 'module', 'rave/lib/path'], function (require, exports, module, $cram_r0, define) {var path = $cram_r0;
+
+module.exports = normalizeCjs;
+
+var reduceLeadingDots = path.reduceLeadingDots;
+
+function normalizeCjs (name, refererName, refererUrl) {
+	return reduceLeadingDots(String(name), refererName || '');
 }
 
 });
@@ -2939,19 +2949,6 @@ function fetchAsText (load) {
 		fetchText(load.address, resolve, reject);
 	});
 
-}
-
-});
-
-
-;define('rave/pipeline/normalizeCjs', ['require', 'exports', 'module', 'rave/lib/path'], function (require, exports, module, $cram_r0, define) {var path = $cram_r0;
-
-module.exports = normalizeCjs;
-
-var reduceLeadingDots = path.reduceLeadingDots;
-
-function normalizeCjs (name, refererName, refererUrl) {
-	return reduceLeadingDots(String(name), refererName || '');
 }
 
 });
@@ -3078,31 +3075,6 @@ function sameCommonJSPackages (a, b) {
 });
 
 
-;define('rave/pipeline/instantiateJson', ['require', 'exports', 'module', 'rave/lib/es5Transform', 'rave/lib/addSourceUrl'], function (require, exports, module, $cram_r0, $cram_r1, define) {var es5Transform = $cram_r0;
-var addSourceUrl = $cram_r1;
-
-module.exports = instantiateJson;
-
-function instantiateJson (load) {
-	var source;
-
-	source = '(' + load.source + ')';
-
-	// if debugging, add sourceURL
-	if (load.metadata.rave.debug) {
-		source = addSourceUrl(load.address, source);
-	}
-
-	return {
-		execute: function () {
-			return new Module(es5Transform.toLoader(eval(source)));
-		}
-	};
-}
-
-});
-
-
 ;define('rave/lib/find/requires', ['require', 'exports', 'module', 'rave/lib/find/createCodeFinder'], function (require, exports, module, $cram_r0, define) {module.exports = findRequires;
 
 var createCodeFinder = $cram_r0;
@@ -3130,6 +3102,18 @@ function findRequires (source) {
 	});
 
 	return deps;
+}
+
+});
+
+
+;define('rave/lib/json/factory', ['require', 'exports', 'module', 'rave/lib/es5Transform', 'rave/lib/json/eval'], function (require, exports, module, $cram_r0, $cram_r1, define) {var es5Transform = $cram_r0;
+var jsonEval = $cram_r1;
+
+module.exports = jsonFactory;
+
+function jsonFactory (loader, load) {
+	return es5Transform.toLoader(jsonEval(load.source));
 }
 
 });
@@ -3190,15 +3174,27 @@ function getExports (names, value) {
 });
 
 
-;define('rave/lib/nodeFactory', ['require', 'exports', 'module', 'rave/lib/es5Transform', 'rave/lib/createRequire', 'rave/lib/node/eval'], function (require, exports, module, $cram_r0, $cram_r1, $cram_r2, define) {module.exports = nodeFactory;
+;define('rave/pipeline/instantiateJson', ['require', 'exports', 'module', 'rave/lib/json/factory'], function (require, exports, module, $cram_r0, define) {var jsonFactory = $cram_r0;
 
-var es5Transform = $cram_r0;
+module.exports = instantiateJson;
+
+function instantiateJson (load) {
+	var loader = load.metadata.rave.loader;
+	return {
+		execute: function () {
+			return new Module(jsonFactory(loader, load));
+		}
+	};
+}
+
+});
+
+
+;define('rave/lib/node/factory', ['require', 'exports', 'module', 'rave/lib/es5Transform', 'rave/lib/createRequire', 'rave/lib/node/eval'], function (require, exports, module, $cram_r0, $cram_r1, $cram_r2, define) {var es5Transform = $cram_r0;
 var createRequire = $cram_r1;
 var nodeEval = $cram_r2;
 
-var _global;
-
-_global = typeof global !== 'undefined' ? global : window;
+module.exports = nodeFactory;
 
 function nodeFactory (loader, load) {
 	var name, source, exports, module, require;
@@ -3210,8 +3206,7 @@ function nodeFactory (loader, load) {
 	require = createRequire(loader, name);
 
 	return function () {
-		// TODO: use loader.global when es6-module-loader implements it
-		nodeEval(_global, require, exports, module, source);
+		nodeEval(global, require, exports, module, source);
 		// figure out what author intended to export
 		return exports === module.exports
 			? exports // a set of named exports
@@ -3222,9 +3217,8 @@ function nodeFactory (loader, load) {
 });
 
 
-;define('rave/pipeline/instantiateNode', ['require', 'exports', 'module', 'rave/lib/find/requires', 'rave/lib/nodeFactory', 'rave/lib/addSourceUrl'], function (require, exports, module, $cram_r0, $cram_r1, $cram_r2, define) {var findRequires = $cram_r0;
+;define('rave/pipeline/instantiateNode', ['require', 'exports', 'module', 'rave/lib/find/requires', 'rave/lib/node/factory'], function (require, exports, module, $cram_r0, $cram_r1, define) {var findRequires = $cram_r0;
 var nodeFactory = $cram_r1;
-var addSourceUrl = $cram_r2;
 
 module.exports = instantiateNode;
 
@@ -3233,11 +3227,6 @@ function instantiateNode (load) {
 
 	loader = load.metadata.rave.loader;
 	deps = findOrThrow(load);
-
-	// if debugging, add sourceURL
-	if (load.metadata.rave.debug) {
-		load.source = addSourceUrl(load.address, load.source);
-	}
 
 	factory = nodeFactory(loader, load);
 

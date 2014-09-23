@@ -7,7 +7,10 @@ var normalizeCjs = require('./pipeline/normalizeCjs');
 var locateAsIs = require('./pipeline/locateAsIs');
 var fetchAsText = require('./pipeline/fetchAsText');
 var translateAsIs = require('./pipeline/translateAsIs');
-var instantiateJs = require('./pipeline/instantiateJs');
+var instantiateNode = require('./pipeline/instantiateNode');
+var instantiateAmd = require('./pipeline/instantiateAmd');
+var instantiateScript = require('./pipeline/instantiateScript');
+var instantiateJs = require('./lib/debug/instantiateJs');
 var beget = require('./lib/beget');
 var path = require('./lib/path');
 var pkg = require('./lib/package');
@@ -20,6 +23,12 @@ module.exports = {
 };
 
 var defaultMeta = 'bower.json,package.json';
+
+var instantiators = {
+	amd: instantiateAmd,
+	node: instantiateNode,
+	globals: instantiateScript
+};
 
 function autoConfigure (context) {
 	var urls, applyLoaderHooks;
@@ -89,7 +98,7 @@ function configureLoader (context) {
 		locate: locateAsIs,
 		fetch: fetchAsText,
 		translate: translateAsIs,
-		instantiate: instantiateJs
+		instantiate: instantiateJs(getInstantiator)
 	};
 	var overrides = fromMetadata(baseHooks, context);
 	context.load.overrides = overrides;
@@ -98,6 +107,10 @@ function configureLoader (context) {
 		context.loader[name] = hooks[name];
 	}
 	return Promise.resolve(context);
+}
+
+function getInstantiator (moduleType) {
+	return instantiators[moduleType];
 }
 
 function gatherExtensions (context) {
