@@ -6,6 +6,8 @@ var locateAsIs = require('rave/pipeline/locateAsIs');
 var fetchAsText = require('rave/pipeline/fetchAsText');
 var translateAsIs = require('rave/pipeline/translateAsIs');
 var instantiateNode = require('rave/pipeline/instantiateNode');
+var nodeFactory = require('rave/lib/debug/nodeFactory');
+var nodeEval = require('rave/lib/debug/nodeEval');
 var instantiateJson = require('rave/pipeline/instantiateJson');
 var path = require('rave/lib/path');
 var beget = require('rave/lib/beget');
@@ -36,7 +38,7 @@ function baseHooks (context) {
 		package: 'rave',
 		hooks: {
 			locate: locateRaveWithContext(context),
-			instantiate: instantiateNode
+			instantiate: instantiateNode(nodeFactory(nodeEval))
 		}
 	};
 

@@ -8,8 +8,14 @@ var locateAsIs = require('./pipeline/locateAsIs');
 var fetchAsText = require('./pipeline/fetchAsText');
 var translateAsIs = require('./pipeline/translateAsIs');
 var instantiateNode = require('./pipeline/instantiateNode');
+var nodeFactory = require('./lib/node/factory');
+var nodeEval = require('./lib/debug/nodeEval');
 var instantiateAmd = require('./pipeline/instantiateAmd');
+var captureDefines = require('./lib/debug/captureDefines');
+var amdEval = require('./lib/debug/amdEval');
 var instantiateScript = require('./pipeline/instantiateScript');
+var scriptFactory = require('./lib/debug/scriptFactory');
+var scriptEval = require('./lib/debug/scriptEval');
 var instantiateJs = require('./lib/debug/instantiateJs');
 var beget = require('./lib/beget');
 var path = require('./lib/path');
@@ -25,9 +31,9 @@ module.exports = {
 var defaultMeta = 'bower.json,package.json';
 
 var instantiators = {
-	amd: instantiateAmd,
-	node: instantiateNode,
-	globals: instantiateScript
+	amd: instantiateAmd(captureDefines(amdEval)),
+	node: instantiateNode(nodeFactory(nodeEval)),
+	globals: instantiateScript(scriptFactory(scriptEval))
 };
 
 function autoConfigure (context) {
