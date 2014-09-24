@@ -15,17 +15,18 @@ var debugging = "\
 \n\
 If you see some 404s for JSON files, that's ok! \
 They'll go away when you build your app.\n\
-If the 404s are spoiling your debug party, the README.md shows how to evict them.\n\n\
--> Type rave() to turn on REPL commands. (experimental)";
+If the 404s are spoiling your debug party, the README.md shows how to \
+evict them.\n";
 
 var replCommands = "Available commands:\n\
 -> rave.dump() - returns rave's context to be viewed or manipulated.\n\
--> rave.version - shows rave's version.\n\
+-> rave.version() - shows rave's version.\n\
 -> rave.checkVersions() - checks if extensions are compatible.\n\
+-> rave.restore() - restores any previous global rave variable and returns rave\
 -> rave.help() - shows these commands.\n\
--> what else should we provide????";
+-> what else should we provide? File a github issue!";
 
-var replEnabled = "Rave {raveVersion} REPL enabled! \n"
+var replEnabled = "Rave REPL enabled! (experimental)\n"
 	+ replCommands;
 
 var multipleRaves = "Warning: multiple versions of rave are installed. \
@@ -72,38 +73,40 @@ of package `{overridee}`.";
 var defaultedPackage = "Package `{overrider}` provided default metadata for \
 missing properties of package `{overridee}`.";
 
+var uniqueThing = {};
+
 function startDebug (context) {
-	var rave, enabled;
+	var prev, rave, message;
 
 	console.log(debugging);
 
-	rave = global.rave = function () {
-		var message, version;
+	prev = 'rave' in global ? global.rave : uniqueThing;
+	rave = global.rave = {}
 
-		version = findVersion(context);
-		message = render({ raveVersion: version }, replEnabled);
+	message = render({}, replEnabled);
 
-		if (enabled) {
-			console.log(message);
-			return;
-		}
-
-		enabled = true;
-
-		// TODO: load a debug REPL module?
-		rave.dump = function () {
-			return context;
-		};
-		rave.version = version;
-		rave.checkVersions = function () {
-			runSemverOnExtensions(context);
-		};
-		rave.help = function () {
-			console.log(replCommands);
-		};
-
-		console.log(message);
+	// TODO: load a debug REPL module?
+	rave.dump = function () {
+		return context;
 	};
+	rave.version = function () { return findVersion(context); };
+	rave.checkVersions = function () {
+		runSemverOnExtensions(context);
+	};
+	rave.help = function () {
+		console.log(replCommands);
+	};
+	rave.restore = function () {
+		if (prev === uniqueThing) {
+			delete global.rave;
+		}
+		else {
+			global.rave = prev;
+		}
+		return rave;
+	};
+
+	console.log(message);
 
 	var applyHooks = auto.applyLoaderHooks;
 	auto.applyLoaderHooks = function (context, extensions) {
