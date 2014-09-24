@@ -3,6 +3,20 @@
 /** @author John Hann */
 var metadata = require('./lib/metadata');
 var fromMetadata = require('./lib/hooksFromMetadata');
+var normalizeCjs = require('./pipeline/normalizeCjs');
+var locateAsIs = require('./pipeline/locateAsIs');
+var fetchAsText = require('./pipeline/fetchAsText');
+var translateAsIs = require('./pipeline/translateAsIs');
+var instantiateNode = require('./pipeline/instantiateNode');
+var nodeFactory = require('./lib/node/factory');
+var nodeEval = require('./lib/debug/nodeEval');
+var instantiateAmd = require('./pipeline/instantiateAmd');
+var captureDefines = require('./lib/debug/captureDefines');
+var amdEval = require('./lib/debug/amdEval');
+var instantiateScript = require('./pipeline/instantiateScript');
+var scriptFactory = require('./lib/debug/scriptFactory');
+var scriptEval = require('./lib/debug/scriptEval');
+var instantiateJs = require('./lib/debug/instantiateJs');
 var beget = require('./lib/beget');
 var path = require('./lib/path');
 var pkg = require('./lib/package');
@@ -15,6 +29,12 @@ module.exports = {
 };
 
 var defaultMeta = 'bower.json,package.json';
+
+var instantiators = {
+	amd: instantiateAmd(captureDefines(amdEval)),
+	node: instantiateNode(nodeFactory(nodeEval)),
+	globals: instantiateScript(scriptFactory(scriptEval))
+};
 
 function autoConfigure (context) {
 	var urls, applyLoaderHooks;
@@ -79,13 +99,24 @@ function gatherAppMetadata (context, metadatas) {
 }
 
 function configureLoader (context) {
-	var overrides = fromMetadata(context);
+	var baseHooks = {
+		normalize: normalizeCjs,
+		locate: locateAsIs,
+		fetch: fetchAsText,
+		translate: translateAsIs,
+		instantiate: instantiateJs(getInstantiator)
+	};
+	var overrides = fromMetadata(baseHooks, context);
 	context.load.overrides = overrides;
 	var hooks = override.hooks(context.load.nativeHooks, overrides);
 	for (var name in hooks) {
 		context.loader[name] = hooks[name];
 	}
 	return Promise.resolve(context);
+}
+
+function getInstantiator (moduleType) {
+	return instantiators[moduleType];
 }
 
 function gatherExtensions (context) {

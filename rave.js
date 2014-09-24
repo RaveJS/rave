@@ -2282,15 +2282,14 @@ if (typeof exports !== 'undefined') {
 /** @author Brian Cavalier */
 /** @author John Hann */
 (function (exports, global) {
-var rave, document, defaultMain, debugMain, hooksName,
+var rave, doc, defaultMain, hooksName,
 	context, loader, define;
 
 rave = exports || {};
 
-document = global.document;
+doc = global.document;
 
-defaultMain = 'rave/auto';
-debugMain = 'rave/debug';
+defaultMain = 'rave/debug';
 hooksName = 'rave/src/hooks';
 
 // export testable functions
@@ -2303,11 +2302,12 @@ rave.simpleDefine = simpleDefine;
 // initialize
 rave.scriptUrl = getCurrentScript();
 rave.scriptPath = getPathFromUrl(rave.scriptUrl);
-rave.baseUrl = document
+rave.baseUrl = doc
 	? getPathFromUrl(window.location.origin + window.location.pathname)
 	: __dirname;
 
-context = (document ? mergeBrowserOptions : mergeNodeOptions)({
+context = (doc ? mergeBrowserOptions : mergeNodeOptions)({
+	debug: true,
 	raveMain: defaultMain,
 	raveScript: rave.scriptUrl,
 	baseUrl: rave.baseUrl,
@@ -2321,11 +2321,6 @@ define.amd = {};
 function boot (context) {
 	var main = context.raveMain;
 	try {
-		// check if we should load debugMain instead
-		if (context.debug || context.raveDebug) {
-			// don't override main if user changed it with <html> attr
-			if (context.raveMain === defaultMain) context.raveMain = debugMain;
-		}
 		// apply hooks overrides to loader
 		var hooks = fromLoader(loader.get(hooksName));
 		// extend loader
@@ -2351,7 +2346,7 @@ function getCurrentScript () {
 	var stack, matches;
 
 	// HTML5 way
-	if (document && document.currentScript) return document.currentScript.src;
+	if (doc && doc.currentScript) return doc.currentScript.src;
 
 	// From https://gist.github.com/cphoover/6228063
 	// (Note: Ben Alman's shortcut doesn't work everywhere.)
@@ -2370,14 +2365,12 @@ function getPathFromUrl (url) {
 }
 
 function mergeBrowserOptions (context) {
-	var el = document.documentElement, i, attr, prop;
-	for (i = 0; i < el.attributes.length; i++) {
-		attr = el.attributes[i];
-		prop = attr.name.slice(5).replace(/(?:data)?-(.)/g, camelize);
-		if (prop) context[prop] = attr.value || true;
+	var el = doc.documentElement, i, attr, prop;
+	var meta = el.getAttribute('data-rave-meta');
+	if (meta) {
+		context.raveMeta = meta;
 	}
 	return context;
-	function camelize (m, l) { return l.toUpperCase();}
 }
 
 function mergeNodeOptions (context) {
@@ -2448,6 +2441,15 @@ function toLoader (value) {
 
 function locateAsIs (load) {
 	return load.name;
+}
+
+});
+
+
+;define('rave/pipeline/translateAsIs', ['require', 'exports', 'module'], function (require, exports, module, define) {module.exports = translateAsIs;
+
+function translateAsIs (load) {
+	return load.source;
 }
 
 });
@@ -2595,15 +2597,6 @@ function splitDirAndFile (url) {
 });
 
 
-;define('rave/pipeline/translateAsIs', ['require', 'exports', 'module'], function (require, exports, module, define) {module.exports = translateAsIs;
-
-function translateAsIs (load) {
-	return load.source;
-}
-
-});
-
-
 ;define('rave/lib/beget', ['require', 'exports', 'module'], function (require, exports, module, define) {module.exports = beget;
 
 function Begetter () {}
@@ -2613,18 +2606,6 @@ function beget (base) {
 	obj = new Begetter();
 	Begetter.prototype = null;
 	return obj;
-}
-
-});
-
-
-;define('rave/lib/addSourceUrl', ['require', 'exports', 'module'], function (require, exports, module, define) {module.exports = addSourceUrl;
-
-function addSourceUrl (url, source) {
-	return source
-		+ '\n//# sourceURL='
-		+ encodeURI(url)
-		+ '\n';
 }
 
 });
@@ -2657,19 +2638,89 @@ function fetchText (url, callback, errback) {
 });
 
 
-;define('rave/lib/es5Transform', ['require', 'exports', 'module'], function (require, exports, module, define) {module.exports = {
-	fromLoader: function (value) {
-		return value && value.__es5Module ? value.__es5Module : value;
-	},
-	toLoader: function (module) {
-		return {
-			// for real ES6 modules to consume this module
-			'default': module,
-			// for modules transpiled from ES5
-			__es5Module: module
-		};
-	}
+;define('rave/lib/debug/injectScript', ['require', 'exports', 'module'], function (require, exports, module, define) {module.exports = injectScript;
+
+var injectSource = function (el, source) {
+	// got this sniff from Stoyan Stefanov
+	// (http://www.phpied.com/dynamic-script-and-style-elements-in-ie/)
+	injectSource = 'text' in el ? setText : appendChild;
+	injectSource(el, source);
 };
+
+var doc = document;
+var head = doc && (doc['head'] || doc.getElementsByTagName('head')[0]);
+var insertBeforeEl = head && head.getElementsByTagName('base')[0] || null;
+
+function injectScript (source) {
+	var el = doc.createElement('script');
+	injectSource(el, source);
+	el.charset = 'utf-8';
+	head.insertBefore(el, insertBeforeEl);
+	head.removeChild(el);
+}
+
+function setText (el, source) {
+	el.text = source;
+}
+
+function appendChild (el, source) {
+	el.appendChild(doc.createTextNode(source));
+}
+
+});
+
+
+;define('rave/lib/addSourceUrl', ['require', 'exports', 'module'], function (require, exports, module, define) {module.exports = addSourceUrl;
+
+function addSourceUrl (url, source) {
+	return source
+		+ '\n//# sourceURL='
+		+ encodeURI(url)
+		+ '\n';
+}
+
+});
+
+
+;define('rave/load/specificity', ['require', 'exports', 'module'], function (require, exports, module, define) {exports.compare = compareFilters;
+exports.pkgSpec = packageSpecificity;
+exports.patSpec = patternSpecificity;
+exports.extSpec = extensionSpecificity;
+exports.predSpec = predicateSpecificity;
+
+function packageSpecificity (filter) {
+	if (!filter.package || filter.package === '*') return 0;
+//	else if (filter.package.indexOf('*') >= 0) return 1;
+	else return 1;
+}
+
+function patternSpecificity (filter) {
+	return filter.pattern ? 1 : 0;
+}
+
+function extensionSpecificity (filter) {
+	return filter.extensions && filter.extensions.length
+		? 1 / filter.extensions.length
+		: 0;
+}
+
+function predicateSpecificity (filter) {
+	return filter.predicate ? 1 : 0;
+}
+
+function compareFilters (a, b) {
+	// packages have highest priority
+	var diff = packageSpecificity(a) - packageSpecificity(b);
+	// after packages, patterns are priority
+	if (diff === 0) diff = patternSpecificity(a) - patternSpecificity(b);
+	// next priority is extensions
+	if (diff === 0) diff = extensionSpecificity(a) - extensionSpecificity(b);
+	// last priority is custom predicates
+	if (diff === 0) diff = predicateSpecificity(a) - predicateSpecificity(b);
+	// sort higher specificity filters to beginning of array
+	return -diff;
+}
+
 
 });
 
@@ -2740,49 +2791,6 @@ function always () { return true; }
 });
 
 
-;define('rave/load/specificity', ['require', 'exports', 'module'], function (require, exports, module, define) {exports.compare = compareFilters;
-exports.pkgSpec = packageSpecificity;
-exports.patSpec = patternSpecificity;
-exports.extSpec = extensionSpecificity;
-exports.predSpec = predicateSpecificity;
-
-function packageSpecificity (filter) {
-	if (!filter.package || filter.package === '*') return 0;
-//	else if (filter.package.indexOf('*') >= 0) return 1;
-	else return 1;
-}
-
-function patternSpecificity (filter) {
-	return filter.pattern ? 1 : 0;
-}
-
-function extensionSpecificity (filter) {
-	return filter.extensions && filter.extensions.length
-		? 1 / filter.extensions.length
-		: 0;
-}
-
-function predicateSpecificity (filter) {
-	return filter.predicate ? 1 : 0;
-}
-
-function compareFilters (a, b) {
-	// packages have highest priority
-	var diff = packageSpecificity(a) - packageSpecificity(b);
-	// after packages, patterns are priority
-	if (diff === 0) diff = patternSpecificity(a) - patternSpecificity(b);
-	// next priority is extensions
-	if (diff === 0) diff = extensionSpecificity(a) - extensionSpecificity(b);
-	// last priority is custom predicates
-	if (diff === 0) diff = predicateSpecificity(a) - predicateSpecificity(b);
-	// sort higher specificity filters to beginning of array
-	return -diff;
-}
-
-
-});
-
-
 ;define('rave/lib/uid', ['require', 'exports', 'module'], function (require, exports, module, define) {exports.create = createUid;
 exports.parse = parseUid;
 exports.getName = getName;
@@ -2814,13 +2822,27 @@ function getName (uid) {
 });
 
 
-;define('rave/lib/node/eval', ['require', 'exports', 'module'], function (require, exports, module, define) {module.exports = nodeEval;
+;define('rave/lib/es5Transform', ['require', 'exports', 'module'], function (require, exports, module, define) {module.exports = {
+	fromLoader: function (value) {
+		return value && value.__es5Module ? value.__es5Module : value;
+	},
+	toLoader: function (module) {
+		return {
+			// for real ES6 modules to consume this module
+			'default': module,
+			// for modules transpiled from ES5
+			__es5Module: module
+		};
+	}
+};
 
-function nodeEval (global, require, exports, module, source) {
-	// Note: V8 intermittently fails if we embed eval() in new Function()
-	// and source has "use strict" in it
-	new Function ('require', 'exports', 'module', 'global', source)
-		.call(exports, require, exports, module, global, source);
+});
+
+
+;define('rave/lib/json/eval', ['require', 'exports', 'module'], function (require, exports, module, define) {module.exports = jsonEval;
+
+function jsonEval (source) {
+	return eval('(' + source + ')');
 }
 
 });
@@ -3085,26 +3107,37 @@ function sameCommonJSPackages (a, b) {
 });
 
 
-;define('rave/pipeline/instantiateJson', ['require', 'exports', 'module', 'rave/lib/es5Transform', 'rave/lib/addSourceUrl'], function (require, exports, module, $cram_r0, $cram_r1, define) {var es5Transform = $cram_r0;
-var addSourceUrl = $cram_r1;
+;define('rave/lib/debug/nodeEval', ['require', 'exports', 'module', 'rave/lib/debug/injectScript'], function (require, exports, module, $cram_r0, define) {var injectScript = $cram_r0;
 
-module.exports = instantiateJson;
+module.exports = nodeEval;
 
-function instantiateJson (load) {
-	var source;
-
-	source = '(' + load.source + ')';
-
-	// if debugging, add sourceURL
-	if (load.metadata.rave.debug) {
-		source = addSourceUrl(load.address, source);
+function nodeEval (global, require, exports, module, source) {
+	var script;
+	script = '__rave_node(function (require, exports, module, global) {'
+		+ source
+		+ '\n})';
+	global.__rave_node = __rave_node;
+	try {
+		injectScript(script);
 	}
+	finally {
+		delete global.__rave_node;
+	}
+	function __rave_node (factory) {
+		factory(require, exports, module, global);
+	}
+}
 
-	return {
-		execute: function () {
-			return new Module(es5Transform.toLoader(eval(source)));
-		}
-	};
+});
+
+
+;define('rave/lib/json/factory', ['require', 'exports', 'module', 'rave/lib/es5Transform', 'rave/lib/json/eval'], function (require, exports, module, $cram_r0, $cram_r1, define) {var es5Transform = $cram_r0;
+var jsonEval = $cram_r1;
+
+module.exports = jsonFactory;
+
+function jsonFactory (loader, load) {
+	return es5Transform.toLoader(jsonEval(load.source));
 }
 
 });
@@ -3197,63 +3230,42 @@ function getExports (names, value) {
 });
 
 
-;define('rave/lib/nodeFactory', ['require', 'exports', 'module', 'rave/lib/es5Transform', 'rave/lib/createRequire', 'rave/lib/node/eval'], function (require, exports, module, $cram_r0, $cram_r1, $cram_r2, define) {module.exports = nodeFactory;
+;define('rave/pipeline/instantiateJson', ['require', 'exports', 'module', 'rave/lib/json/factory'], function (require, exports, module, $cram_r0, define) {var jsonFactory = $cram_r0;
 
-var es5Transform = $cram_r0;
-var createRequire = $cram_r1;
-var nodeEval = $cram_r2;
+module.exports = instantiateJson;
 
-var _global;
-
-_global = typeof global !== 'undefined' ? global : window;
-
-function nodeFactory (loader, load) {
-	var name, source, exports, module, require;
-
-	name = load.name;
-	source = load.source;
-	exports = {};
-	module = { id: name, uri: load.address, exports: exports };
-	require = createRequire(loader, name);
-
-	return function () {
-		// TODO: use loader.global when es6-module-loader implements it
-		nodeEval(_global, require, exports, module, source);
-		// figure out what author intended to export
-		return exports === module.exports
-			? exports // a set of named exports
-			: es5Transform.toLoader(module.exports); // a single default export
+function instantiateJson (load) {
+	var loader = load.metadata.rave.loader;
+	return {
+		execute: function () {
+			return new Module(jsonFactory(loader, load));
+		}
 	};
 }
 
 });
 
 
-;define('rave/pipeline/instantiateNode', ['require', 'exports', 'module', 'rave/lib/find/requires', 'rave/lib/nodeFactory', 'rave/lib/addSourceUrl'], function (require, exports, module, $cram_r0, $cram_r1, $cram_r2, define) {var findRequires = $cram_r0;
-var nodeFactory = $cram_r1;
-var addSourceUrl = $cram_r2;
+;define('rave/pipeline/instantiateNode', ['require', 'exports', 'module', 'rave/lib/find/requires'], function (require, exports, module, $cram_r0, define) {var findRequires = $cram_r0;
 
 module.exports = instantiateNode;
 
-function instantiateNode (load) {
-	var loader, deps, factory;
+function instantiateNode (nodeFactory) {
+	return function (load) {
+		var loader, deps, factory;
 
-	loader = load.metadata.rave.loader;
-	deps = findOrThrow(load);
+		loader = load.metadata.rave.loader;
+		deps = findOrThrow(load);
 
-	// if debugging, add sourceURL
-	if (load.metadata.rave.debug) {
-		load.source = addSourceUrl(load.address, load.source);
+		factory = nodeFactory(loader, load);
+
+		return {
+			deps: deps,
+			execute: function () {
+				return new Module(factory.apply(this, arguments));
+			}
+		};
 	}
-
-	factory = nodeFactory(loader, load);
-
-	return {
-		deps: deps,
-		execute: function () {
-			return new Module(factory.apply(this, arguments));
-		}
-	};
 }
 
 function findOrThrow (load) {
@@ -3270,15 +3282,63 @@ function findOrThrow (load) {
 });
 
 
-;define('rave/src/hooks', ['require', 'exports', 'module', 'rave/pipeline/normalizeCjs', 'rave/pipeline/locateAsIs', 'rave/pipeline/fetchAsText', 'rave/pipeline/translateAsIs', 'rave/pipeline/instantiateNode', 'rave/pipeline/instantiateJson', 'rave/lib/path', 'rave/lib/beget', 'rave/load/override'], function (require, exports, module, $cram_r0, $cram_r1, $cram_r2, $cram_r3, $cram_r4, $cram_r5, $cram_r6, $cram_r7, $cram_r8, define) {var normalizeCjs = $cram_r0;
+;define('rave/lib/node/factory', ['require', 'exports', 'module', 'rave/lib/es5Transform', 'rave/lib/createRequire'], function (require, exports, module, $cram_r0, $cram_r1, define) {var es5Transform = $cram_r0;
+var createRequire = $cram_r1;
+
+module.exports = nodeFactory;
+
+function nodeFactory (nodeEval) {
+	return function (loader, load) {
+		var name, source, exports, module, require;
+
+		name = load.name;
+		source = load.source;
+		exports = {};
+		module = { id: name, uri: load.address, exports: exports };
+		require = createRequire(loader, name);
+
+		return function () {
+			nodeEval(global, require, exports, module, source);
+			// figure out what author intended to export
+			return exports === module.exports
+				? exports // a set of named exports
+				: es5Transform.toLoader(module.exports); // a single default export
+		};
+	};
+}
+
+});
+
+
+;define('rave/lib/debug/nodeFactory', ['require', 'exports', 'module', 'rave/lib/node/factory', 'rave/lib/addSourceUrl'], function (require, exports, module, $cram_r0, $cram_r1, define) {var factory = $cram_r0;
+var addSourceUrl = $cram_r1;
+
+module.exports = nodeFactory;
+
+function nodeFactory (nodeEval) {
+	return function (loader, load) {
+		return factory(debugEval)(loader, load);
+		function debugEval (global, require, exports, module, source) {
+			var debugSrc = addSourceUrl(load.address, source);
+			return nodeEval(global, require, exports, module, debugSrc);
+		}
+	};
+}
+
+});
+
+
+;define('rave/src/hooks', ['require', 'exports', 'module', 'rave/pipeline/normalizeCjs', 'rave/pipeline/locateAsIs', 'rave/pipeline/fetchAsText', 'rave/pipeline/translateAsIs', 'rave/pipeline/instantiateNode', 'rave/lib/debug/nodeFactory', 'rave/lib/debug/nodeEval', 'rave/pipeline/instantiateJson', 'rave/lib/path', 'rave/lib/beget', 'rave/load/override'], function (require, exports, module, $cram_r0, $cram_r1, $cram_r2, $cram_r3, $cram_r4, $cram_r5, $cram_r6, $cram_r7, $cram_r8, $cram_r9, $cram_r10, define) {var normalizeCjs = $cram_r0;
 var locateAsIs = $cram_r1;
 var fetchAsText = $cram_r2;
 var translateAsIs = $cram_r3;
 var instantiateNode = $cram_r4;
-var instantiateJson = $cram_r5;
-var path = $cram_r6;
-var beget = $cram_r7;
-var override = $cram_r8;
+var nodeFactory = $cram_r5;
+var nodeEval = $cram_r6;
+var instantiateJson = $cram_r7;
+var path = $cram_r8;
+var beget = $cram_r9;
+var override = $cram_r10;
 
 module.exports = baseHooks;
 
@@ -3305,7 +3365,7 @@ function baseHooks (context) {
 		package: 'rave',
 		hooks: {
 			locate: locateRaveWithContext(context),
-			instantiate: instantiateNode
+			instantiate: instantiateNode(nodeFactory(nodeEval))
 		}
 	};
 

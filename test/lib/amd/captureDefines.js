@@ -4,6 +4,7 @@ var refute = buster.refute;
 var fail = buster.assertions.fail;
 
 var captureDefines = require('../../../lib/amd/captureDefines');
+var amdEval = require('../../../lib/amd/eval');
 
 var nameOptions = { '': 1, 'name': 1 };
 var depCounts = { 'none': 1, 0: 1, 1: 1, 3: 1 };
@@ -20,8 +21,12 @@ buster.testCase('rave/lib/amd/captureDefines', {
 						? null
 						: depsList.slice(0, depCount);
 					var def = generateDefine(name, deps, factory);
+					var load = {
+						name: 'module_under_test',
+						source: def
+					};
 					refute.exception(function () {
-						captureDefines(def);
+						captureDefines(amdEval)(load);
 					});
 				}
 			}
@@ -29,27 +34,28 @@ buster.testCase('rave/lib/amd/captureDefines', {
 	},
 
 	'should always return a factory': function () {
-		var def;
-		def = generateDefine(null, null, '{}');
-		assert.isFunction(captureDefines(def).anon.factory, 'factory is object');
-		def = generateDefine(null, null, '"foo"');
-		assert.isFunction(captureDefines(def).anon.factory, 'factory is string');
-		def = generateDefine(null, null, '/foo/g');
-		assert.isFunction(captureDefines(def).anon.factory, 'factory is RegExp');
+		var load;
+		load = { name: 'module_under_test' };
+		load.source = generateDefine(null, null, '{}');
+		assert.isFunction(captureDefines(amdEval)(load).anon.factory, 'factory is object');
+		load.source = generateDefine(null, null, '"foo"');
+		assert.isFunction(captureDefines(amdEval)(load).anon.factory, 'factory is string');
+		load.source = generateDefine(null, null, '/foo/g');
+		assert.isFunction(captureDefines(amdEval)(load).anon.factory, 'factory is RegExp');
 	},
 
 	'should detect a named module': function () {
-		var def;
-		def = generateDefine('foo', null, '{}');
-		assert.equals('foo', captureDefines(def).named[0].name);
+		var load = { name: 'tst' };
+		load.source = generateDefine('foo', null, '{}');
+		assert.equals('foo', captureDefines(amdEval)(load).named[0].name);
 	},
 
 	'should detect dependencies': function () {
-		var def;
-		def = generateDefine('foo', ['bar', 'baz'], '{}');
-		assert.equals(['bar', 'baz'], captureDefines(def).named[0].depsList, 'named module');
-		def = generateDefine(null, ['bar', 'baz'], '{}');
-		assert.equals(['bar', 'baz'], captureDefines(def).anon.depsList, 'anonymous module');
+		var load = { name: 'test' };
+		load.source = generateDefine('foo', ['bar', 'baz'], '{}');
+		assert.equals(['bar', 'baz'], captureDefines(amdEval)(load).named[0].depsList, 'named module');
+		load.source = generateDefine(null, ['bar', 'baz'], '{}');
+		assert.equals(['bar', 'baz'], captureDefines(amdEval)(load).anon.depsList, 'anonymous module');
 	}
 
 });
