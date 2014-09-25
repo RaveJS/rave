@@ -2610,6 +2610,42 @@ function beget (base) {
 });
 
 
+;define('rave/lib/addSourceUrl', ['require', 'exports', 'module'], function (require, exports, module, define) {module.exports = addSourceUrl;
+
+function addSourceUrl (url, source) {
+	var safeUrl = stripPort(url);
+	return source
+		+ '\n//# sourceURL='
+		+ encodeURI(safeUrl || url)
+		+ '\n';
+}
+
+function stripPort (url) {
+	var u;
+	// Until Safari fixes their debugger or we have a reliable way to sniff for
+	// the broken debugger, we'll have to sniff the user agent.  Note: this
+	// sniff happens in debugging code only, not in production code.
+	if (typeof URL !== 'undefined' && isSafari()) {
+		u = new URL(url);
+	}
+	return u && u.port
+		? u.protocol + '//'
+			+ u.hostname
+			+ u.pathname
+			+ u.search
+			+ u.hash
+		: null;
+}
+//	return url.replace(/(:\/\/[^/]*)(:\d+)(\/|$)/, '$1$3');
+
+function isSafari () {
+	var ua = navigator.userAgent;
+	return ua.indexOf('Safari') >= 0 && ua.indexOf('Chrome') < 0;
+}
+
+});
+
+
 ;define('rave/lib/fetchText', ['require', 'exports', 'module'], function (require, exports, module, define) {module.exports = fetchText;
 
 function fetchText (url, callback, errback) {
@@ -2632,18 +2668,6 @@ function fetchText (url, callback, errback) {
 		}
 	};
 	xhr.send(null);
-}
-
-});
-
-
-;define('rave/lib/addSourceUrl', ['require', 'exports', 'module'], function (require, exports, module, define) {module.exports = addSourceUrl;
-
-function addSourceUrl (url, source) {
-	return source
-		+ '\n//# sourceURL='
-		+ encodeURI(url)
-		+ '\n';
 }
 
 });
@@ -2821,23 +2845,6 @@ function getName (uid) {
 });
 
 
-;define('rave/lib/es5Transform', ['require', 'exports', 'module'], function (require, exports, module, define) {module.exports = {
-	fromLoader: function (value) {
-		return value && value.__es5Module ? value.__es5Module : value;
-	},
-	toLoader: function (module) {
-		return {
-			// for real ES6 modules to consume this module
-			'default': module,
-			// for modules transpiled from ES5
-			__es5Module: module
-		};
-	}
-};
-
-});
-
-
 ;define('rave/lib/find/createCodeFinder', ['require', 'exports', 'module'], function (require, exports, module, define) {module.exports = createCodeFinder;
 
 // Export private functions for testing
@@ -2949,23 +2956,27 @@ function composeRx (rx1, rx2, flags) {
 });
 
 
-;define('rave/lib/json/eval', ['require', 'exports', 'module'], function (require, exports, module, define) {module.exports = jsonEval;
-
-function jsonEval (source) {
-	return eval('(' + source + ')');
-}
+;define('rave/lib/es5Transform', ['require', 'exports', 'module'], function (require, exports, module, define) {module.exports = {
+	fromLoader: function (value) {
+		return value && value.__es5Module ? value.__es5Module : value;
+	},
+	toLoader: function (module) {
+		return {
+			// for real ES6 modules to consume this module
+			'default': module,
+			// for modules transpiled from ES5
+			__es5Module: module
+		};
+	}
+};
 
 });
 
 
-;define('rave/pipeline/normalizeCjs', ['require', 'exports', 'module', 'rave/lib/path'], function (require, exports, module, $cram_r0, define) {var path = $cram_r0;
+;define('rave/lib/json/eval', ['require', 'exports', 'module'], function (require, exports, module, define) {module.exports = jsonEval;
 
-module.exports = normalizeCjs;
-
-var reduceLeadingDots = path.reduceLeadingDots;
-
-function normalizeCjs (name, refererName, refererUrl) {
-	return reduceLeadingDots(String(name), refererName || '');
+function jsonEval (source) {
+	return eval('(' + source + ')');
 }
 
 });
@@ -2980,6 +2991,19 @@ function fetchAsText (load) {
 		fetchText(load.address, resolve, reject);
 	});
 
+}
+
+});
+
+
+;define('rave/pipeline/normalizeCjs', ['require', 'exports', 'module', 'rave/lib/path'], function (require, exports, module, $cram_r0, define) {var path = $cram_r0;
+
+module.exports = normalizeCjs;
+
+var reduceLeadingDots = path.reduceLeadingDots;
+
+function normalizeCjs (name, refererName, refererUrl) {
+	return reduceLeadingDots(String(name), refererName || '');
 }
 
 });
@@ -3110,11 +3134,13 @@ function sameCommonJSPackages (a, b) {
 
 module.exports = nodeEval;
 
-function nodeEval (global, require, exports, module, source) {
+function nodeEval (global, require, exports, module, source, debugTransform) {
 	var script;
-	script = '__rave_node(function (require, exports, module, global) {'
+	script = debugTransform(
+		'__rave_node(function (require, exports, module, global) {'
 		+ source
-		+ '\n})';
+		+ '\n})\n'
+	);
 	global.__rave_node = __rave_node;
 	try {
 		injectScript(script);
@@ -3318,8 +3344,13 @@ function nodeFactory (nodeEval) {
 	return function (loader, load) {
 		return factory(debugEval)(loader, load);
 		function debugEval (global, require, exports, module, source) {
-			var debugSrc = addSourceUrl(load.address, source);
-			return nodeEval(global, require, exports, module, debugSrc);
+			return nodeEval(global, require, exports, module, source, debugTransform);
+		}
+		// We must add the source url from within nodeEval to work around
+		// browser bugs that prevent scripts from showing in the debugger
+		// if the sourceURL line is inside a wrapper function.
+		function debugTransform (source) {
+			return addSourceUrl(load.address, source);
 		}
 	};
 }
