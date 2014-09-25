@@ -2307,7 +2307,6 @@ rave.baseUrl = doc
 	: __dirname;
 
 context = (doc ? mergeBrowserOptions : mergeNodeOptions)({
-	debug: true,
 	raveMain: defaultMain,
 	raveScript: rave.scriptUrl,
 	baseUrl: rave.baseUrl,
@@ -2638,6 +2637,18 @@ function fetchText (url, callback, errback) {
 });
 
 
+;define('rave/lib/addSourceUrl', ['require', 'exports', 'module'], function (require, exports, module, define) {module.exports = addSourceUrl;
+
+function addSourceUrl (url, source) {
+	return source
+		+ '\n//# sourceURL='
+		+ encodeURI(url)
+		+ '\n';
+}
+
+});
+
+
 ;define('rave/lib/debug/injectScript', ['require', 'exports', 'module'], function (require, exports, module, define) {module.exports = injectScript;
 
 var injectSource = function (el, source) {
@@ -2666,61 +2677,6 @@ function setText (el, source) {
 function appendChild (el, source) {
 	el.appendChild(doc.createTextNode(source));
 }
-
-});
-
-
-;define('rave/lib/addSourceUrl', ['require', 'exports', 'module'], function (require, exports, module, define) {module.exports = addSourceUrl;
-
-function addSourceUrl (url, source) {
-	return source
-		+ '\n//# sourceURL='
-		+ encodeURI(url)
-		+ '\n';
-}
-
-});
-
-
-;define('rave/load/specificity', ['require', 'exports', 'module'], function (require, exports, module, define) {exports.compare = compareFilters;
-exports.pkgSpec = packageSpecificity;
-exports.patSpec = patternSpecificity;
-exports.extSpec = extensionSpecificity;
-exports.predSpec = predicateSpecificity;
-
-function packageSpecificity (filter) {
-	if (!filter.package || filter.package === '*') return 0;
-//	else if (filter.package.indexOf('*') >= 0) return 1;
-	else return 1;
-}
-
-function patternSpecificity (filter) {
-	return filter.pattern ? 1 : 0;
-}
-
-function extensionSpecificity (filter) {
-	return filter.extensions && filter.extensions.length
-		? 1 / filter.extensions.length
-		: 0;
-}
-
-function predicateSpecificity (filter) {
-	return filter.predicate ? 1 : 0;
-}
-
-function compareFilters (a, b) {
-	// packages have highest priority
-	var diff = packageSpecificity(a) - packageSpecificity(b);
-	// after packages, patterns are priority
-	if (diff === 0) diff = patternSpecificity(a) - patternSpecificity(b);
-	// next priority is extensions
-	if (diff === 0) diff = extensionSpecificity(a) - extensionSpecificity(b);
-	// last priority is custom predicates
-	if (diff === 0) diff = predicateSpecificity(a) - predicateSpecificity(b);
-	// sort higher specificity filters to beginning of array
-	return -diff;
-}
-
 
 });
 
@@ -2791,6 +2747,49 @@ function always () { return true; }
 });
 
 
+;define('rave/load/specificity', ['require', 'exports', 'module'], function (require, exports, module, define) {exports.compare = compareFilters;
+exports.pkgSpec = packageSpecificity;
+exports.patSpec = patternSpecificity;
+exports.extSpec = extensionSpecificity;
+exports.predSpec = predicateSpecificity;
+
+function packageSpecificity (filter) {
+	if (!filter.package || filter.package === '*') return 0;
+//	else if (filter.package.indexOf('*') >= 0) return 1;
+	else return 1;
+}
+
+function patternSpecificity (filter) {
+	return filter.pattern ? 1 : 0;
+}
+
+function extensionSpecificity (filter) {
+	return filter.extensions && filter.extensions.length
+		? 1 / filter.extensions.length
+		: 0;
+}
+
+function predicateSpecificity (filter) {
+	return filter.predicate ? 1 : 0;
+}
+
+function compareFilters (a, b) {
+	// packages have highest priority
+	var diff = packageSpecificity(a) - packageSpecificity(b);
+	// after packages, patterns are priority
+	if (diff === 0) diff = patternSpecificity(a) - patternSpecificity(b);
+	// next priority is extensions
+	if (diff === 0) diff = extensionSpecificity(a) - extensionSpecificity(b);
+	// last priority is custom predicates
+	if (diff === 0) diff = predicateSpecificity(a) - predicateSpecificity(b);
+	// sort higher specificity filters to beginning of array
+	return -diff;
+}
+
+
+});
+
+
 ;define('rave/lib/uid', ['require', 'exports', 'module'], function (require, exports, module, define) {exports.create = createUid;
 exports.parse = parseUid;
 exports.getName = getName;
@@ -2835,15 +2834,6 @@ function getName (uid) {
 		};
 	}
 };
-
-});
-
-
-;define('rave/lib/json/eval', ['require', 'exports', 'module'], function (require, exports, module, define) {module.exports = jsonEval;
-
-function jsonEval (source) {
-	return eval('(' + source + ')');
-}
 
 });
 
@@ -2954,6 +2944,15 @@ function skipTo (source, rx, index) {
 
 function composeRx (rx1, rx2, flags) {
 	return new RegExp(rx1.source + '|' + rx2.source, flags);
+}
+
+});
+
+
+;define('rave/lib/json/eval', ['require', 'exports', 'module'], function (require, exports, module, define) {module.exports = jsonEval;
+
+function jsonEval (source) {
+	return eval('(' + source + ')');
 }
 
 });
@@ -3131,18 +3130,6 @@ function nodeEval (global, require, exports, module, source) {
 });
 
 
-;define('rave/lib/json/factory', ['require', 'exports', 'module', 'rave/lib/es5Transform', 'rave/lib/json/eval'], function (require, exports, module, $cram_r0, $cram_r1, define) {var es5Transform = $cram_r0;
-var jsonEval = $cram_r1;
-
-module.exports = jsonFactory;
-
-function jsonFactory (loader, load) {
-	return es5Transform.toLoader(jsonEval(load.source));
-}
-
-});
-
-
 ;define('rave/lib/find/requires', ['require', 'exports', 'module', 'rave/lib/find/createCodeFinder'], function (require, exports, module, $cram_r0, define) {module.exports = findRequires;
 
 var createCodeFinder = $cram_r0;
@@ -3170,6 +3157,18 @@ function findRequires (source) {
 	});
 
 	return deps;
+}
+
+});
+
+
+;define('rave/lib/json/factory', ['require', 'exports', 'module', 'rave/lib/es5Transform', 'rave/lib/json/eval'], function (require, exports, module, $cram_r0, $cram_r1, define) {var es5Transform = $cram_r0;
+var jsonEval = $cram_r1;
+
+module.exports = jsonFactory;
+
+function jsonFactory (loader, load) {
+	return es5Transform.toLoader(jsonEval(load.source));
 }
 
 });
@@ -3230,22 +3229,6 @@ function getExports (names, value) {
 });
 
 
-;define('rave/pipeline/instantiateJson', ['require', 'exports', 'module', 'rave/lib/json/factory'], function (require, exports, module, $cram_r0, define) {var jsonFactory = $cram_r0;
-
-module.exports = instantiateJson;
-
-function instantiateJson (load) {
-	var loader = load.metadata.rave.loader;
-	return {
-		execute: function () {
-			return new Module(jsonFactory(loader, load));
-		}
-	};
-}
-
-});
-
-
 ;define('rave/pipeline/instantiateNode', ['require', 'exports', 'module', 'rave/lib/find/requires'], function (require, exports, module, $cram_r0, define) {var findRequires = $cram_r0;
 
 module.exports = instantiateNode;
@@ -3278,6 +3261,22 @@ function findOrThrow (load) {
 	}
 }
 
+
+});
+
+
+;define('rave/pipeline/instantiateJson', ['require', 'exports', 'module', 'rave/lib/json/factory'], function (require, exports, module, $cram_r0, define) {var jsonFactory = $cram_r0;
+
+module.exports = instantiateJson;
+
+function instantiateJson (load) {
+	var loader = load.metadata.rave.loader;
+	return {
+		execute: function () {
+			return new Module(jsonFactory(loader, load));
+		}
+	};
+}
 
 });
 

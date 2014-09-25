@@ -82,7 +82,7 @@ function failIfNone (allMetadata) {
 function gatherAppMetadata (context, metadatas) {
 	// TODO: if no main modules found, look for one in a conventional place
 	// TODO: warn if multiple main modules were found, but only the first was run
-	var first;
+	var first, metaEnv;
 	context.metadata = metadatas;
 	first = context.metadata[0];
 	if (first) {
@@ -91,6 +91,11 @@ function gatherAppMetadata (context, metadatas) {
 			main: path.joinPaths(first.name, first.main),
 			metadata: first
 		};
+		context.env = {};
+		metaEnv = first.getMetadata().rave;
+		metaEnv = metaEnv && metaEnv.env || {};
+		for (var key in metaEnv) context.env[key] = metaEnv[key];
+		if (!('debug' in context.env)) context.env.debug = true;
 	}
 	else {
 		logNoMetadata(context);
