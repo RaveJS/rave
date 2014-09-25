@@ -41,7 +41,7 @@ with [rave-angular](#rave-angular).
 
 ### Manual installation
 
-Of course, you can install AngularJS manually via bower or npm*.  To install
+Of course, you can install AngularJS manually via bower or npm.  To install
 the "angular" bower package, just type the following from your project's
 root:
 
@@ -57,5 +57,3 @@ npm install --save angular
 
 Be sure to initialize your package manager via `bower init` or `npm init`
 before installing and *always* specify `--save` as shown above.
-
-\* As of rave 0.2.0.

@@ -24,9 +24,9 @@ no machinery*.
 
 > **Why use Rave Starters, Rave Extensions, and Rave Integration packages?**
 
-These rave-specific packages provide community-driven patterns, capabilities,
-and conveniences that preserve Rave's goals to eliminate configuration
-and machinery.
+While not typically necessary, these rave-specific packages provide
+community-driven patterns, capabilities, and conveniences that preserve
+Rave's goals to eliminate configuration and machinery.
 
 Since rave-specific packages don't require any code changes to your code or
 to third-party frameworks and libraries, you are free to uninstall them,
@@ -40,7 +40,7 @@ development tools pre-installed:
 
 1.	a recent release of [node.js](http://nodejs.org/download/)
 2.	a recent release of [bower](http://bower.io/) and/or npm (comes with
-	node.js)
+	node.js).  Both are recommended.
 3.	any static web server, such as
 	[Spring Boot](http://projects.spring.io/spring-boot/),
 	[express](http://expressjs.com), or [serv](https://github.com/scothis/serv)
@@ -68,21 +68,22 @@ or [Quick Start using npm](./quick-start-npm.md).
 
 Rave uses the metadata in the top-level bower.json or package.json files
 to create a package for your application's modules.  The specifics of this
-package depend on the Rave Starter you use or the name and moduleType
-you choose if you start [from scratch](#from-scratch).
+package depend on the Rave Starter you use or the name, main entry point,
+and moduleType you choose if you start [from scratch](#from-scratch).
 
 Many Rave Starters call the application package, "app", which means your app's
 modules will reside in the "app/" module namespace and the "app/" directory
 under the web root.
 
-How you build your application depends on which frameworks and libraries
-you have chosen, of course.  However, the format in which you author your
-modules -- AMD, node, or ES6 -- does *not* depend on the frameworks.  Every
-package, including the framework packages and your app's package, may have
-a different format.  Pick your favorite format for your app’s modules,
-but be consistent.  Rave won’t mix-and-match formats within a package.
+The specifics of how you build your application depends on which frameworks
+and libraries you have chosen, of course.  However, the format in which you
+author your modules -- AMD, node, or ES6 -- does *not* depend on the
+frameworks!  Every package, including the framework packages and your app's
+package, may have a different format.  Pick your favorite format for your
+app’s modules, but be consistent.  Rave won’t mix-and-match formats within
+a package.
 
-In short, pick your favorite format for all of your app's modules.
+In short, pick your favorite format and use it for all of your app's modules.
 
 AMD, node, and ES6 use module naming semantics that mimic unix-style file
 paths and urls.  Therefore, your module namespaces will mirror your directory
@@ -122,7 +123,7 @@ needed by your favorite framework or library.
 
 Before installing a framework or library, first check if there are any *Rave
 Extensions* for it.  The *Rave Extension* may patch a metadata problem,
-integrate commonly combined libraries, or just make it easier to use.
+integrate commonly combined libraries, or just make life easier for you.
 
 *Rave Extensions* can be found by searching for "rave-extension" on
 [bower](http://bower.io/search/?q=rave-extension) or
@@ -135,21 +136,21 @@ don't forget to use the `--save` option when installing!**
 ### Running your app
 
 By default, your app requires only a static web server to run.  Stand up a
-web server that can serve the directory where your app's bower.json
+web server that can serve files from the directory where your app's bower.json
 or package.json file reside.  Then, point your favorite browser at the url
 for this directory.
 
 For instance, if you're using the tiny web server
 [serv](https://www.npmjs.org/package/serv), your application resides in the
-`projects/myApp` folder, and you would like to serve files over port 8080,
+`projects/myApp` folder, and you would like to serve files over port 8000,
 type:
 
 ```bash
 cd projects/myApp
-serv 8080
+serv
 ```
 
-Then open your browser to http://locahost:8080.
+Then open your browser to http://locahost:8000.
 
 **You don't have to configure transpilers, file watchers, build tools, etc.**
 Your application configures and assembles itself from the metadata and source
@@ -162,21 +163,10 @@ and the application is up to date.
 
 ### Debugging your app
 
-By default, your application runs in *quiet mode*.  However, it's super
-easy to turn on *debug mode*.  Simply add a "data-debug" attribute to the
-`<html>` tag in your HTML.  *Debug mode* turns on many useful features, logs
-more exceptions, and checks for common mistakes.
-
-Most Rave Starters are configured for *debug mode* out of the box.
-
-You'll typically want to switch back to *quiet mode* before deploying your
-application to production, of course.
+By default, your application runs in *debug mode*.  *Debug mode* turns on
+many useful features, logs more exceptions, and checks for common mistakes.
 
 Learn more about debugging in the [debugging](./debugging.md) document.
-
-> **Note**: *quiet mode* and *debug mode* are mutually exclusive, of course,
-but they can both be used in conjunction with *responsive mode* or *built mode*
-(see [below](#building your app)).
 
 ### Building your app
 
@@ -185,7 +175,7 @@ browser.  This is hardly perceptible most of the time when running on your
 development machine.  However, this mode is totally unacceptable in production.
 Eventually, you must build your app.
 
-Switching to *built mode* is just a single command (TBD: Summer 2014).
+Switching to *built mode* is just a single command (TBD: Fall 2014).
 Virtually all of the run-time computation that was happening in the browser
 is pre-computed during the build process.  Your app is leaner, faster,
 and closer to what will be deployed to production.
@@ -197,7 +187,7 @@ automatically configure compilers, transformers, concatenators, minifiers,
 file watchers, etc.  You don't need to do this manually!
 
 *Built mode* is not a one-way street.  Go back to the simplicity of
-*responsive mode* at any time with a single command (TBD: Summer 2014).
+*responsive mode* at any time with a single command (TBD: Fall 2014).
 
 More importantly, you can control how your app is built.  Rave Starters come
 with an opinionated set of build tools, but you can uninstall any of them
