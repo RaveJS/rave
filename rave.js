@@ -2282,12 +2282,13 @@ if (typeof exports !== 'undefined') {
 /** @author Brian Cavalier */
 /** @author John Hann */
 (function (exports, global) {
-var rave, doc, defaultMain, hooksName,
+var rave, doc, location, defaultMain, hooksName,
 	context, loader, define;
 
 rave = exports || {};
 
 doc = global.document;
+location = window.location;
 
 defaultMain = 'rave/debug';
 hooksName = 'rave/src/hooks';
@@ -2303,7 +2304,12 @@ rave.simpleDefine = simpleDefine;
 rave.scriptUrl = getCurrentScript();
 rave.scriptPath = getPathFromUrl(rave.scriptUrl);
 rave.baseUrl = doc
-	? getPathFromUrl(window.location.origin + window.location.pathname)
+	? getPathFromUrl(
+		// Opera has no location.origin, so we have to build it
+		location.protocol + '//'
+			+ location.host + '/'
+			+ location.pathname
+	)
 	: __dirname;
 
 context = (doc ? mergeBrowserOptions : mergeNodeOptions)({
@@ -2440,15 +2446,6 @@ function toLoader (value) {
 
 function locateAsIs (load) {
 	return load.name;
-}
-
-});
-
-
-;define('rave/pipeline/translateAsIs', ['require', 'exports', 'module'], function (require, exports, module, define) {module.exports = translateAsIs;
-
-function translateAsIs (load) {
-	return load.source;
 }
 
 });
@@ -2610,12 +2607,10 @@ function beget (base) {
 });
 
 
-;define('rave/lib/debug/injectScript', ['require', 'exports', 'module'], function (require, exports, module, define) {module.exports = injectScript;
+;define('rave/pipeline/translateAsIs', ['require', 'exports', 'module'], function (require, exports, module, define) {module.exports = translateAsIs;
 
-// This used to be a script injection routine, but indirect eval seems
-// to work just as well in major browsers.
-function injectScript (source) {
-	(1, eval)(source);
+function translateAsIs (load) {
+	return load.source;
 }
 
 });
@@ -2643,6 +2638,17 @@ function fetchText (url, callback, errback) {
 		}
 	};
 	xhr.send(null);
+}
+
+});
+
+
+;define('rave/lib/debug/injectScript', ['require', 'exports', 'module'], function (require, exports, module, define) {module.exports = injectScript;
+
+// This used to be a script injection routine, but indirect eval seems
+// to work just as well in major browsers.
+function injectScript (source) {
+	(1, eval)(source);
 }
 
 });
@@ -2751,6 +2757,37 @@ function always () { return true; }
 });
 
 
+;define('rave/lib/uid', ['require', 'exports', 'module'], function (require, exports, module, define) {exports.create = createUid;
+exports.parse = parseUid;
+exports.getName = getName;
+
+function createUid (descriptor, normalized) {
+	return /*descriptor.pmType + ':' +*/ descriptor.name
+		+ (descriptor.version ? '@' + descriptor.version : '')
+		+ (normalized ? '#' + normalized : '');
+}
+
+
+function parseUid (uid) {
+	var uparts = uid.split('#');
+	var name = uparts.pop();
+	var nparts = name.split('/');
+	return {
+		name: name,
+		pkgName: nparts.shift(),
+		modulePath: nparts.join('/'),
+		pkgUid: uparts[0]
+	};
+}
+
+
+function getName (uid) {
+	return uid.split("#").pop();
+}
+
+});
+
+
 ;define('rave/load/specificity', ['require', 'exports', 'module'], function (require, exports, module, define) {exports.compare = compareFilters;
 exports.pkgSpec = packageSpecificity;
 exports.patSpec = patternSpecificity;
@@ -2790,54 +2827,6 @@ function compareFilters (a, b) {
 	return -diff;
 }
 
-
-});
-
-
-;define('rave/lib/uid', ['require', 'exports', 'module'], function (require, exports, module, define) {exports.create = createUid;
-exports.parse = parseUid;
-exports.getName = getName;
-
-function createUid (descriptor, normalized) {
-	return /*descriptor.pmType + ':' +*/ descriptor.name
-		+ (descriptor.version ? '@' + descriptor.version : '')
-		+ (normalized ? '#' + normalized : '');
-}
-
-
-function parseUid (uid) {
-	var uparts = uid.split('#');
-	var name = uparts.pop();
-	var nparts = name.split('/');
-	return {
-		name: name,
-		pkgName: nparts.shift(),
-		modulePath: nparts.join('/'),
-		pkgUid: uparts[0]
-	};
-}
-
-
-function getName (uid) {
-	return uid.split("#").pop();
-}
-
-});
-
-
-;define('rave/lib/es5Transform', ['require', 'exports', 'module'], function (require, exports, module, define) {module.exports = {
-	fromLoader: function (value) {
-		return value && value.__es5Module ? value.__es5Module : value;
-	},
-	toLoader: function (module) {
-		return {
-			// for real ES6 modules to consume this module
-			'default': module,
-			// for modules transpiled from ES5
-			__es5Module: module
-		};
-	}
-};
 
 });
 
@@ -2949,6 +2938,23 @@ function skipTo (source, rx, index) {
 function composeRx (rx1, rx2, flags) {
 	return new RegExp(rx1.source + '|' + rx2.source, flags);
 }
+
+});
+
+
+;define('rave/lib/es5Transform', ['require', 'exports', 'module'], function (require, exports, module, define) {module.exports = {
+	fromLoader: function (value) {
+		return value && value.__es5Module ? value.__es5Module : value;
+	},
+	toLoader: function (module) {
+		return {
+			// for real ES6 modules to consume this module
+			'default': module,
+			// for modules transpiled from ES5
+			__es5Module: module
+		};
+	}
+};
 
 });
 
@@ -3136,18 +3142,6 @@ function nodeEval (global, require, exports, module, source, debugTransform) {
 });
 
 
-;define('rave/lib/json/factory', ['require', 'exports', 'module', 'rave/lib/es5Transform', 'rave/lib/json/eval'], function (require, exports, module, $cram_r0, $cram_r1, define) {var es5Transform = $cram_r0;
-var jsonEval = $cram_r1;
-
-module.exports = jsonFactory;
-
-function jsonFactory (loader, load) {
-	return es5Transform.toLoader(jsonEval(load.source));
-}
-
-});
-
-
 ;define('rave/lib/find/requires', ['require', 'exports', 'module', 'rave/lib/find/createCodeFinder'], function (require, exports, module, $cram_r0, define) {module.exports = findRequires;
 
 var createCodeFinder = $cram_r0;
@@ -3175,6 +3169,18 @@ function findRequires (source) {
 	});
 
 	return deps;
+}
+
+});
+
+
+;define('rave/lib/json/factory', ['require', 'exports', 'module', 'rave/lib/es5Transform', 'rave/lib/json/eval'], function (require, exports, module, $cram_r0, $cram_r1, define) {var es5Transform = $cram_r0;
+var jsonEval = $cram_r1;
+
+module.exports = jsonFactory;
+
+function jsonFactory (loader, load) {
+	return es5Transform.toLoader(jsonEval(load.source));
 }
 
 });

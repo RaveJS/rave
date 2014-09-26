@@ -1,12 +1,13 @@
 /** @license MIT License (c) copyright 2014 original authors */
 /** @author Brian Cavalier */
 /** @author John Hann */
-var rave, doc, defaultMain, hooksName,
+var rave, doc, location, defaultMain, hooksName,
 	context, loader, define;
 
 rave = exports || {};
 
 doc = global.document;
+location = window.location;
 
 defaultMain = 'rave/debug';
 hooksName = 'rave/src/hooks';
@@ -22,7 +23,12 @@ rave.simpleDefine = simpleDefine;
 rave.scriptUrl = getCurrentScript();
 rave.scriptPath = getPathFromUrl(rave.scriptUrl);
 rave.baseUrl = doc
-	? getPathFromUrl(window.location.origin + window.location.pathname)
+	? getPathFromUrl(
+		// Opera has no location.origin, so we have to build it
+		location.protocol + '//'
+			+ location.host + '/'
+			+ location.pathname
+	)
 	: __dirname;
 
 context = (doc ? mergeBrowserOptions : mergeNodeOptions)({
