@@ -2610,37 +2610,12 @@ function beget (base) {
 });
 
 
-;define('rave/lib/addSourceUrl', ['require', 'exports', 'module'], function (require, exports, module, define) {module.exports = addSourceUrl;
+;define('rave/lib/debug/injectScript', ['require', 'exports', 'module'], function (require, exports, module, define) {module.exports = injectScript;
 
-function addSourceUrl (url, source) {
-	var safeUrl = stripPort(url);
-	return source
-		+ '\n//# sourceURL='
-		+ encodeURI(safeUrl || url)
-		+ '\n';
-}
-
-function stripPort (url) {
-	var u;
-	// Until Safari fixes their debugger or we have a reliable way to sniff for
-	// the broken debugger, we'll have to sniff the user agent.  Note: this
-	// sniff happens in debugging code only, not in production code.
-	if (typeof URL !== 'undefined' && isSafari()) {
-		u = new URL(url);
-	}
-	return u && u.port
-		? u.protocol + '//'
-			+ u.hostname
-			+ u.pathname
-			+ u.search
-			+ u.hash
-		: null;
-}
-//	return url.replace(/(:\/\/[^/]*)(:\d+)(\/|$)/, '$1$3');
-
-function isSafari () {
-	var ua = navigator.userAgent;
-	return ua.indexOf('Safari') >= 0 && ua.indexOf('Chrome') < 0;
+// This used to be a script injection routine, but indirect eval seems
+// to work just as well in major browsers.
+function injectScript (source) {
+	(1, eval)(source);
 }
 
 });
@@ -2673,33 +2648,38 @@ function fetchText (url, callback, errback) {
 });
 
 
-;define('rave/lib/debug/injectScript', ['require', 'exports', 'module'], function (require, exports, module, define) {module.exports = injectScript;
+;define('rave/lib/addSourceUrl', ['require', 'exports', 'module'], function (require, exports, module, define) {module.exports = addSourceUrl;
 
-var injectSource = function (el, source) {
-	// got this sniff from Stoyan Stefanov
-	// (http://www.phpied.com/dynamic-script-and-style-elements-in-ie/)
-	injectSource = 'text' in el ? setText : appendChild;
-	injectSource(el, source);
-};
-
-var doc = document;
-var head = doc && (doc['head'] || doc.getElementsByTagName('head')[0]);
-var insertBeforeEl = head && head.getElementsByTagName('base')[0] || null;
-
-function injectScript (source) {
-	var el = doc.createElement('script');
-	injectSource(el, source);
-	el.charset = 'utf-8';
-	head.insertBefore(el, insertBeforeEl);
-	head.removeChild(el);
+function addSourceUrl (url, source) {
+	var safeUrl = stripPort(url);
+	return source
+		+ '\n//# sourceURL='
+		+ encodeURI(safeUrl)
+		+ '\n';
 }
 
-function setText (el, source) {
-	el.text = source;
+function stripPort (url) {
+	var u;
+	// Until Safari fixes their debugger or we have a reliable way to sniff for
+	// the broken debugger, we'll have to sniff the user agent.  Note: this
+	// sniff happens in debugging code only, not in production code.
+	if (typeof URL !== 'undefined' && isSafari()) {
+		u = new URL(url);
+	}
+	return u && u.port
+		? u.protocol + '//'
+			+ u.hostname
+			// yes, this is crazy. Safari, what gives????
+			+ (u.port ? ':' + u.port + '/.' : '')
+			+ u.pathname
+			+ u.search
+			+ u.hash
+		: url;
 }
 
-function appendChild (el, source) {
-	el.appendChild(doc.createTextNode(source));
+function isSafari () {
+	var ua = navigator.userAgent;
+	return ua.indexOf('Safari') >= 0 && ua.indexOf('Chrome') < 0;
 }
 
 });
@@ -2845,6 +2825,23 @@ function getName (uid) {
 });
 
 
+;define('rave/lib/es5Transform', ['require', 'exports', 'module'], function (require, exports, module, define) {module.exports = {
+	fromLoader: function (value) {
+		return value && value.__es5Module ? value.__es5Module : value;
+	},
+	toLoader: function (module) {
+		return {
+			// for real ES6 modules to consume this module
+			'default': module,
+			// for modules transpiled from ES5
+			__es5Module: module
+		};
+	}
+};
+
+});
+
+
 ;define('rave/lib/find/createCodeFinder', ['require', 'exports', 'module'], function (require, exports, module, define) {module.exports = createCodeFinder;
 
 // Export private functions for testing
@@ -2956,27 +2953,23 @@ function composeRx (rx1, rx2, flags) {
 });
 
 
-;define('rave/lib/es5Transform', ['require', 'exports', 'module'], function (require, exports, module, define) {module.exports = {
-	fromLoader: function (value) {
-		return value && value.__es5Module ? value.__es5Module : value;
-	},
-	toLoader: function (module) {
-		return {
-			// for real ES6 modules to consume this module
-			'default': module,
-			// for modules transpiled from ES5
-			__es5Module: module
-		};
-	}
-};
-
-});
-
-
 ;define('rave/lib/json/eval', ['require', 'exports', 'module'], function (require, exports, module, define) {module.exports = jsonEval;
 
 function jsonEval (source) {
 	return eval('(' + source + ')');
+}
+
+});
+
+
+;define('rave/pipeline/normalizeCjs', ['require', 'exports', 'module', 'rave/lib/path'], function (require, exports, module, $cram_r0, define) {var path = $cram_r0;
+
+module.exports = normalizeCjs;
+
+var reduceLeadingDots = path.reduceLeadingDots;
+
+function normalizeCjs (name, refererName, refererUrl) {
+	return reduceLeadingDots(String(name), refererName || '');
 }
 
 });
@@ -2991,19 +2984,6 @@ function fetchAsText (load) {
 		fetchText(load.address, resolve, reject);
 	});
 
-}
-
-});
-
-
-;define('rave/pipeline/normalizeCjs', ['require', 'exports', 'module', 'rave/lib/path'], function (require, exports, module, $cram_r0, define) {var path = $cram_r0;
-
-module.exports = normalizeCjs;
-
-var reduceLeadingDots = path.reduceLeadingDots;
-
-function normalizeCjs (name, refererName, refererUrl) {
-	return reduceLeadingDots(String(name), refererName || '');
 }
 
 });
@@ -3156,6 +3136,18 @@ function nodeEval (global, require, exports, module, source, debugTransform) {
 });
 
 
+;define('rave/lib/json/factory', ['require', 'exports', 'module', 'rave/lib/es5Transform', 'rave/lib/json/eval'], function (require, exports, module, $cram_r0, $cram_r1, define) {var es5Transform = $cram_r0;
+var jsonEval = $cram_r1;
+
+module.exports = jsonFactory;
+
+function jsonFactory (loader, load) {
+	return es5Transform.toLoader(jsonEval(load.source));
+}
+
+});
+
+
 ;define('rave/lib/find/requires', ['require', 'exports', 'module', 'rave/lib/find/createCodeFinder'], function (require, exports, module, $cram_r0, define) {module.exports = findRequires;
 
 var createCodeFinder = $cram_r0;
@@ -3183,18 +3175,6 @@ function findRequires (source) {
 	});
 
 	return deps;
-}
-
-});
-
-
-;define('rave/lib/json/factory', ['require', 'exports', 'module', 'rave/lib/es5Transform', 'rave/lib/json/eval'], function (require, exports, module, $cram_r0, $cram_r1, define) {var es5Transform = $cram_r0;
-var jsonEval = $cram_r1;
-
-module.exports = jsonFactory;
-
-function jsonFactory (loader, load) {
-	return es5Transform.toLoader(jsonEval(load.source));
 }
 
 });
