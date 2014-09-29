@@ -26,7 +26,7 @@ rave.baseUrl = doc
 	? getPathFromUrl(
 		// Opera has no location.origin, so we have to build it
 		location.protocol + '//'
-			+ location.host + '/'
+			+ location.host
 			+ location.pathname
 	)
 	: __dirname;
