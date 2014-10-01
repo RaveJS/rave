@@ -1,6 +1,7 @@
 /** @license MIT License (c) copyright 2014 original authors */
 /** @author Brian Cavalier */
 /** @author John Hann */
+var assembleAppContext = require('./lib/auto/assembleAppContext');
 var metadata = require('./lib/metadata');
 var fromMetadata = require('./lib/hooksFromMetadata');
 var normalizeCjs = require('./pipeline/normalizeCjs');
@@ -55,7 +56,8 @@ function autoConfigure (context) {
 	function done (allMetadata) {
 
 		context.packages = allMetadata.packages;
-		context = gatherAppMetadata(context, allMetadata.roots);
+		context.metadata = allMetadata.roots;
+		context = assembleAppContext(context, allMetadata);
 		return configureLoader(context)
 			.then(gatherExtensions)
 			.then(function (extensions) {
@@ -74,33 +76,9 @@ function autoConfigure (context) {
 
 function failIfNone (allMetadata) {
 	if (allMetadata.roots.length === 0) {
-		throw new Error('No metadata files found.');
+		throw new Error('No metadata files found: ' + context.raveMeta);
 	}
 	return allMetadata;
-}
-
-function gatherAppMetadata (context, metadatas) {
-	// TODO: if no main modules found, look for one in a conventional place
-	// TODO: warn if multiple main modules were found, but only the first was run
-	var first, metaEnv;
-	context.metadata = metadatas;
-	first = context.metadata[0];
-	if (first) {
-		context.app = {
-			name: first.name,
-			main: path.joinPaths(first.name, first.main),
-			metadata: first
-		};
-		context.env = {};
-		metaEnv = first.getMetadata().rave;
-		metaEnv = metaEnv && metaEnv.env || {};
-		for (var key in metaEnv) context.env[key] = metaEnv[key];
-		if (!('debug' in context.env)) context.env.debug = true;
-	}
-	else {
-		logNoMetadata(context);
-	}
-	return context;
 }
 
 function configureLoader (context) {
@@ -242,10 +220,6 @@ function runMain (context, mainModule) {
 				main.main(beget(context));
 			}
 		});
-}
-
-function logNoMetadata (context) {
-	console.error('Did not find any metadata files', context.raveMeta);
 }
 
 function failHard (ex) {
