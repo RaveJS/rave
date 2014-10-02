@@ -1,28 +1,35 @@
 /** @license MIT License (c) copyright 2014 original authors */
 /** @author Brian Cavalier */
 /** @author John Hann */
+
 var fs = require('fs');
 
-var promise, eml, template, hooks, rave, built;
+module.exports = concat;
 
-promise = fs.readFileSync('./node_modules/when/es6-shim/Promise.js');
-eml = fs.readFileSync('./node_modules/es6-module-loader/lib/es6-module-loader.js');
-template = fs.readFileSync('./src/_template.js');
-hooks = fs.readFileSync('./build/temp/hooks.js');
-rave = fs.readFileSync('./src/rave.js');
+function concat (dest, modules) {
 
-hooks = removeLicenses(String(hooks));
-rave = removeLicenses(String(rave));
+	var promise, eml, template, hooks, rave, built;
 
-built = String(template)
-	.replace(/\/\*===promise===\*\//, promise)
-	.replace(/\/\*===loader===\*\//, eml)
-	.replace(/\/\*===rave===\*\//, rave)
-	.replace(/\/\*===hooks===\*\//, hooks);
+	promise = fs.readFileSync(require.resolve('when/es6-shim/Promise'));
+	eml = fs.readFileSync(require.resolve('es6-module-loader/lib/es6-module-loader'));
+	template = fs.readFileSync(require.resolve('../src/_template'));
+	hooks = fs.readFileSync(require.resolve('./temp/hooks'));
+	rave = fs.readFileSync(require.resolve('../src/rave'));
 
-fs.writeFileSync('rave.js', built);
+	hooks = removeLicenses(String(hooks));
+	rave = removeLicenses(String(rave));
 
-console.log('Built file written to rave.js');
+	built = String(template)
+		.replace(/\/\*===promise===\*\//, promise)
+		.replace(/\/\*===loader===\*\//, eml)
+		.replace(/\/\*===rave===\*\//, rave)
+		.replace(/\/\*===hooks===\*\//, hooks)
+		.replace(/\/\*===modules===\*\//, modules || '');
+
+	fs.writeFileSync(dest, built);
+
+	console.log('Built file written to ' + dest);
+}
 
 function removeLicenses (str) {
 	return str

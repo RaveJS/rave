@@ -41,7 +41,7 @@
   "scripts": {
     "test": "buster test",
     "cram": "node node_modules/cram/cram.js --config ./build/cram.json --output ./build/temp/hooks.js",
-    "concat": "node build/concat.js",
+    "concat": "node build/concatDev.js",
     "build": "npm run cram && npm run concat"
   }
 }
