@@ -1026,7 +1026,7 @@ define(function(require) {
         handler.q = [];
 
         // Create and return the promise (reusing the callback variable)
-        callback.call(callback = { then: function (resolved, rejected) { return handler(resolved, rejected); },
+        callback.call(callback = { then: function (resolved, rejected) { return handler(resolved, rejected); }, 
                                     catch: function (rejected)           { return handler(0,        rejected); } },
                       function(value)  { handler(is, 1,  value); },
                       function(reason) { handler(is, 0, reason); });
@@ -1091,24 +1091,24 @@ define(function(require) {
 
     /*
     *********************************************************************************************
-
+      
       Loader Polyfill
 
         - Implemented exactly to the 2013-12-02 Specification Draft -
           https://github.com/jorendorff/js-loaders/blob/e60d3651/specs/es6-modules-2013-12-02.pdf
           with the only exceptions as described here
 
-        - Abstract functions have been combined where possible, and their associated functions
+        - Abstract functions have been combined where possible, and their associated functions 
           commented
 
-        - Declarative Module Support is entirely disabled, and an error will be thrown if
+        - Declarative Module Support is entirely disabled, and an error will be thrown if 
           the instantiate loader hook returns undefined
 
         - With this assumption, instead of Link, LinkDynamicModules is run directly
 
         - ES6 support is thus provided through the translate function of the System loader
 
-        - EnsureEvaluated is removed, but may in future implement dynamic execution pending
+        - EnsureEvaluated is removed, but may in future implement dynamic execution pending 
           issue - https://github.com/jorendorff/js-loaders/issues/63
 
         - Realm implementation is entirely omitted. As such, Loader.global and Loader.realm
@@ -1160,7 +1160,7 @@ define(function(require) {
     }
 
     // Define an IE-friendly shim good-enough for purposes
-    var indexOf = Array.prototype.indexOf || function (item) {
+    var indexOf = Array.prototype.indexOf || function (item) { 
       for (var i = 0, thisLen = this.length; i < thisLen; i++) {
         if (this[i] === item) {
           return i;
@@ -1223,7 +1223,7 @@ define(function(require) {
       );
     }
     function proceedToFetch(loader, load, p) {
-      proceedToTranslate(loader, load,
+      proceedToTranslate(loader, load, 
         p
         // CallFetch
         .then(function(address) {
@@ -1231,7 +1231,7 @@ define(function(require) {
             return undefined;
           load.address = address;
           return loader.fetch({ name: load.name, metadata: load.metadata, address: address });
-        })
+        })        
       );
     }
     function proceedToTranslate(loader, load, p) {
@@ -1305,7 +1305,7 @@ define(function(require) {
         for (var i = 0, l = linkSets.length; i < l; i++)
           updateLinkSetOnLoad(linkSets[i], load);
       }
-
+      
       // LoadFailed
       , function(exc) {
         assert('is loading on fail', load.status == 'loading');
@@ -1377,7 +1377,7 @@ define(function(require) {
           return;
         }
       } */
-
+      
       if (linkSet.loadingCount > 0)
         return;
 
@@ -1559,7 +1559,7 @@ define(function(require) {
           throw new TypeError('Realms not implemented in polyfill');
         }
       });
-
+      
       this._modules = {};
       this._loads = [];
     }
@@ -1649,21 +1649,21 @@ define(function(require) {
 
     /*
     *********************************************************************************************
-
+      
       System Loader Implementation
 
         - Implemented to https://github.com/jorendorff/js-loaders/blob/master/browser-loader.js,
           except for Instantiate function
 
-        - Instantiate function determines if ES6 module syntax is being used, if so parses with
+        - Instantiate function determines if ES6 module syntax is being used, if so parses with 
           Traceur and returns a dynamic InstantiateResult for loading ES6 module syntax in ES5.
-
-        - Custom loaders thus can be implemented by using this System.instantiate function as
+        
+        - Custom loaders thus can be implemented by using this System.instantiate function as 
           the fallback loading scenario, after other module format detections.
 
         - Traceur is loaded dynamically when module syntax is detected by a regex (with over-
-          classification), either from require('traceur') on the server, or the
-          'data-traceur-src' property on the current script in the browser, or if not set,
+          classification), either from require('traceur') on the server, or the 
+          'data-traceur-src' property on the current script in the browser, or if not set, 
           'traceur.js' in the same URL path as the current script in the browser.
 
         - <script type="module"> supported, but <module> tag not
@@ -1702,10 +1702,10 @@ define(function(require) {
         });
         return output.join('').replace(/^\//, input.charAt(0) === '/' ? '/' : '');
       }
-
+     
       href = parseURI(href || '');
       base = parseURI(base || '');
-
+     
       return !href || !base ? null : (href.protocol || base.protocol) +
         (href.protocol || href.authority ? href.authority : base.authority) +
         removeDotSegments(href.protocol || href.authority || href.pathname.charAt(0) === '/' ? href.pathname : (href.pathname ? ((base.authority && !base.pathname ? '/' : '') + base.pathname.slice(0, base.pathname.lastIndexOf('/') + 1) + href.pathname) : base.pathname)) +
@@ -1864,7 +1864,7 @@ define(function(require) {
         }
 
         // normal eval (non-module code)
-        // note that anonymous modules (load.name == undefined) are always
+        // note that anonymous modules (load.name == undefined) are always 
         // anonymous <module> tags, so we use Traceur for these
         if (!load.metadata.es6 && load.name && (load.metadata.es6 === false || !load.source.match(es6RegEx))) {
           return {
@@ -1987,7 +1987,7 @@ define(function(require) {
 
     // es6 module forwarding - allow detecting without Traceur
     var aliasRegEx = /^\s*export\s*\*\s*from\s*(?:'([^']+)'|"([^"]+)")/;
-
+    
     // dynamically load traceur when needed
     // populates the traceur, reporter and moduleLoaderTransfomer variables
 
@@ -2004,7 +2004,7 @@ define(function(require) {
         return Promise.resolve(require('traceur'));
       }).call(exports.System, 'traceur', { address: traceurSrc }).then(function(_traceur) {
         traceurPromise = null;
-
+        
         if (isBrowser)
           _traceur = global.traceur;
 
@@ -2023,7 +2023,7 @@ define(function(require) {
     function createModuleLoaderTransformer(ParseTreeFactory, ParseTreeTransformer) {
       var createAssignmentExpression = ParseTreeFactory.createAssignmentExpression;
       var createVariableDeclaration = ParseTreeFactory.createVariableDeclaration;
-
+      
       var createCallExpression = ParseTreeFactory.createCallExpression;
 
       var createVariableDeclarationList = ParseTreeFactory.createVariableDeclarationList;
@@ -2128,13 +2128,13 @@ define(function(require) {
             return exportStarStatement;
           }
         }
-
+        
         // export var p = 4;
         else if (declaration.type == 'VARIABLE_STATEMENT') {
           // export var p = ...
           var varDeclaration = declaration.declarations.declarations[0];
           varDeclaration.initialiser = createAssignmentExpression(
-            this.createExportExpression(varDeclaration.lvalue.identifierToken.value),
+            this.createExportExpression(varDeclaration.lvalue.identifierToken.value), 
             this.transformAny(varDeclaration.initialiser)
           );
           return declaration;
@@ -2142,9 +2142,9 @@ define(function(require) {
         // export function q() {}
         else if (declaration.type == 'FUNCTION_DECLARATION') {
           var varDeclaration = createVariableDeclaration(
-            declaration.name.identifierToken.value,
+            declaration.name.identifierToken.value, 
             createAssignmentStatement(
-              this.createExportExpression(declaration.name.identifierToken.value),
+              this.createExportExpression(declaration.name.identifierToken.value), 
               this.transformAny(declaration)
             )
           );
@@ -2154,11 +2154,11 @@ define(function(require) {
         // export default ...
         else if (declaration.type == 'EXPORT_DEFAULT') {
           return createAssignmentStatement(
-            this.createExportExpression('default'),
+            this.createExportExpression('default'), 
             this.transformAny(declaration.expression)
           );
         }
-
+         
         return tree;
       }
       return ModuleLoaderTransformer;
@@ -2296,13 +2296,11 @@ hooksName = 'rave/src/hooks';
 // export testable functions
 rave.boot = boot;
 rave.getCurrentScript = getCurrentScript;
-rave.mergeBrowserOptions = mergeBrowserOptions;
-rave.mergeNodeOptions = mergeNodeOptions;
+rave.mergeGlobalOptions = mergeGlobalOptions;
 rave.simpleDefine = simpleDefine;
 
 // initialize
 rave.scriptUrl = getCurrentScript();
-rave.scriptPath = getPathFromUrl(rave.scriptUrl);
 rave.baseUrl = doc
 	? getPathFromUrl(
 		// Opera has no location.origin, so we have to build it
@@ -2312,7 +2310,7 @@ rave.baseUrl = doc
 	)
 	: __dirname;
 
-context = (doc ? mergeBrowserOptions : mergeNodeOptions)({
+context = mergeGlobalOptions({
 	raveMain: defaultMain,
 	raveScript: rave.scriptUrl,
 	baseUrl: rave.baseUrl,
@@ -2321,7 +2319,16 @@ context = (doc ? mergeBrowserOptions : mergeNodeOptions)({
 
 loader = context.loader;
 define = simpleDefine(loader);
-define.amd = {};
+define.amd = { jQuery: true };
+
+global.define = define;
+global.global = global; // TODO: remove this when we are able to supply a 'global' to node modules
+
+// start!
+setTimeout(function () {
+	delete global.define;
+	rave.boot(context);
+}, 0);
 
 function boot (context) {
 	var main = context.raveMain;
@@ -2369,17 +2376,13 @@ function getPathFromUrl (url) {
 	return url.slice(0, last) + '/';
 }
 
-function mergeBrowserOptions (context) {
-	var el = doc.documentElement, i, attr, prop;
+function mergeGlobalOptions (context) {
+	if (!doc) return context;
+	var el = doc.documentElement;
 	var meta = el.getAttribute('data-rave-meta');
 	if (meta) {
 		context.raveMeta = meta;
 	}
-	return context;
-}
-
-function mergeNodeOptions (context) {
-	// TODO
 	return context;
 }
 
@@ -2441,11 +2444,26 @@ function toLoader (value) {
 }
 
 
+}(
+	typeof exports !== 'undefined' ? exports : void 0,
+	typeof self !== 'undefined' && self
+		|| typeof global !== 'undefined' && global
+));
+
 
 ;define('rave/pipeline/locateAsIs', ['require', 'exports', 'module'], function (require, exports, module, define) {module.exports = locateAsIs;
 
 function locateAsIs (load) {
 	return load.name;
+}
+
+});
+
+
+;define('rave/pipeline/translateAsIs', ['require', 'exports', 'module'], function (require, exports, module, define) {module.exports = translateAsIs;
+
+function translateAsIs (load) {
+	return load.source;
 }
 
 });
@@ -2607,15 +2625,6 @@ function beget (base) {
 });
 
 
-;define('rave/pipeline/translateAsIs', ['require', 'exports', 'module'], function (require, exports, module, define) {module.exports = translateAsIs;
-
-function translateAsIs (load) {
-	return load.source;
-}
-
-});
-
-
 ;define('rave/lib/fetchText', ['require', 'exports', 'module'], function (require, exports, module, define) {module.exports = fetchText;
 
 function fetchText (url, callback, errback) {
@@ -2638,17 +2647,6 @@ function fetchText (url, callback, errback) {
 		}
 	};
 	xhr.send(null);
-}
-
-});
-
-
-;define('rave/lib/debug/injectScript', ['require', 'exports', 'module'], function (require, exports, module, define) {module.exports = injectScript;
-
-// This used to be a script injection routine, but indirect eval seems
-// to work just as well in major browsers.
-function injectScript (source) {
-	(1, eval)(source);
 }
 
 });
@@ -2686,6 +2684,17 @@ function stripPort (url) {
 function isSafari () {
 	var ua = navigator.userAgent;
 	return ua.indexOf('Safari') >= 0 && ua.indexOf('Chrome') < 0;
+}
+
+});
+
+
+;define('rave/lib/debug/injectScript', ['require', 'exports', 'module'], function (require, exports, module, define) {module.exports = injectScript;
+
+// This used to be a script injection routine, but indirect eval seems
+// to work just as well in major browsers.
+function injectScript (source) {
+	(1, eval)(source);
 }
 
 });
@@ -2757,37 +2766,6 @@ function always () { return true; }
 });
 
 
-;define('rave/lib/uid', ['require', 'exports', 'module'], function (require, exports, module, define) {exports.create = createUid;
-exports.parse = parseUid;
-exports.getName = getName;
-
-function createUid (descriptor, normalized) {
-	return /*descriptor.pmType + ':' +*/ descriptor.name
-		+ (descriptor.version ? '@' + descriptor.version : '')
-		+ (normalized ? '#' + normalized : '');
-}
-
-
-function parseUid (uid) {
-	var uparts = uid.split('#');
-	var name = uparts.pop();
-	var nparts = name.split('/');
-	return {
-		name: name,
-		pkgName: nparts.shift(),
-		modulePath: nparts.join('/'),
-		pkgUid: uparts[0]
-	};
-}
-
-
-function getName (uid) {
-	return uid.split("#").pop();
-}
-
-});
-
-
 ;define('rave/load/specificity', ['require', 'exports', 'module'], function (require, exports, module, define) {exports.compare = compareFilters;
 exports.pkgSpec = packageSpecificity;
 exports.patSpec = patternSpecificity;
@@ -2827,6 +2805,37 @@ function compareFilters (a, b) {
 	return -diff;
 }
 
+
+});
+
+
+;define('rave/lib/uid', ['require', 'exports', 'module'], function (require, exports, module, define) {exports.create = createUid;
+exports.parse = parseUid;
+exports.getName = getName;
+
+function createUid (descriptor, normalized) {
+	return /*descriptor.pmType + ':' +*/ descriptor.name
+		+ (descriptor.version ? '@' + descriptor.version : '')
+		+ (normalized ? '#' + normalized : '');
+}
+
+
+function parseUid (uid) {
+	var uparts = uid.split('#');
+	var name = uparts.pop();
+	var nparts = name.split('/');
+	return {
+		name: name,
+		pkgName: nparts.shift(),
+		modulePath: nparts.join('/'),
+		pkgUid: uparts[0]
+	};
+}
+
+
+function getName (uid) {
+	return uid.split("#").pop();
+}
 
 });
 
@@ -3438,12 +3447,3 @@ function locateRaveWithContext (context) {
 
 
 
-// start!
-rave.boot(context);
-
-}(
-	typeof exports !== 'undefined' ? exports : void 0,
-	typeof global !== 'undefined' && global
-		|| typeof window !== 'undefined' && window
-		|| typeof self !== 'undefined' && self
-));
