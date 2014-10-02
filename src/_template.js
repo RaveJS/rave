@@ -15,14 +15,11 @@ if (typeof exports !== 'undefined') {
 (function (exports, global) {
 /*===rave===*/
 
-/*===hooks===*/
-
-// start!
-rave.boot(context);
-
 }(
 	typeof exports !== 'undefined' ? exports : void 0,
-	typeof global !== 'undefined' && global
-		|| typeof window !== 'undefined' && window
-		|| typeof self !== 'undefined' && self
+	typeof self !== 'undefined' && self
+		|| typeof global !== 'undefined' && global
 ));
+
+/*===hooks===*/
+/*===modules===*/

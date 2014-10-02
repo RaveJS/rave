@@ -15,13 +15,11 @@ hooksName = 'rave/src/hooks';
 // export testable functions
 rave.boot = boot;
 rave.getCurrentScript = getCurrentScript;
-rave.mergeBrowserOptions = mergeBrowserOptions;
-rave.mergeNodeOptions = mergeNodeOptions;
+rave.mergeGlobalOptions = mergeGlobalOptions;
 rave.simpleDefine = simpleDefine;
 
 // initialize
 rave.scriptUrl = getCurrentScript();
-rave.scriptPath = getPathFromUrl(rave.scriptUrl);
 rave.baseUrl = doc
 	? getPathFromUrl(
 		// Opera has no location.origin, so we have to build it
@@ -31,7 +29,7 @@ rave.baseUrl = doc
 	)
 	: __dirname;
 
-context = (doc ? mergeBrowserOptions : mergeNodeOptions)({
+context = mergeGlobalOptions({
 	raveMain: defaultMain,
 	raveScript: rave.scriptUrl,
 	baseUrl: rave.baseUrl,
@@ -40,7 +38,16 @@ context = (doc ? mergeBrowserOptions : mergeNodeOptions)({
 
 loader = context.loader;
 define = simpleDefine(loader);
-define.amd = {};
+define.amd = { jQuery: true };
+
+global.define = define;
+global.global = global; // TODO: remove this when we are able to supply a 'global' to node modules
+
+// start!
+setTimeout(function () {
+	delete global.define;
+	rave.boot(context);
+}, 0);
 
 function boot (context) {
 	var main = context.raveMain;
@@ -88,17 +95,13 @@ function getPathFromUrl (url) {
 	return url.slice(0, last) + '/';
 }
 
-function mergeBrowserOptions (context) {
-	var el = doc.documentElement, i, attr, prop;
+function mergeGlobalOptions (context) {
+	if (!doc) return context;
+	var el = doc.documentElement;
 	var meta = el.getAttribute('data-rave-meta');
 	if (meta) {
 		context.raveMeta = meta;
 	}
-	return context;
-}
-
-function mergeNodeOptions (context) {
-	// TODO
 	return context;
 }
 
