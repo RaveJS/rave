@@ -1,7 +1,7 @@
 /** @license MIT License (c) copyright 2014 original authors */
 /** @author Brian Cavalier */
 /** @author John Hann */
-var rave, doc, location, defaultMain, hooksName,
+var rave, doc, location, raveMain, hooksName,
 	context, loader, define;
 
 rave = exports || {};
@@ -9,7 +9,7 @@ rave = exports || {};
 doc = global.document;
 location = window.location;
 
-defaultMain = 'rave/debug';
+raveMain = 'rave/start';
 hooksName = 'rave/src/hooks';
 
 // export testable functions
@@ -30,7 +30,6 @@ rave.baseUrl = doc
 	: __dirname;
 
 context = mergeGlobalOptions({
-	raveMain: defaultMain,
 	raveScript: rave.scriptUrl,
 	baseUrl: rave.baseUrl,
 	loader: new Loader({})
@@ -46,17 +45,16 @@ global.global = global; // TODO: remove this when we are able to supply a 'globa
 // start!
 setTimeout(function () {
 	delete global.define;
-	rave.boot(context);
+	boot(context);
 }, 0);
 
 function boot (context) {
-	var main = context.raveMain;
 	try {
 		// apply hooks overrides to loader
 		var hooks = fromLoader(loader.get(hooksName));
 		// extend loader
 		hooks(context);
-		loader.import(context.raveMain).then(go, failLoudly);
+		loader.import(raveMain).then(go, failLoudly);
 	}
 	catch (ex) {
 		failLoudly(ex);
