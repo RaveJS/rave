@@ -6,17 +6,14 @@
 /**
  * ES6 global Promise shim
  */
-var PromiseConstructor = module.exports = require('../lib/Promise');
+var unhandledRejections = require('../lib/decorators/unhandledRejection');
+var PromiseConstructor = unhandledRejections(require('../lib/Promise'));
 
-var g = typeof global !== 'undefined' && global
-	|| typeof window !== 'undefined' && window
-	|| typeof self !== 'undefined' && self;
+module.exports = typeof global != 'undefined' ? (global.Promise = PromiseConstructor)
+	           : typeof self   != 'undefined' ? (self.Promise   = PromiseConstructor)
+	           : PromiseConstructor;
 
-if(typeof g !== 'undefined' && typeof g.Promise === 'undefined') {
-	g.Promise = PromiseConstructor;
-}
-
-},{"../lib/Promise":2}],2:[function(require,module,exports){
+},{"../lib/Promise":2,"../lib/decorators/unhandledRejection":6}],2:[function(require,module,exports){
 /** @license MIT License (c) copyright 2010-2014 original author or authors */
 /** @author Brian Cavalier */
 /** @author John Hann */
@@ -25,18 +22,17 @@ if(typeof g !== 'undefined' && typeof g.Promise === 'undefined') {
 define(function (require) {
 
 	var makePromise = require('./makePromise');
-	var Scheduler = require('./scheduler');
+	var Scheduler = require('./Scheduler');
 	var async = require('./async');
 
 	return makePromise({
-		scheduler: new Scheduler(async),
-		monitor: typeof console !== 'undefined' ? console : void 0
+		scheduler: new Scheduler(async)
 	});
 
 });
 })(typeof define === 'function' && define.amd ? define : function (factory) { module.exports = factory(require); });
 
-},{"./async":4,"./makePromise":5,"./scheduler":6}],3:[function(require,module,exports){
+},{"./Scheduler":4,"./async":5,"./makePromise":7}],3:[function(require,module,exports){
 /** @license MIT License (c) copyright 2010-2014 original author or authors */
 /** @author Brian Cavalier */
 /** @author John Hann */
@@ -116,6 +112,90 @@ define(function() {
 (function(define) { 'use strict';
 define(function(require) {
 
+	var Queue = require('./Queue');
+
+	// Credit to Twisol (https://github.com/Twisol) for suggesting
+	// this type of extensible queue + trampoline approach for next-tick conflation.
+
+	/**
+	 * Async task scheduler
+	 * @param {function} async function to schedule a single async function
+	 * @constructor
+	 */
+	function Scheduler(async) {
+		this._async = async;
+		this._queue = new Queue(15);
+		this._afterQueue = new Queue(5);
+		this._running = false;
+
+		var self = this;
+		this.drain = function() {
+			self._drain();
+		};
+	}
+
+	/**
+	 * Enqueue a task
+	 * @param {{ run:function }} task
+	 */
+	Scheduler.prototype.enqueue = function(task) {
+		this._add(this._queue, task);
+	};
+
+	/**
+	 * Enqueue a task to run after the main task queue
+	 * @param {{ run:function }} task
+	 */
+	Scheduler.prototype.afterQueue = function(task) {
+		this._add(this._afterQueue, task);
+	};
+
+	/**
+	 * Drain the handler queue entirely, and then the after queue
+	 */
+	Scheduler.prototype._drain = function() {
+		runQueue(this._queue);
+		this._running = false;
+		runQueue(this._afterQueue);
+	};
+
+	/**
+	 * Add a task to the q, and schedule drain if not already scheduled
+	 * @param {Queue} queue
+	 * @param {{run:function}} task
+	 * @private
+	 */
+	Scheduler.prototype._add = function(queue, task) {
+		queue.push(task);
+		if(!this._running) {
+			this._running = true;
+			this._async(this.drain);
+		}
+	};
+
+	/**
+	 * Run all the tasks in the q
+	 * @param queue
+	 */
+	function runQueue(queue) {
+		while(queue.length > 0) {
+			queue.shift().run();
+		}
+	}
+
+	return Scheduler;
+
+});
+}(typeof define === 'function' && define.amd ? define : function(factory) { module.exports = factory(require); }));
+
+},{"./Queue":3}],5:[function(require,module,exports){
+/** @license MIT License (c) copyright 2010-2014 original author or authors */
+/** @author Brian Cavalier */
+/** @author John Hann */
+
+(function(define) { 'use strict';
+define(function(require) {
+
 	// Sniff "best" async scheduling option
 	// Prefer process.nextTick or MutationObserver, then check for
 	// vertx and finally fall back to setTimeout
@@ -153,10 +233,20 @@ define(function(require) {
 
 	} else {
 		nextTick = (function(cjsRequire) {
+			var vertx;
 			try {
 				// vert.x 1.x || 2.x
-				return cjsRequire('vertx').runOnLoop || cjsRequire('vertx').runOnContext;
+				vertx = cjsRequire('vertx');
 			} catch (ignore) {}
+
+			if (vertx) {
+				if (typeof vertx.runOnLoop === 'function') {
+					return vertx.runOnLoop;
+				}
+				if (typeof vertx.runOnContext === 'function') {
+					return vertx.runOnContext;
+				}
+			}
 
 			// capture setTimeout to avoid being caught by fake timers
 			// used in time based tests
@@ -171,7 +261,111 @@ define(function(require) {
 });
 }(typeof define === 'function' && define.amd ? define : function(factory) { module.exports = factory(require); }));
 
-},{}],5:[function(require,module,exports){
+},{}],6:[function(require,module,exports){
+/** @license MIT License (c) copyright 2010-2014 original author or authors */
+/** @author Brian Cavalier */
+/** @author John Hann */
+
+(function(define) { 'use strict';
+define(function(require) {
+
+	var timer = require('../timer');
+
+	return function unhandledRejection(Promise) {
+		var logError = noop;
+		var logInfo = noop;
+
+		if(typeof console !== 'undefined') {
+			logError = typeof console.error !== 'undefined'
+				? function (e) { console.error(e); }
+				: function (e) { console.log(e); };
+
+			logInfo = typeof console.info !== 'undefined'
+				? function (e) { console.info(e); }
+				: function (e) { console.log(e); };
+		}
+
+		Promise.onPotentiallyUnhandledRejection = function(rejection) {
+			enqueue(report, rejection);
+		};
+
+		Promise.onPotentiallyUnhandledRejectionHandled = function(rejection) {
+			enqueue(unreport, rejection);
+		};
+
+		Promise.onFatalRejection = function(rejection) {
+			enqueue(throwit, rejection.value);
+		};
+
+		var tasks = [];
+		var reported = [];
+		var running = false;
+
+		function report(r) {
+			if(!r.handled) {
+				reported.push(r);
+				logError('Potentially unhandled rejection [' + r.id + '] ' + formatError(r.value));
+			}
+		}
+
+		function unreport(r) {
+			var i = reported.indexOf(r);
+			if(i >= 0) {
+				reported.splice(i, 1);
+				logInfo('Handled previous rejection [' + r.id + '] ' + formatObject(r.value));
+			}
+		}
+
+		function enqueue(f, x) {
+			tasks.push(f, x);
+			if(!running) {
+				running = true;
+				running = timer.set(flush, 0);
+			}
+		}
+
+		function flush() {
+			running = false;
+			while(tasks.length > 0) {
+				tasks.shift()(tasks.shift());
+			}
+		}
+
+		return Promise;
+	};
+
+	function formatError(e) {
+		var s = typeof e === 'object' && e.stack ? e.stack : formatObject(e);
+		return e instanceof Error ? s : s + ' (WARNING: non-Error used)';
+	}
+
+	function formatObject(o) {
+		var s = String(o);
+		if(s === '[object Object]' && typeof JSON !== 'undefined') {
+			s = tryStringify(o, s);
+		}
+		return s;
+	}
+
+	function tryStringify(e, defaultValue) {
+		try {
+			return JSON.stringify(e);
+		} catch(e) {
+			// Ignore. Cannot JSON.stringify e, stick with String(e)
+			return defaultValue;
+		}
+	}
+
+	function throwit(e) {
+		throw e;
+	}
+
+	function noop() {}
+
+});
+}(typeof define === 'function' && define.amd ? define : function(factory) { module.exports = factory(require); }));
+
+},{"../timer":8}],7:[function(require,module,exports){
 /** @license MIT License (c) copyright 2010-2014 original author or authors */
 /** @author Brian Cavalier */
 /** @author John Hann */
@@ -181,7 +375,6 @@ define(function() {
 
 	return function makePromise(environment) {
 
-		var foreverPendingPromise;
 		var tasks = environment.scheduler;
 
 		var objectCreate = Object.create ||
@@ -197,11 +390,25 @@ define(function() {
 		 * @returns {Promise} promise
 		 * @name Promise
 		 */
-		function Promise(resolver) {
-			var self = this;
-			this._handler = new DeferredHandler();
+		function Promise(resolver, handler) {
+			this._handler = resolver === Handler ? handler : init(resolver);
+		}
 
-			runResolver(resolver, promiseResolve, promiseReject, promiseNotify);
+		/**
+		 * Run the supplied resolver
+		 * @param resolver
+		 * @returns {Pending}
+		 */
+		function init(resolver) {
+			var handler = new Pending();
+
+			try {
+				resolver(promiseResolve, promiseReject, promiseNotify);
+			} catch (e) {
+				promiseReject(e);
+			}
+
+			return handler;
 
 			/**
 			 * Transition from pre-resolution state to post-resolution state, notifying
@@ -209,30 +416,24 @@ define(function() {
 			 * @param {*} x resolution value
 			 */
 			function promiseResolve (x) {
-				self._handler.resolve(x);
+				handler.resolve(x);
 			}
 			/**
 			 * Reject this promise with reason, which will be used verbatim
-			 * @param {*} reason reason for the rejection, typically an Error
+			 * @param {Error|*} reason rejection reason, strongly suggested
+			 *   to be an Error type
 			 */
 			function promiseReject (reason) {
-				self._handler.reject(reason);
+				handler.reject(reason);
 			}
 
 			/**
+			 * @deprecated
 			 * Issue a progress event, notifying all progress listeners
 			 * @param {*} x progress event payload to pass to all listeners
 			 */
 			function promiseNotify (x) {
-				self._handler.notify(x);
-			}
-		}
-
-		function runResolver(resolver, promiseResolve, promiseReject, promiseNotify) {
-			try {
-				resolver(promiseResolve, promiseReject, promiseNotify);
-			} catch (e) {
-				promiseReject(e);
+				handler.notify(x);
 			}
 		}
 
@@ -243,6 +444,7 @@ define(function() {
 		Promise.never = never;
 
 		Promise._defer = defer;
+		Promise._handler = getHandler;
 
 		/**
 		 * Returns a trusted promise. If x is already a trusted promise, it is
@@ -251,8 +453,8 @@ define(function() {
 		 * @return {Promise} promise
 		 */
 		function resolve(x) {
-			return x instanceof Promise ? x
-				: new InternalPromise(new AsyncHandler(getHandler(x)));
+			return isPromise(x) ? x
+				: new Promise(Handler, new Async(getHandler(x)));
 		}
 
 		/**
@@ -261,7 +463,7 @@ define(function() {
 		 * @returns {Promise} rejected promise
 		 */
 		function reject(x) {
-			return new InternalPromise(new AsyncHandler(new RejectedHandler(x)));
+			return new Promise(Handler, new Async(new Rejected(x)));
 		}
 
 		/**
@@ -275,10 +477,10 @@ define(function() {
 		/**
 		 * Creates an internal {promise, resolver} pair
 		 * @private
-		 * @returns {{resolver: DeferredHandler, promise: InternalPromise}}
+		 * @returns {Promise}
 		 */
 		function defer() {
-			return new InternalPromise(new DeferredHandler());
+			return new Promise(Handler, new Pending());
 		}
 
 		// Transformation and flow control
@@ -288,17 +490,28 @@ define(function() {
 		 * for the transformed result.  If the promise cannot be fulfilled, onRejected
 		 * is called with the reason.  onProgress *may* be called with updates toward
 		 * this promise's fulfillment.
-		 * @param [onFulfilled] {Function} fulfillment handler
-		 * @param [onRejected] {Function} rejection handler
-		 * @param [onProgress] {Function} progress handler
+		 * @param {function=} onFulfilled fulfillment handler
+		 * @param {function=} onRejected rejection handler
+		 * @deprecated @param {function=} onProgress progress handler
 		 * @return {Promise} new promise
 		 */
-		Promise.prototype.then = function(onFulfilled, onRejected, onProgress) {
-			var from = this._handler;
-			var to = new DeferredHandler(from.receiver);
-			from.when(to.resolve, to.notify, to, from.receiver, onFulfilled, onRejected, onProgress);
+		Promise.prototype.then = function(onFulfilled, onRejected) {
+			var parent = this._handler;
+			var state = parent.join().state();
 
-			return new InternalPromise(to);
+			if ((typeof onFulfilled !== 'function' && state > 0) ||
+				(typeof onRejected !== 'function' && state < 0)) {
+				// Short circuit: value will not change, simply share handler
+				return new this.constructor(Handler, parent);
+			}
+
+			var p = this._beget();
+			var child = p._handler;
+
+			parent.chain(child, parent.receiver, onFulfilled, onRejected,
+					arguments.length > 2 ? arguments[2] : void 0);
+
+			return p;
 		};
 
 		/**
@@ -307,19 +520,19 @@ define(function() {
 		 * @param {function?} onRejected
 		 * @return {Promise}
 		 */
-		Promise.prototype['catch'] = Promise.prototype.otherwise = function(onRejected) {
+		Promise.prototype['catch'] = function(onRejected) {
 			return this.then(void 0, onRejected);
 		};
 
 		/**
-		 * Private function to bind a thisArg for this promise's handlers
+		 * Creates a new, pending promise of the same type as this promise
 		 * @private
-		 * @param {object} thisArg `this` value for all handlers attached to
-		 *  the returned promise.
 		 * @returns {Promise}
 		 */
-		Promise.prototype._bindContext = function(thisArg) {
-			return new InternalPromise(new BoundHandler(this._handler, thisArg));
+		Promise.prototype._beget = function() {
+			var parent = this._handler;
+			var child = new Pending(parent.receiver, parent.join().context);
+			return new this.constructor(Handler, child);
 		};
 
 		// Array combinators
@@ -335,40 +548,67 @@ define(function() {
 		 * @returns {Promise} promise for array of fulfillment values
 		 */
 		function all(promises) {
-			/*jshint maxcomplexity:6*/
-			var resolver = new DeferredHandler();
-			var len = promises.length >>> 0;
-			var pending = len;
-			var results = [];
-			var i, x;
+			/*jshint maxcomplexity:8*/
+			var resolver = new Pending();
+			var pending = promises.length >>> 0;
+			var results = new Array(pending);
 
-			for (i = 0; i < len; ++i) {
-				if (i in promises) {
-					x = promises[i];
-					if (maybeThenable(x)) {
-						resolveOne(resolver, results, getHandlerThenable(x), i);
-					} else {
-						results[i] = x;
+			var i, h, x, s;
+			for (i = 0; i < promises.length; ++i) {
+				x = promises[i];
+
+				if (x === void 0 && !(i in promises)) {
+					--pending;
+					continue;
+				}
+
+				if (maybeThenable(x)) {
+					h = getHandlerMaybeThenable(x);
+
+					s = h.state();
+					if (s === 0) {
+						h.fold(settleAt, i, results, resolver);
+					} else if (s > 0) {
+						results[i] = h.value;
 						--pending;
+					} else {
+						resolveAndObserveRemaining(promises, i+1, h, resolver);
+						break;
 					}
+
 				} else {
+					results[i] = x;
 					--pending;
 				}
 			}
 
 			if(pending === 0) {
-				resolver.resolve(results);
+				resolver.become(new Fulfilled(results));
 			}
 
-			return new InternalPromise(resolver);
+			return new Promise(Handler, resolver);
 
-			function resolveOne(resolver, results, handler, i) {
-				handler.when(noop, noop, void 0, resolver, function(x) {
-					results[i] = x;
-					if(--pending === 0) {
-						this.resolve(results);
+			function settleAt(i, x, resolver) {
+				/*jshint validthis:true*/
+				this[i] = x;
+				if(--pending === 0) {
+					resolver.become(new Fulfilled(this));
+				}
+			}
+		}
+
+		function resolveAndObserveRemaining(promises, start, handler, resolver) {
+			resolver.become(handler);
+
+			var i, h, x;
+			for(i=start; i<promises.length; ++i) {
+				x = promises[i];
+				if(maybeThenable(x)) {
+					h = getHandlerMaybeThenable(x);
+					if(h !== handler) {
+						h.visit(h, void 0, h._unreport);
 					}
-				}, resolver.reject, resolver.notify);
+				}
 			}
 		}
 
@@ -393,63 +633,48 @@ define(function() {
 				return never();
 			}
 
-			var h = new DeferredHandler();
-			for(var i=0; i<promises.length; ++i) {
-				getHandler(promises[i]).when(noop, noop, void 0, h, h.resolve, h.reject);
-			}
+			var resolver = new Pending();
+			var i, x, h;
+			for(i=0; i<promises.length; ++i) {
+				x = promises[i];
+				if (x === void 0 && !(i in promises)) {
+					continue;
+				}
 
-			return new InternalPromise(h);
+				h = getHandler(x);
+				if(h.state() !== 0) {
+					resolveAndObserveRemaining(promises, i+1, h, resolver);
+					break;
+				}
+
+				h.visit(resolver, resolver.resolve, resolver.reject);
+			}
+			return new Promise(Handler, resolver);
 		}
 
 		// Promise internals
+		// Below this, everything is @private
 
 		/**
-		 * InternalPromise represents a promise that is either already
-		 * fulfilled or reject, or is following another promise, based
-		 * on the provided handler.
-		 * @private
-		 * @param {object} handler
-		 * @constructor
-		 */
-		function InternalPromise(handler) {
-			this._handler = handler;
-		}
-
-		InternalPromise.prototype = objectCreate(Promise.prototype);
-
-		/**
-		 * Get an appropriate handler for x, checking for untrusted thenables
-		 * and promise graph cycles.
-		 * @private
+		 * Get an appropriate handler for x, without checking for cycles
 		 * @param {*} x
-		 * @param {object?} h optional handler to check for cycles
 		 * @returns {object} handler
 		 */
-		function getHandler(x, h) {
-			if(x instanceof Promise) {
-				return getHandlerChecked(x, h);
+		function getHandler(x) {
+			if(isPromise(x)) {
+				return x._handler.join();
 			}
-			return maybeThenable(x) ? getHandlerUntrusted(x) : new FulfilledHandler(x);
+			return maybeThenable(x) ? getHandlerUntrusted(x) : new Fulfilled(x);
 		}
 
 		/**
-		 * Get an appropriate handler for x, which must be either a thenable
-		 * @param {object} x
+		 * Get a handler for thenable x.
+		 * NOTE: You must only call this if maybeThenable(x) == true
+		 * @param {object|function|Promise} x
 		 * @returns {object} handler
 		 */
-		function getHandlerThenable(x) {
-			return x instanceof Promise ? x._handler.join() : getHandlerUntrusted(x);
-		}
-
-		/**
-		 * Get x's handler, checking for cycles
-		 * @param {Promise} x
-		 * @param {object?} h handler to check for cycles
-		 * @returns {object} handler
-		 */
-		function getHandlerChecked(x, h) {
-			var xh = x._handler.join();
-			return h === xh ? promiseCycleHandler() : xh;
+		function getHandlerMaybeThenable(x) {
+			return isPromise(x) ? x._handler.join() : getHandlerUntrusted(x);
 		}
 
 		/**
@@ -461,394 +686,490 @@ define(function() {
 			try {
 				var untrustedThen = x.then;
 				return typeof untrustedThen === 'function'
-					? new ThenableHandler(untrustedThen, x)
-					: new FulfilledHandler(x);
+					? new Thenable(untrustedThen, x)
+					: new Fulfilled(x);
 			} catch(e) {
-				return new RejectedHandler(e);
+				return new Rejected(e);
 			}
 		}
 
 		/**
 		 * Handler for a promise that is pending forever
-		 * @private
 		 * @constructor
 		 */
 		function Handler() {}
 
-		Handler.prototype.inspect = toPendingState;
-		Handler.prototype.when = noop;
-		Handler.prototype.resolve = noop;
-		Handler.prototype.reject = noop;
-		Handler.prototype.notify = noop;
-		Handler.prototype.join = function() { return this; };
+		Handler.prototype.when
+			= Handler.prototype.become
+			= Handler.prototype.notify // deprecated
+			= Handler.prototype.fail
+			= Handler.prototype._unreport
+			= Handler.prototype._report
+			= noop;
 
-		Handler.prototype._env = environment.monitor || Promise;
-		Handler.prototype._addTrace = noop;
-		Handler.prototype._isMonitored = function() {
-			return typeof this._env.promiseMonitor !== 'undefined';
+		Handler.prototype._state = 0;
+
+		Handler.prototype.state = function() {
+			return this._state;
 		};
 
 		/**
-		 * Abstract base for handler that delegates to another handler
-		 * @private
-		 * @param {object} handler
+		 * Recursively collapse handler chain to find the handler
+		 * nearest to the fully resolved value.
+		 * @returns {object} handler nearest the fully resolved value
+		 */
+		Handler.prototype.join = function() {
+			var h = this;
+			while(h.handler !== void 0) {
+				h = h.handler;
+			}
+			return h;
+		};
+
+		Handler.prototype.chain = function(to, receiver, fulfilled, rejected, progress) {
+			this.when({
+				resolver: to,
+				receiver: receiver,
+				fulfilled: fulfilled,
+				rejected: rejected,
+				progress: progress
+			});
+		};
+
+		Handler.prototype.visit = function(receiver, fulfilled, rejected, progress) {
+			this.chain(failIfRejected, receiver, fulfilled, rejected, progress);
+		};
+
+		Handler.prototype.fold = function(f, z, c, to) {
+			this.visit(to, function(x) {
+				f.call(c, z, x, this);
+			}, to.reject, to.notify);
+		};
+
+		/**
+		 * Handler that invokes fail() on any handler it becomes
 		 * @constructor
 		 */
-		function DelegateHandler(handler) {
-			this.handler = handler;
-			if(this._isMonitored()) {
-				var trace = this._env.promiseMonitor.captureStack();
-				this.trace = handler._addTrace(trace);
-			}
-		}
+		function FailIfRejected() {}
 
-		DelegateHandler.prototype = objectCreate(Handler.prototype);
+		inherit(Handler, FailIfRejected);
 
-		DelegateHandler.prototype.join = function() {
-			return this.handler.join();
+		FailIfRejected.prototype.become = function(h) {
+			h.fail();
 		};
 
-		DelegateHandler.prototype.inspect = function() {
-			return this.handler.inspect();
-		};
-
-		DelegateHandler.prototype._addTrace = function(trace) {
-			return this.handler._addTrace(trace);
-		};
+		var failIfRejected = new FailIfRejected();
 
 		/**
 		 * Handler that manages a queue of consumers waiting on a pending promise
-		 * @private
 		 * @constructor
 		 */
-		function DeferredHandler(receiver) {
-			this.consumers = [];
+		function Pending(receiver, inheritedContext) {
+			Promise.createContext(this, inheritedContext);
+
+			this.consumers = void 0;
 			this.receiver = receiver;
 			this.handler = void 0;
 			this.resolved = false;
-			if(this._isMonitored()) {
-				this.trace = this._env.promiseMonitor.captureStack();
-			}
 		}
 
-		DeferredHandler.prototype = objectCreate(Handler.prototype);
+		inherit(Handler, Pending);
 
-		DeferredHandler.prototype.inspect = function() {
-			return this.resolved ? this.handler.join().inspect() : toPendingState();
+		Pending.prototype._state = 0;
+
+		Pending.prototype.resolve = function(x) {
+			this.become(getHandler(x));
 		};
 
-		DeferredHandler.prototype.resolve = function(x) {
-			this._join(getHandler(x, this));
+		Pending.prototype.reject = function(x) {
+			if(this.resolved) {
+				return;
+			}
+
+			this.become(new Rejected(x));
 		};
 
-		DeferredHandler.prototype.reject = function(x) {
-			this._join(new RejectedHandler(x));
+		Pending.prototype.join = function() {
+			if (!this.resolved) {
+				return this;
+			}
+
+			var h = this;
+
+			while (h.handler !== void 0) {
+				h = h.handler;
+				if (h === this) {
+					return this.handler = cycle();
+				}
+			}
+
+			return h;
 		};
 
-		DeferredHandler.prototype.join = function() {
-			return this.resolved ? this.handler.join() : this;
-		};
-
-		DeferredHandler.prototype.run = function() {
+		Pending.prototype.run = function() {
 			var q = this.consumers;
-			var handler = this.handler = this.handler.join();
+			var handler = this.join();
 			this.consumers = void 0;
 
-			for (var i = 0; i < q.length; i+=7) {
-				handler.when(q[i], q[i+1], q[i+2], q[i+3], q[i+4], q[i+5], q[i+6]);
+			for (var i = 0; i < q.length; ++i) {
+				handler.when(q[i]);
 			}
 		};
 
-		DeferredHandler.prototype._join = function(handler) {
+		Pending.prototype.become = function(handler) {
 			if(this.resolved) {
 				return;
 			}
 
 			this.resolved = true;
 			this.handler = handler;
-			tasks.enqueue(this);
+			if(this.consumers !== void 0) {
+				tasks.enqueue(this);
+			}
 
-			if(this._isMonitored()) {
-				this.trace = handler._addTrace(this.trace);
+			if(this.context !== void 0) {
+				handler._report(this.context);
 			}
 		};
 
-		DeferredHandler.prototype.when = function(resolve, notify, t, receiver, f, r, u) {
+		Pending.prototype.when = function(continuation) {
 			if(this.resolved) {
-				tasks.enqueue(new RunHandlerTask(resolve, notify, t, receiver, f, r, u, this.handler.join()));
+				tasks.enqueue(new ContinuationTask(continuation, this.handler));
 			} else {
-				this.consumers.push(resolve, notify, t, receiver, f, r, u);
+				if(this.consumers === void 0) {
+					this.consumers = [continuation];
+				} else {
+					this.consumers.push(continuation);
+				}
 			}
 		};
 
-		DeferredHandler.prototype.notify = function(x) {
+		/**
+		 * @deprecated
+		 */
+		Pending.prototype.notify = function(x) {
 			if(!this.resolved) {
-				tasks.enqueue(new ProgressTask(this.consumers, x));
+				tasks.enqueue(new ProgressTask(x, this));
 			}
 		};
 
-		DeferredHandler.prototype._addTrace = function(trace) {
-			return this.resolved ? this.handler._addTrace(trace) : trace;
+		Pending.prototype.fail = function(context) {
+			var c = typeof context === 'undefined' ? this.context : context;
+			this.resolved && this.handler.join().fail(c);
+		};
+
+		Pending.prototype._report = function(context) {
+			this.resolved && this.handler.join()._report(context);
+		};
+
+		Pending.prototype._unreport = function() {
+			this.resolved && this.handler.join()._unreport();
 		};
 
 		/**
 		 * Wrap another handler and force it into a future stack
-		 * @private
 		 * @param {object} handler
 		 * @constructor
 		 */
-		function AsyncHandler(handler) {
-			DelegateHandler.call(this, handler);
+		function Async(handler) {
+			this.handler = handler;
 		}
 
-		AsyncHandler.prototype = objectCreate(DelegateHandler.prototype);
+		inherit(Handler, Async);
 
-		AsyncHandler.prototype.when = function(resolve, notify, t, receiver, f, r, u) {
-			tasks.enqueue(new RunHandlerTask(resolve, notify, t, receiver, f, r, u, this.join()));
+		Async.prototype.when = function(continuation) {
+			tasks.enqueue(new ContinuationTask(continuation, this));
 		};
 
-		/**
-		 * Handler that follows another handler, injecting a receiver
-		 * @private
-		 * @param {object} handler another handler to follow
-		 * @param {object=undefined} receiver
-		 * @constructor
-		 */
-		function BoundHandler(handler, receiver) {
-			DelegateHandler.call(this, handler);
-			this.receiver = receiver;
-		}
+		Async.prototype._report = function(context) {
+			this.join()._report(context);
+		};
 
-		BoundHandler.prototype = objectCreate(DelegateHandler.prototype);
-
-		BoundHandler.prototype.when = function(resolve, notify, t, receiver, f, r, u) {
-			// Because handlers are allowed to be shared among promises,
-			// each of which possibly having a different receiver, we have
-			// to insert our own receiver into the chain if it has been set
-			// so that callbacks (f, r, u) will be called using our receiver
-			if(this.receiver !== void 0) {
-				receiver = this.receiver;
-			}
-			this.join().when(resolve, notify, t, receiver, f, r, u);
+		Async.prototype._unreport = function() {
+			this.join()._unreport();
 		};
 
 		/**
 		 * Handler that wraps an untrusted thenable and assimilates it in a future stack
-		 * @private
 		 * @param {function} then
 		 * @param {{then: function}} thenable
 		 * @constructor
 		 */
-		function ThenableHandler(then, thenable) {
-			DeferredHandler.call(this);
-			this.assimilated = false;
-			this.untrustedThen = then;
-			this.thenable = thenable;
+		function Thenable(then, thenable) {
+			Pending.call(this);
+			tasks.enqueue(new AssimilateTask(then, thenable, this));
 		}
 
-		ThenableHandler.prototype = objectCreate(DeferredHandler.prototype);
-
-		ThenableHandler.prototype.when = function(resolve, notify, t, receiver, f, r, u) {
-			if(!this.assimilated) {
-				this.assimilated = true;
-				this._assimilate();
-			}
-			DeferredHandler.prototype.when.call(this, resolve, notify, t, receiver, f, r, u);
-		};
-
-		ThenableHandler.prototype._assimilate = function() {
-			var h = this;
-			this._try(this.untrustedThen, this.thenable, _resolve, _reject, _notify);
-
-			function _resolve(x) { h.resolve(x); }
-			function _reject(x)  { h.reject(x); }
-			function _notify(x)  { h.notify(x); }
-		};
-
-		ThenableHandler.prototype._try = function(then, thenable, resolve, reject, notify) {
-			try {
-				then.call(thenable, resolve, reject, notify);
-			} catch (e) {
-				reject(e);
-			}
-		};
+		inherit(Pending, Thenable);
 
 		/**
 		 * Handler for a fulfilled promise
-		 * @private
 		 * @param {*} x fulfillment value
 		 * @constructor
 		 */
-		function FulfilledHandler(x) {
+		function Fulfilled(x) {
+			Promise.createContext(this);
 			this.value = x;
 		}
 
-		FulfilledHandler.prototype = objectCreate(Handler.prototype);
+		inherit(Handler, Fulfilled);
 
-		FulfilledHandler.prototype.inspect = function() {
-			return toFulfilledState(this.value);
+		Fulfilled.prototype._state = 1;
+
+		Fulfilled.prototype.fold = function(f, z, c, to) {
+			runContinuation3(f, z, this, c, to);
 		};
 
-		FulfilledHandler.prototype.when = function(resolve, notify, t, receiver, f) {
-			var x = typeof f === 'function'
-				? tryCatchReject(f, this.value, receiver)
-				: this.value;
-
-			resolve.call(t, x);
+		Fulfilled.prototype.when = function(cont) {
+			runContinuation1(cont.fulfilled, this, cont.receiver, cont.resolver);
 		};
+
+		var errorId = 0;
 
 		/**
 		 * Handler for a rejected promise
-		 * @private
 		 * @param {*} x rejection reason
 		 * @constructor
 		 */
-		function RejectedHandler(x) {
-			this.value = x;
-			this.observed = false;
+		function Rejected(x) {
+			Promise.createContext(this);
 
-			if(this._isMonitored()) {
-				this.key = this._env.promiseMonitor.startTrace(x);
-			}
+			this.id = ++errorId;
+			this.value = x;
+			this.handled = false;
+			this.reported = false;
+
+			this._report();
 		}
 
-		RejectedHandler.prototype = objectCreate(Handler.prototype);
+		inherit(Handler, Rejected);
 
-		RejectedHandler.prototype.inspect = function() {
-			return toRejectedState(this.value);
+		Rejected.prototype._state = -1;
+
+		Rejected.prototype.fold = function(f, z, c, to) {
+			to.become(this);
 		};
 
-		RejectedHandler.prototype.when = function(resolve, notify, t, receiver, f, r) {
-			if(this._isMonitored() && !this.observed) {
-				this._env.promiseMonitor.removeTrace(this.key);
+		Rejected.prototype.when = function(cont) {
+			if(typeof cont.rejected === 'function') {
+				this._unreport();
 			}
-
-			this.observed = true;
-			var x = typeof r === 'function'
-				? tryCatchReject(r, this.value, receiver)
-				: reject(this.value);
-
-			resolve.call(t, x);
+			runContinuation1(cont.rejected, this, cont.receiver, cont.resolver);
 		};
 
-		RejectedHandler.prototype._addTrace = function(trace) {
-			if(!this.observed) {
-				this._env.promiseMonitor.updateTrace(this.key, trace);
+		Rejected.prototype._report = function(context) {
+			tasks.afterQueue(new ReportTask(this, context));
+		};
+
+		Rejected.prototype._unreport = function() {
+			this.handled = true;
+			tasks.afterQueue(new UnreportTask(this));
+		};
+
+		Rejected.prototype.fail = function(context) {
+			Promise.onFatalRejection(this, context === void 0 ? this.context : context);
+		};
+
+		function ReportTask(rejection, context) {
+			this.rejection = rejection;
+			this.context = context;
+		}
+
+		ReportTask.prototype.run = function() {
+			if(!this.rejection.handled) {
+				this.rejection.reported = true;
+				Promise.onPotentiallyUnhandledRejection(this.rejection, this.context);
 			}
 		};
+
+		function UnreportTask(rejection) {
+			this.rejection = rejection;
+		}
+
+		UnreportTask.prototype.run = function() {
+			if(this.rejection.reported) {
+				Promise.onPotentiallyUnhandledRejectionHandled(this.rejection);
+			}
+		};
+
+		// Unhandled rejection hooks
+		// By default, everything is a noop
+
+		// TODO: Better names: "annotate"?
+		Promise.createContext
+			= Promise.enterContext
+			= Promise.exitContext
+			= Promise.onPotentiallyUnhandledRejection
+			= Promise.onPotentiallyUnhandledRejectionHandled
+			= Promise.onFatalRejection
+			= noop;
 
 		// Errors and singletons
 
-		foreverPendingPromise = new InternalPromise(new Handler());
+		var foreverPendingHandler = new Handler();
+		var foreverPendingPromise = new Promise(Handler, foreverPendingHandler);
 
-		function promiseCycleHandler() {
-			return new RejectedHandler(new TypeError('Promise cycle'));
-		}
-
-		// Snapshot states
-
-		/**
-		 * Creates a fulfilled state snapshot
-		 * @private
-		 * @param {*} x any value
-		 * @returns {{state:'fulfilled',value:*}}
-		 */
-		function toFulfilledState(x) {
-			return { state: 'fulfilled', value: x };
-		}
-
-		/**
-		 * Creates a rejected state snapshot
-		 * @private
-		 * @param {*} x any reason
-		 * @returns {{state:'rejected',reason:*}}
-		 */
-		function toRejectedState(x) {
-			return { state: 'rejected', reason: x };
-		}
-
-		/**
-		 * Creates a pending state snapshot
-		 * @private
-		 * @returns {{state:'pending'}}
-		 */
-		function toPendingState() {
-			return { state: 'pending' };
+		function cycle() {
+			return new Rejected(new TypeError('Promise cycle'));
 		}
 
 		// Task runners
 
 		/**
 		 * Run a single consumer
-		 * @private
 		 * @constructor
 		 */
-		function RunHandlerTask(a, b, c, d, e, f, g, handler) {
-			this.a=a;this.b=b;this.c=c;this.d=d;this.e=e;this.f=f;this.g=g;
+		function ContinuationTask(continuation, handler) {
+			this.continuation = continuation;
 			this.handler = handler;
 		}
 
-		RunHandlerTask.prototype.run = function() {
-			this.handler.when(this.a, this.b, this.c, this.d, this.e, this.f, this.g);
+		ContinuationTask.prototype.run = function() {
+			this.handler.join().when(this.continuation);
 		};
 
 		/**
 		 * Run a queue of progress handlers
-		 * @private
 		 * @constructor
 		 */
-		function ProgressTask(q, value) {
-			this.q = q;
+		function ProgressTask(value, handler) {
+			this.handler = handler;
 			this.value = value;
 		}
 
 		ProgressTask.prototype.run = function() {
-			var q = this.q;
-			// First progress handler is at index 1
-			for (var i = 1; i < q.length; i+=7) {
-				this._notify(q[i], q[i+1], q[i+2], q[i+5]);
+			var q = this.handler.consumers;
+			if(q === void 0) {
+				return;
+			}
+
+			for (var c, i = 0; i < q.length; ++i) {
+				c = q[i];
+				runNotify(c.progress, this.value, this.handler, c.receiver, c.resolver);
 			}
 		};
 
-		ProgressTask.prototype._notify = function(notify, t, receiver, u) {
-			var x = typeof u === 'function'
-				? tryCatchReturn(u, this.value, receiver)
-				: this.value;
+		/**
+		 * Assimilate a thenable, sending it's value to resolver
+		 * @param {function} then
+		 * @param {object|function} thenable
+		 * @param {object} resolver
+		 * @constructor
+		 */
+		function AssimilateTask(then, thenable, resolver) {
+			this._then = then;
+			this.thenable = thenable;
+			this.resolver = resolver;
+		}
 
-			notify.call(t, x);
+		AssimilateTask.prototype.run = function() {
+			var h = this.resolver;
+			tryAssimilate(this._then, this.thenable, _resolve, _reject, _notify);
+
+			function _resolve(x) { h.resolve(x); }
+			function _reject(x)  { h.reject(x); }
+			function _notify(x)  { h.notify(x); }
 		};
+
+		function tryAssimilate(then, thenable, resolve, reject, notify) {
+			try {
+				then.call(thenable, resolve, reject, notify);
+			} catch (e) {
+				reject(e);
+			}
+		}
+
+		// Other helpers
 
 		/**
 		 * @param {*} x
-		 * @returns {boolean} false iff x is guaranteed not to be a thenable
+		 * @returns {boolean} true iff x is a trusted Promise
+		 */
+		function isPromise(x) {
+			return x instanceof Promise;
+		}
+
+		/**
+		 * Test just enough to rule out primitives, in order to take faster
+		 * paths in some code
+		 * @param {*} x
+		 * @returns {boolean} false iff x is guaranteed *not* to be a thenable
 		 */
 		function maybeThenable(x) {
 			return (typeof x === 'object' || typeof x === 'function') && x !== null;
 		}
 
+		function runContinuation1(f, h, receiver, next) {
+			if(typeof f !== 'function') {
+				return next.become(h);
+			}
+
+			Promise.enterContext(h);
+			tryCatchReject(f, h.value, receiver, next);
+			Promise.exitContext();
+		}
+
+		function runContinuation3(f, x, h, receiver, next) {
+			if(typeof f !== 'function') {
+				return next.become(h);
+			}
+
+			Promise.enterContext(h);
+			tryCatchReject3(f, x, h.value, receiver, next);
+			Promise.exitContext();
+		}
+
+		/**
+		 * @deprecated
+		 */
+		function runNotify(f, x, h, receiver, next) {
+			if(typeof f !== 'function') {
+				return next.notify(x);
+			}
+
+			Promise.enterContext(h);
+			tryCatchReturn(f, x, receiver, next);
+			Promise.exitContext();
+		}
+
 		/**
 		 * Return f.call(thisArg, x), or if it throws return a rejected promise for
 		 * the thrown exception
-		 * @private
 		 */
-		function tryCatchReject(f, x, thisArg) {
+		function tryCatchReject(f, x, thisArg, next) {
 			try {
-				return f.call(thisArg, x);
+				next.become(getHandler(f.call(thisArg, x)));
 			} catch(e) {
-				return reject(e);
+				next.become(new Rejected(e));
 			}
 		}
 
 		/**
-		 * Return f.call(thisArg, x), or if it throws, *return* the exception
-		 * @private
+		 * Same as above, but includes the extra argument parameter.
 		 */
-		function tryCatchReturn(f, x, thisArg) {
+		function tryCatchReject3(f, x, y, thisArg, next) {
 			try {
-				return f.call(thisArg, x);
+				f.call(thisArg, x, y, next);
 			} catch(e) {
-				return e;
+				next.become(new Rejected(e));
 			}
+		}
+
+		/**
+		 * @deprecated
+		 * Return f.call(thisArg, x), or if it throws, *return* the exception
+		 */
+		function tryCatchReturn(f, x, thisArg, next) {
+			try {
+				next.notify(f.call(thisArg, x));
+			} catch(e) {
+				next.notify(e);
+			}
+		}
+
+		function inherit(Parent, Child) {
+			Child.prototype = objectCreate(Parent.prototype);
+			Child.prototype.constructor = Child;
 		}
 
 		function noop() {}
@@ -858,58 +1179,46 @@ define(function() {
 });
 }(typeof define === 'function' && define.amd ? define : function(factory) { module.exports = factory(); }));
 
-},{}],6:[function(require,module,exports){
+},{}],8:[function(require,module,exports){
 /** @license MIT License (c) copyright 2010-2014 original author or authors */
 /** @author Brian Cavalier */
 /** @author John Hann */
 
 (function(define) { 'use strict';
 define(function(require) {
+	/*global setTimeout,clearTimeout*/
+	var cjsRequire, vertx, setTimer, clearTimer;
 
-	var Queue = require('./Queue');
+	// Check for vertx environment by attempting to load vertx module.
+	// Doing the check in two steps ensures compatibility with RaveJS,
+	// which will return an empty module when browser: { vertx: false }
+	// is set in package.json
+	cjsRequire = require;
 
-	// Credit to Twisol (https://github.com/Twisol) for suggesting
-	// this type of extensible queue + trampoline approach for next-tick conflation.
+	try {
+		vertx = cjsRequire('vertx');
+	} catch (ignored) {}
 
-	function Scheduler(enqueue) {
-		this._enqueue = enqueue;
-		this._handlerQueue = new Queue(15);
-
-		var self = this;
-		this.drainQueue = function() {
-			self._drainQueue();
-		};
+	// If vertx loaded and has the timer features we expect, try to support it
+	if (vertx && typeof vertx.setTimer === 'function') {
+		setTimer = function (f, ms) { return vertx.setTimer(ms, f); };
+		clearTimer = vertx.cancelTimer;
+	} else {
+		// NOTE: Truncate decimals to workaround node 0.10.30 bug:
+		// https://github.com/joyent/node/issues/8167
+		setTimer = function(f, ms) { return setTimeout(f, ms|0); };
+		clearTimer = function(t) { return clearTimeout(t); };
 	}
 
-	/**
-	 * Enqueue a task. If the queue is not currently scheduled to be
-	 * drained, schedule it.
-	 * @param {function} task
-	 */
-	Scheduler.prototype.enqueue = function(task) {
-		if(this._handlerQueue.push(task) === 1) {
-			this._enqueue(this.drainQueue);
-		}
+	return {
+		set: setTimer,
+		clear: clearTimer
 	};
-
-	/**
-	 * Drain the handler queue entirely, being careful to allow the
-	 * queue to be extended while it is being processed, and to continue
-	 * processing until it is truly empty.
-	 */
-	Scheduler.prototype._drainQueue = function() {
-		var q = this._handlerQueue;
-		while(q.length > 0) {
-			q.shift().run();
-		}
-	};
-
-	return Scheduler;
 
 });
 }(typeof define === 'function' && define.amd ? define : function(factory) { module.exports = factory(require); }));
 
-},{"./Queue":3}]},{},[1])
+},{}]},{},[1])
 (1)
 });
 ;
@@ -2290,8 +2599,8 @@ rave = exports || {};
 doc = global.document;
 location = window.location;
 
-raveMain = 'rave/start';
-hooksName = 'rave/src/hooks';
+raveMain = 'rave@0.4.3/start';
+hooksName = 'rave@0.4.3/src/hooks';
 
 // export testable functions
 rave.boot = boot;
@@ -2397,6 +2706,11 @@ function simpleDefine (loader) {
 			global: _global
 		};
 		scoped.module = { exports: scoped.exports };
+		scoped.require.async = function (id) {
+			// hack: code needs a refid even though we're using abs ids already
+			var abs = loader.normalize(id, 'rave');
+			return loader.import(abs).then(fromLoader);
+		};
 		modules = [];
 		// if deps has been omitted
 		if (arguments.length === 2) {
@@ -2449,7 +2763,7 @@ function toLoader (value) {
 ));
 
 
-;define('rave/pipeline/locateAsIs', ['require', 'exports', 'module'], function (require, exports, module, define) {module.exports = locateAsIs;
+;define('rave@0.4.3/pipeline/locateAsIs', ['require', 'exports', 'module'], function (require, exports, module, define) {module.exports = locateAsIs;
 
 function locateAsIs (load) {
 	return load.name;
@@ -2458,7 +2772,7 @@ function locateAsIs (load) {
 });
 
 
-;define('rave/pipeline/translateAsIs', ['require', 'exports', 'module'], function (require, exports, module, define) {module.exports = translateAsIs;
+;define('rave@0.4.3/pipeline/translateAsIs', ['require', 'exports', 'module'], function (require, exports, module, define) {module.exports = translateAsIs;
 
 function translateAsIs (load) {
 	return load.source;
@@ -2467,7 +2781,7 @@ function translateAsIs (load) {
 });
 
 
-;define('rave/lib/path', ['require', 'exports', 'module'], function (require, exports, module, define) {var absUrlRx, findDotsRx;
+;define('rave@0.4.3/lib/path', ['require', 'exports', 'module'], function (require, exports, module, define) {var absUrlRx, findDotsRx;
 
 absUrlRx = /^\/|^[^:]+:\/\//;
 findDotsRx = /(\.)(\.?)(?:$|\/([^\.\/]+.*)?)/g;
@@ -2609,7 +2923,7 @@ function splitDirAndFile (url) {
 });
 
 
-;define('rave/lib/beget', ['require', 'exports', 'module'], function (require, exports, module, define) {module.exports = beget;
+;define('rave@0.4.3/lib/beget', ['require', 'exports', 'module'], function (require, exports, module, define) {module.exports = beget;
 
 function Begetter () {}
 function beget (base) {
@@ -2623,7 +2937,7 @@ function beget (base) {
 });
 
 
-;define('rave/lib/fetchText', ['require', 'exports', 'module'], function (require, exports, module, define) {module.exports = fetchText;
+;define('rave@0.4.3/lib/fetchText', ['require', 'exports', 'module'], function (require, exports, module, define) {module.exports = fetchText;
 
 function fetchText (url, callback, errback) {
 	var xhr;
@@ -2650,7 +2964,7 @@ function fetchText (url, callback, errback) {
 });
 
 
-;define('rave/lib/addSourceUrl', ['require', 'exports', 'module'], function (require, exports, module, define) {module.exports = addSourceUrl;
+;define('rave@0.4.3/lib/addSourceUrl', ['require', 'exports', 'module'], function (require, exports, module, define) {module.exports = addSourceUrl;
 
 function addSourceUrl (url, source) {
 	var safeUrl = stripPort(url);
@@ -2687,7 +3001,7 @@ function isSafari () {
 });
 
 
-;define('rave/lib/debug/injectScript', ['require', 'exports', 'module'], function (require, exports, module, define) {module.exports = injectScript;
+;define('rave@0.4.3/lib/debug/injectScript', ['require', 'exports', 'module'], function (require, exports, module, define) {module.exports = injectScript;
 
 // This used to be a script injection routine, but indirect eval seems
 // to work just as well in major browsers.
@@ -2698,7 +3012,7 @@ function injectScript (source) {
 });
 
 
-;define('rave/load/predicate', ['require', 'exports', 'module'], function (require, exports, module, define) {exports.composePredicates = composePredicates;
+;define('rave@0.4.3/load/predicate', ['require', 'exports', 'module'], function (require, exports, module, define) {exports.composePredicates = composePredicates;
 exports.createPackageMatcher = createPackageMatcher;
 exports.createPatternMatcher = createPatternMatcher;
 exports.createExtensionsMatcher = createExtensionsMatcher;
@@ -2764,7 +3078,7 @@ function always () { return true; }
 });
 
 
-;define('rave/load/specificity', ['require', 'exports', 'module'], function (require, exports, module, define) {exports.compare = compareFilters;
+;define('rave@0.4.3/load/specificity', ['require', 'exports', 'module'], function (require, exports, module, define) {exports.compare = compareFilters;
 exports.pkgSpec = packageSpecificity;
 exports.patSpec = patternSpecificity;
 exports.extSpec = extensionSpecificity;
@@ -2807,7 +3121,7 @@ function compareFilters (a, b) {
 });
 
 
-;define('rave/lib/uid', ['require', 'exports', 'module'], function (require, exports, module, define) {exports.create = createUid;
+;define('rave@0.4.3/lib/uid', ['require', 'exports', 'module'], function (require, exports, module, define) {exports.create = createUid;
 exports.parse = parseUid;
 exports.getName = getName;
 
@@ -2835,10 +3149,28 @@ function getName (uid) {
 	return uid.split("#").pop();
 }
 
+
 });
 
 
-;define('rave/lib/find/createCodeFinder', ['require', 'exports', 'module'], function (require, exports, module, define) {module.exports = createCodeFinder;
+;define('rave@0.4.3/lib/es5Transform', ['require', 'exports', 'module'], function (require, exports, module, define) {module.exports = {
+	fromLoader: function (value) {
+		return value && value.__es5Module ? value.__es5Module : value;
+	},
+	toLoader: function (module) {
+		return {
+			// for real ES6 modules to consume this module
+			'default': module,
+			// for modules transpiled from ES5
+			__es5Module: module
+		};
+	}
+};
+
+});
+
+
+;define('rave@0.4.3/lib/find/createCodeFinder', ['require', 'exports', 'module'], function (require, exports, module, define) {module.exports = createCodeFinder;
 
 // Export private functions for testing
 createCodeFinder.composeRx = composeRx;
@@ -2949,24 +3281,7 @@ function composeRx (rx1, rx2, flags) {
 });
 
 
-;define('rave/lib/es5Transform', ['require', 'exports', 'module'], function (require, exports, module, define) {module.exports = {
-	fromLoader: function (value) {
-		return value && value.__es5Module ? value.__es5Module : value;
-	},
-	toLoader: function (module) {
-		return {
-			// for real ES6 modules to consume this module
-			'default': module,
-			// for modules transpiled from ES5
-			__es5Module: module
-		};
-	}
-};
-
-});
-
-
-;define('rave/lib/json/eval', ['require', 'exports', 'module'], function (require, exports, module, define) {module.exports = jsonEval;
+;define('rave@0.4.3/lib/json/eval', ['require', 'exports', 'module'], function (require, exports, module, define) {module.exports = jsonEval;
 
 function jsonEval (source) {
 	return eval('(' + source + ')');
@@ -2975,7 +3290,7 @@ function jsonEval (source) {
 });
 
 
-;define('rave/pipeline/normalizeCjs', ['require', 'exports', 'module', 'rave/lib/path'], function (require, exports, module, $cram_r0, define) {var path = $cram_r0;
+;define('rave@0.4.3/pipeline/normalizeCjs', ['require', 'exports', 'module', 'rave@0.4.3/lib/path'], function (require, exports, module, $cram_r0, define) {var path = $cram_r0;
 
 module.exports = normalizeCjs;
 
@@ -2988,7 +3303,7 @@ function normalizeCjs (name, refererName, refererUrl) {
 });
 
 
-;define('rave/pipeline/fetchAsText', ['require', 'exports', 'module', 'rave/lib/fetchText'], function (require, exports, module, $cram_r0, define) {module.exports = fetchAsText;
+;define('rave@0.4.3/pipeline/fetchAsText', ['require', 'exports', 'module', 'rave@0.4.3/lib/fetchText'], function (require, exports, module, $cram_r0, define) {module.exports = fetchAsText;
 
 var fetchText = $cram_r0;
 
@@ -3002,7 +3317,7 @@ function fetchAsText (load) {
 });
 
 
-;define('rave/load/override', ['require', 'exports', 'module', 'rave/load/predicate', 'rave/load/specificity', 'rave/lib/uid'], function (require, exports, module, $cram_r0, $cram_r1, $cram_r2, define) {var predicate = $cram_r0;
+;define('rave@0.4.3/load/override', ['require', 'exports', 'module', 'rave@0.4.3/load/predicate', 'rave@0.4.3/load/specificity', 'rave@0.4.3/lib/uid'], function (require, exports, module, $cram_r0, $cram_r1, $cram_r2, define) {var predicate = $cram_r0;
 var specificity = $cram_r1;
 var parse = $cram_r2.parse;
 
@@ -3123,7 +3438,7 @@ function sameCommonJSPackages (a, b) {
 });
 
 
-;define('rave/lib/debug/nodeEval', ['require', 'exports', 'module', 'rave/lib/debug/injectScript'], function (require, exports, module, $cram_r0, define) {var injectScript = $cram_r0;
+;define('rave@0.4.3/lib/debug/nodeEval', ['require', 'exports', 'module', 'rave@0.4.3/lib/debug/injectScript'], function (require, exports, module, $cram_r0, define) {var injectScript = $cram_r0;
 
 module.exports = nodeEval;
 
@@ -3149,7 +3464,7 @@ function nodeEval (global, require, exports, module, source, debugTransform) {
 });
 
 
-;define('rave/lib/find/requires', ['require', 'exports', 'module', 'rave/lib/find/createCodeFinder'], function (require, exports, module, $cram_r0, define) {module.exports = findRequires;
+;define('rave@0.4.3/lib/find/requires', ['require', 'exports', 'module', 'rave@0.4.3/lib/find/createCodeFinder'], function (require, exports, module, $cram_r0, define) {module.exports = findRequires;
 
 var createCodeFinder = $cram_r0;
 
@@ -3181,7 +3496,7 @@ function findRequires (source) {
 });
 
 
-;define('rave/lib/json/factory', ['require', 'exports', 'module', 'rave/lib/es5Transform', 'rave/lib/json/eval'], function (require, exports, module, $cram_r0, $cram_r1, define) {var es5Transform = $cram_r0;
+;define('rave@0.4.3/lib/json/factory', ['require', 'exports', 'module', 'rave@0.4.3/lib/es5Transform', 'rave@0.4.3/lib/json/eval'], function (require, exports, module, $cram_r0, $cram_r1, define) {var es5Transform = $cram_r0;
 var jsonEval = $cram_r1;
 
 module.exports = jsonFactory;
@@ -3193,7 +3508,7 @@ function jsonFactory (loader, load) {
 });
 
 
-;define('rave/lib/createRequire', ['require', 'exports', 'module', 'rave/lib/es5Transform'], function (require, exports, module, $cram_r0, define) {module.exports = createRequire;
+;define('rave@0.4.3/lib/createRequire', ['require', 'exports', 'module', 'rave@0.4.3/lib/es5Transform'], function (require, exports, module, $cram_r0, define) {module.exports = createRequire;
 
 var es5Transform = $cram_r0;
 
@@ -3248,7 +3563,7 @@ function getExports (names, value) {
 });
 
 
-;define('rave/pipeline/instantiateNode', ['require', 'exports', 'module', 'rave/lib/find/requires'], function (require, exports, module, $cram_r0, define) {var findRequires = $cram_r0;
+;define('rave@0.4.3/pipeline/instantiateNode', ['require', 'exports', 'module', 'rave@0.4.3/lib/find/requires'], function (require, exports, module, $cram_r0, define) {var findRequires = $cram_r0;
 
 module.exports = instantiateNode;
 
@@ -3284,7 +3599,7 @@ function findOrThrow (load) {
 });
 
 
-;define('rave/pipeline/instantiateJson', ['require', 'exports', 'module', 'rave/lib/json/factory'], function (require, exports, module, $cram_r0, define) {var jsonFactory = $cram_r0;
+;define('rave@0.4.3/pipeline/instantiateJson', ['require', 'exports', 'module', 'rave@0.4.3/lib/json/factory'], function (require, exports, module, $cram_r0, define) {var jsonFactory = $cram_r0;
 
 module.exports = instantiateJson;
 
@@ -3300,7 +3615,7 @@ function instantiateJson (load) {
 });
 
 
-;define('rave/lib/node/factory', ['require', 'exports', 'module', 'rave/lib/es5Transform', 'rave/lib/createRequire'], function (require, exports, module, $cram_r0, $cram_r1, define) {var es5Transform = $cram_r0;
+;define('rave@0.4.3/lib/node/factory', ['require', 'exports', 'module', 'rave@0.4.3/lib/es5Transform', 'rave@0.4.3/lib/createRequire'], function (require, exports, module, $cram_r0, $cram_r1, define) {var es5Transform = $cram_r0;
 var createRequire = $cram_r1;
 
 module.exports = nodeFactory;
@@ -3328,7 +3643,7 @@ function nodeFactory (nodeEval) {
 });
 
 
-;define('rave/lib/debug/nodeFactory', ['require', 'exports', 'module', 'rave/lib/node/factory', 'rave/lib/addSourceUrl'], function (require, exports, module, $cram_r0, $cram_r1, define) {var factory = $cram_r0;
+;define('rave@0.4.3/lib/debug/nodeFactory', ['require', 'exports', 'module', 'rave@0.4.3/lib/node/factory', 'rave@0.4.3/lib/addSourceUrl'], function (require, exports, module, $cram_r0, $cram_r1, define) {var factory = $cram_r0;
 var addSourceUrl = $cram_r1;
 
 module.exports = nodeFactory;
@@ -3351,7 +3666,7 @@ function nodeFactory (nodeEval) {
 });
 
 
-;define('rave/src/hooks', ['require', 'exports', 'module', 'rave/pipeline/normalizeCjs', 'rave/pipeline/locateAsIs', 'rave/pipeline/fetchAsText', 'rave/pipeline/translateAsIs', 'rave/pipeline/instantiateNode', 'rave/lib/debug/nodeFactory', 'rave/lib/debug/nodeEval', 'rave/pipeline/instantiateJson', 'rave/lib/path', 'rave/lib/beget', 'rave/load/override'], function (require, exports, module, $cram_r0, $cram_r1, $cram_r2, $cram_r3, $cram_r4, $cram_r5, $cram_r6, $cram_r7, $cram_r8, $cram_r9, $cram_r10, define) {var normalizeCjs = $cram_r0;
+;define('rave@0.4.3/src/hooks', ['require', 'exports', 'module', 'rave@0.4.3/pipeline/normalizeCjs', 'rave@0.4.3/pipeline/locateAsIs', 'rave@0.4.3/pipeline/fetchAsText', 'rave@0.4.3/pipeline/translateAsIs', 'rave@0.4.3/pipeline/instantiateNode', 'rave@0.4.3/lib/debug/nodeFactory', 'rave@0.4.3/lib/debug/nodeEval', 'rave@0.4.3/pipeline/instantiateJson', 'rave@0.4.3/lib/path', 'rave@0.4.3/lib/beget', 'rave@0.4.3/load/override'], function (require, exports, module, $cram_r0, $cram_r1, $cram_r2, $cram_r3, $cram_r4, $cram_r5, $cram_r6, $cram_r7, $cram_r8, $cram_r9, $cram_r10, define) {var normalizeCjs = $cram_r0;
 var locateAsIs = $cram_r1;
 var fetchAsText = $cram_r2;
 var translateAsIs = $cram_r3;
@@ -3439,6 +3754,2065 @@ function locateRaveWithContext (context) {
 		load.metadata.rave = context;
 		return path.joinPaths(base, path.ensureExt(load.name, '.js'));
 	};
+}
+
+});
+
+
+;define('rave@0.4.3/lib/createNormalizer', ['require', 'exports', 'module'], function (require, exports, module, define) {module.exports = createNormalizer;
+
+function createNormalizer (idTransform, map, normalize) {
+	return function (name, refererName, refererUrl) {
+		var normalized = normalize(name, refererName, refererUrl);
+		return idTransform(map(normalized, refererName), refererName, refererUrl);
+	};
+}
+
+});
+
+
+;define('rave@0.4.3/lib/amd/captureDefines', ['require', 'exports', 'module'], function (require, exports, module, define) {module.exports = captureDefines;
+
+function captureDefines (amdEval) {
+	var result;
+
+	define.amd = { jQuery: {} };
+
+	return function (load) {
+		result = { named: [], isAnon: false, anon: void 0, called: false };
+		return capture(amdEval, define, load, result);
+	};
+
+	function define () {
+		return _define(result, arguments);
+	}
+}
+
+function capture (amdEval, define, load, result) {
+	try {
+		amdEval(global, define, load.source);
+	}
+	catch (ex) {
+		ex.message += ' in ' + load.name;
+		throw ex;
+	}
+	if (!result.called) {
+		throw new Error('AMD define not called in ' + load.name);
+	}
+	return result;
+}
+
+function _define (result, args) {
+	var len, def, arg, undef;
+
+	len = args.length;
+
+	result.called = true;
+
+	// last arg is always the factory (or a plain value)
+	def = {
+		factory: ensureFactory(args[--len]),
+		depsList: undef,
+		name: undef
+	};
+
+	// if there are more args
+	if (len) {
+		// get second-to-last arg
+		arg = args[--len];
+		if (typeof arg === 'string') {
+			def.name = arg;
+		}
+		else {
+			def.depsList = arg;
+		}
+	}
+
+	// if there are at least one more args and it's a string
+	if (len && typeof args[--len] === 'string') {
+		def.name = args[len];
+	}
+
+	// if we didn't consume exactly the right number of args
+	if (len !== 0) {
+		throw new Error('Unparsable AMD define arguments ['
+			+ Array.prototype.slice.call(args) +
+			']'
+		);
+	}
+
+	if (!def.name) {
+		if (result.isAnon) {
+			throw new Error('Multiple anon defines');
+		}
+		result.isAnon = true;
+		result.anon = def;
+	}
+	else {
+		result.named.push(def);
+	}
+}
+
+function ensureFactory (thing) {
+	return typeof thing === 'function'
+		? thing
+		: function () { return thing; }
+}
+
+});
+
+
+;define('rave@0.4.3/lib/script/factory', ['require', 'exports', 'module'], function (require, exports, module, define) {module.exports = scriptFactory;
+
+function scriptFactory (scriptEval) {
+	return function (loader, load) {
+		return create(scriptEval, load.source);
+	};
+}
+
+function create (scriptEval, source) {
+	return function () { scriptEval(source); };
+}
+
+});
+
+
+;define('rave@0.4.3/lib/metadata', ['require', 'exports', 'module', 'rave@0.4.3/lib/uid', 'rave@0.4.3/lib/path', 'rave@0.4.3/lib/beget'], function (require, exports, module, $cram_r0, $cram_r1, $cram_r2, define) {var parseUid = $cram_r0.parse;
+var path = $cram_r1;
+var beget = $cram_r2;
+
+module.exports = {
+	findPackage: findPackageDescriptor,
+	findDepPackage: findDependentPackage,
+	moduleType: moduleType
+};
+
+function findPackageDescriptor (descriptors, fromModule) {
+	var parts, pkgName;
+	parts = parseUid(fromModule);
+	pkgName = parts.pkgUid || parts.pkgName;
+	return descriptors[pkgName];
+}
+
+function findDependentPackage (descriptors, fromPkg, depName) {
+	var parts, pkgName, depPkgUid;
+
+	// ensure we have a package descriptor, not a uid
+	if (typeof fromPkg === 'string') fromPkg = descriptors[fromPkg];
+
+	parts = parseUid(depName);
+	pkgName = parts.pkgUid || parts.pkgName;
+
+	if (fromPkg && (pkgName === fromPkg.name || pkgName === fromPkg.uid)) {
+		// this is the same the package
+		return fromPkg;
+	}
+	else {
+		// get dep pkg uid
+		depPkgUid = fromPkg ? fromPkg.deps[pkgName] : pkgName;
+		return depPkgUid && descriptors[depPkgUid];
+	}
+}
+
+function moduleType (descriptor) {
+	var moduleTypes;
+
+	moduleTypes = descriptor.moduleType;
+
+	if (hasModuleType(moduleTypes, 'amd')) {
+		return 'amd';
+	}
+	else if (hasModuleType(moduleTypes, 'node')) {
+		return 'node';
+	}
+	else if (hasModuleType(moduleTypes, 'globals')) {
+		return 'globals';
+	}
+
+}
+
+function hasModuleType (moduleTypes, type) {
+	return moduleTypes && moduleTypes.indexOf(type) >= 0;
+}
+
+});
+
+
+;define('rave@0.4.3/lib/crawl/common', ['require', 'exports', 'module'], function (require, exports, module, define) {// TODO: don't load metadata for packages that have already been crawled
+
+// main exports
+
+exports.crawl = crawl;
+exports.load = typeof require.async !== 'undefined'
+	? load
+	: nativeLoad;
+
+// exports for testing
+
+exports.childIterator = childIterator;
+exports.store = store;
+exports.collectMetadata = collectMetadata;
+exports.collectOverrides = collectOverrides;
+exports.applyOverrides = applyOverrides;
+exports.start = start;
+exports.proceed = proceed;
+exports.end = end;
+
+function crawl (context) {
+	var load = start(context.load);
+	return load(context, context.fileUrl)
+		.then(proceed(applyOverrides))
+		.then(proceed(collectOverrides))
+		.then(proceed(store('metadata')))
+		.then(proceed(context.getChildrenNames))
+		.then(proceed(childIterator))
+		.then(proceed(store('children')))
+		.then(proceed(context.convert))
+		// TODO: start collecting in the context, context.collect?
+		.then(proceed(collectMetadata))
+		.then(end);
+}
+
+function load (context, fileUrl) {
+	return require.async(fileUrl);
+}
+
+function nativeLoad (context, fileUrl) {
+	return Promise.resolve(require(fileUrl));
+}
+
+function childIterator (context, names) {
+	var childCrawlers = names.map(function (name) {
+		return context.childCrawler(context, name);
+	});
+	return Promise.all(childCrawlers);
+}
+
+function store (key) {
+	return function (context, value) {
+		context[key] = value;
+		return context;
+	};
+}
+
+function collectMetadata (context, data) {
+	context.all.push(data);
+	return data;
+}
+
+function collectOverrides (context, data) {
+	var key, overrides, missing;
+	if (data && data.rave) {
+		overrides = data.rave.overrides;
+		for (key in overrides) {
+			context.overrides[key] = overrides[key];
+		}
+		missing = data.rave.missing;
+		for (key in missing) {
+			context.missing[key] = missing[key];
+		}
+	}
+	return data;
+}
+
+function applyOverrides (context, data) {
+	if (data) {
+		_applyOverrides(false, context.overrides, data);
+		_applyOverrides(true, context.missing, data);
+	}
+	return data;
+}
+
+function _applyOverrides (ifMissing, source, data) {
+	var overrides, key;
+	if (data.name in source) {
+		overrides = source[data.name];
+		for (key in overrides) {
+			if (!ifMissing || !(key in data)) {
+				data[key] = overrides[key];
+			}
+		}
+	}
+}
+
+function start (func) {
+	return function (state, value) {
+		return resolveStateAndValue(func, state, value);
+	}
+}
+
+function proceed (func) {
+	return function (stateAndValue) {
+		var state = stateAndValue[0], value = stateAndValue[1];
+		return resolveStateAndValue(func, state, value);
+	};
+}
+
+function end (stateAndValue) {
+	return stateAndValue[1];
+}
+
+function resolveStateAndValue (func, state, value) {
+	return Promise.resolve(func.call(this, state, value))
+		.then(function (nextValue) {
+			return [state, nextValue];
+		});
+}
+
+});
+
+
+;define('rave@0.4.3/lib/auto/assembleAppContext', ['require', 'exports', 'module', 'rave@0.4.3/lib/path'], function (require, exports, module, $cram_r0, define) {var join = $cram_r0.joinPaths;
+
+module.exports = assembleAppContext;
+
+function assembleAppContext (context) {
+	// TODO: if no main modules found, look for one in a conventional place
+	// TODO: warn if multiple main modules were found, but only the first was run
+	var first;
+
+	first = context.metadata[0]; // precondition: must be at least one
+
+	context.app = {
+		name: first.name,
+		main: join(first.name, first.main),
+		metadata: first
+	};
+
+	return createEnv(context, first);
+}
+
+function createEnv (context, metadata) {
+	var metaEnv, key;
+
+	if (!context.ev) context.env = {};
+
+	metaEnv = metadata.getMetadata().rave;
+	metaEnv = metaEnv && metaEnv.env || {};
+
+	for (key in metaEnv) {
+		context.env[key] = metaEnv[key];
+	}
+
+	if (!('debug' in context.env)) context.env.debug = true;
+
+	return context;
+}
+
+});
+
+
+;define('rave@0.4.3/lib/package', ['require', 'exports', 'module', 'rave@0.4.3/lib/path'], function (require, exports, module, $cram_r0, define) {var path = $cram_r0;
+
+/**
+ * @module rave/lib/package
+ * Functions for CommonJS-style module packages
+ */
+module.exports = {
+
+	normalizeDescriptor: normalizeDescriptor,
+	normalizeCollection: normalizeCollection
+
+};
+
+function normalizeCollection (collection) {
+	var result = {}, i, descriptor;
+	if (collection && collection.length && collection[0]) {
+		// array
+		for (i = 0; i < collection.length; i++) {
+			descriptor = normalizeDescriptor(collection[i]);
+			result[descriptor.name] = descriptor;
+		}
+	}
+	else if (collection) {
+		// object hashmap
+		for (i in collection) {
+			descriptor = normalizeDescriptor(collection[i], i);
+			result[descriptor.name] = descriptor;
+		}
+	}
+	return result;
+}
+
+function normalizeDescriptor (thing, name) {
+	var descriptor;
+
+	descriptor = typeof thing === 'string'
+		? fromString(thing)
+		: fromObject(thing, name);
+
+	if (name) descriptor.name = name; // override with hashmap key
+	if (!descriptor.name) throw new Error('Package requires a name: ' + thing);
+	descriptor.main = path.removeExt(descriptor.main);
+	descriptor.location = path.ensureEndSlash(descriptor.location);
+	descriptor.deps = {};
+
+	return descriptor;
+}
+
+function fromString (str) {
+	var parts = str.split('/');
+	return {
+		main: parts.pop(),
+		location: parts.join('/'),
+		name: parts.pop()
+	};
+}
+
+function fromObject (obj, name) {
+	return {
+		main: obj.main || 'main', // or index?
+		location: obj.location || '',
+		name: obj.name || name
+	};
+}
+
+});
+
+
+;define('rave@0.4.3/lib/debug/amdEval', ['require', 'exports', 'module', 'rave@0.4.3/lib/debug/injectScript'], function (require, exports, module, $cram_r0, define) {var injectScript = $cram_r0;
+
+module.exports = amdEval;
+
+var noDefine = {};
+
+function amdEval (global, define, source) {
+	var prevDefine = 'define' in global ? global.define : noDefine;
+	global.define = define;
+	try {
+		injectScript(source);
+	}
+	finally {
+		if (global.define === noDefine) {
+			delete global.define;
+		}
+		else {
+			global.define = prevDefine;
+		}
+	}
+}
+
+});
+
+
+;define('rave@0.4.3/lib/debug/captureDefines', ['require', 'exports', 'module', 'rave@0.4.3/lib/addSourceUrl', 'rave@0.4.3/lib/amd/captureDefines'], function (require, exports, module, $cram_r0, $cram_r1, define) {var addSourceUrl = $cram_r0;
+var origCaptureDefines = $cram_r1;
+
+module.exports = captureDefines;
+
+function captureDefines (amdEval) {
+	return function (load) {
+		return origCaptureDefines(_eval)(load);
+		function _eval (global, define, source) {
+			return amdEval(global, define, addSourceUrl(load.address, source));
+		}
+	};
+}
+
+});
+
+
+;define('rave@0.4.3/lib/debug/scriptFactory', ['require', 'exports', 'module', 'rave@0.4.3/lib/script/factory', 'rave@0.4.3/lib/addSourceUrl'], function (require, exports, module, $cram_r0, $cram_r1, define) {var factory = $cram_r0;
+var addSourceUrl = $cram_r1;
+
+module.exports = scriptFactory;
+
+function scriptFactory (scriptEval) {
+	return function (loader, load) {
+		var address = load.address;
+		return factory(debugEval)(loader, load);
+		function debugEval (source) {
+			var debugSrc = addSourceUrl(address, source);
+			scriptEval(debugSrc);
+		}
+	};
+}
+
+});
+
+
+;define('rave@0.4.3/lib/debug/scriptEval', ['require', 'exports', 'module', 'rave@0.4.3/lib/debug/injectScript'], function (require, exports, module, $cram_r0, define) {var injectScript = $cram_r0;
+
+module.exports = scriptEval;
+
+function scriptEval (source) {
+	injectScript(source);
+}
+
+});
+
+
+;define('rave@0.4.3/lib/crawl/npm', ['require', 'exports', 'module', 'rave@0.4.3/lib/path', 'rave@0.4.3/lib/crawl/common'], function (require, exports, module, $cram_r0, $cram_r1, define) {var join = $cram_r0.joinPaths;
+var common = $cram_r1;
+
+// main exports
+
+exports.crawl = npmCrawl;
+
+// exports for testing
+
+exports.npmLoad = npmLoad;
+exports.npmContext = npmContext;
+exports.npmSetState = npmSetState;
+exports.npmChildCrawler = npmChildCrawler;
+exports.npmDependencies = npmDependencies;
+
+var crawl = common.crawl;
+var load = common.load;
+
+function npmCrawl (convert, rootUrl) {
+	var crawler = {
+		load: npmLoad,
+		getChildrenNames: npmDependencies,
+		convert: convert
+	};
+	var context = npmContext(crawler, rootUrl, '');
+
+	context.childCrawler = npmChildCrawler;
+	context.all = [];
+
+	return crawl(context)
+		.then(function (root) {
+			return {
+				root: root,
+				all: context.all
+			}
+		});
+}
+
+function npmContext (base, rootUrl, name) {
+	var ctx = Object.create(base);
+	ctx.parent = base;
+	ctx.overrides = Object.create(base.overrides || null);
+	ctx.missing = Object.create(base.missing || null);
+	return npmSetState(ctx, rootUrl, name);
+}
+
+function npmSetState (ctx, rootUrl, name) {
+	var fileType = 'package.json';
+	ctx.name = name;
+	ctx.pmType = 'npm';
+	ctx.fileType = fileType;
+	ctx.fileUrl = join(rootUrl, fileType);
+	ctx.depFolder = join(rootUrl, 'node_modules');
+	ctx.rootUrl = rootUrl;
+	return ctx;
+}
+
+function npmChildCrawler (context, name) {
+	var childRoot = join(context.depFolder, name);
+	var childCtx = npmContext(context, childRoot, name);
+	return crawl(childCtx);
+
+}
+
+function npmDependencies (context, data) {
+	return Object.keys(data.metadata.dependencies || {})
+		.concat(Object.keys(data.metadata.peerDependencies || {}));
+}
+
+function npmLoad (context, fileUrl) {
+	return load(context, fileUrl)
+		['catch'](function (ex) {
+			return npmTraverseUp(context, fileUrl);
+		});
+}
+
+function npmTraverseUp (context, fileUrl) {
+	var grandParent, grandRoot;
+	// /client/node_modules/foo/node_modules/bar/package.json
+	// /client/node_modules/bar/package.json
+
+	if (!context.origFileUrl) context.origFileUrl = fileUrl;
+
+	grandParent = context.parent && context.parent.parent;
+	if (!grandParent || !grandParent.depFolder) {
+		throw new Error('Did not find ' + context.origFileUrl);
+	}
+
+	grandRoot = join(grandParent.depFolder, context.name);
+	npmSetState(context, grandRoot, context.name);
+
+	return npmLoad(context, context.fileUrl);
+}
+
+});
+
+
+;define('rave@0.4.3/lib/crawl/bower', ['require', 'exports', 'module', 'rave@0.4.3/lib/path', 'rave@0.4.3/lib/crawl/common'], function (require, exports, module, $cram_r0, $cram_r1, define) {var join = $cram_r0.joinPaths;
+var common = $cram_r1;
+
+// main exports
+
+exports.crawl = bowerCrawl;
+
+// exports for testing
+
+exports.bowerLoad = bowerLoad;
+exports.bowerContext = bowerContext;
+exports.bowerSetState = bowerSetState;
+exports.bowerChildCrawler = bowerChildCrawler;
+exports.bowerDependencies = bowerDependencies;
+
+var crawl = common.crawl;
+var load = common.load;
+
+function bowerCrawl (convert, rootUrl) {
+	var crawler = {
+		globalDepFolder: join(rootUrl, 'bower_components'),
+		load: bowerLoad,
+		getChildrenNames: bowerDependencies,
+		convert: convert
+	};
+	var context = bowerContext(crawler, rootUrl, '');
+
+	context.childCrawler = bowerChildCrawler;
+	context.all = [];
+
+	return crawl(context)
+		.then(function (root) {
+			return {
+				root: root,
+				all: context.all
+			}
+		});
+}
+
+function bowerLoad (context, fileUrl) {
+	return load(context, fileUrl)
+		['catch'](switchToPackageJson)
+		['catch'](provideBlankData);
+
+	function switchToPackageJson () {
+		var fileType = context.fileType = 'package.json';
+		context.fileUrl = join(context.rootUrl, fileType);
+		return load(context, context.fileUrl);
+	}
+
+	function provideBlankData () {
+		context.fileType = '';
+		return null;
+	}
+}
+
+function bowerContext (base, rootUrl, name) {
+	var ctx = Object.create(base);
+	ctx.name = name;
+	ctx.overrides = Object.create(base.overrides || null);
+	ctx.missing = Object.create(base.missing || null);
+	return bowerSetState(ctx, rootUrl, name);
+}
+
+function bowerSetState (ctx, rootUrl, name) {
+	var fileType = 'bower.json';
+	ctx.name = name;
+	ctx.pmType = 'bower';
+	ctx.fileType = fileType;
+	ctx.fileUrl = join(rootUrl, fileType);
+	ctx.depFolder = join(rootUrl, 'bower_components');
+	ctx.rootUrl = rootUrl;
+	return ctx;
+}
+
+function bowerChildCrawler (context, name) {
+	var childRoot = join(context.globalDepFolder, name);
+	var childCtx = bowerContext(context, childRoot, name);
+	return crawl(childCtx);
+}
+
+function bowerDependencies (context, data) {
+	return context.fileType === 'bower.json'
+		? Object.keys(data.metadata.dependencies || {})
+		: [];
+}
+
+
+});
+
+
+;define('rave@0.4.3/lib/convert/common', ['require', 'exports', 'module', 'rave@0.4.3/lib/uid'], function (require, exports, module, $cram_r0, define) {var createUid = $cram_r0.create;
+
+// main exports
+
+exports.transform = transformData;
+
+// exports for testing
+
+exports.createDepHashMap = createDepHashMap;
+
+function transformData (orig) {
+	var metadata, clone;
+
+	// create overridable copy of metadata
+	metadata = orig.metadata;
+	clone = Object.create(metadata);
+
+	// copy some useful crawling data
+	clone.pmType = orig.pmType;
+	clone.fileType = orig.fileType;
+	clone.location = orig.rootUrl;
+	clone.depFolder = orig.depFolder;
+
+	// add uid
+	if (!clone.name) clone.name = orig.name;
+	if (!clone.version) clone.version = '0.0.0';
+	clone.uid = createUid(clone);
+
+	clone.getMetadata = function () { return metadata || {}; };
+
+	// convert children array to deps hashmap
+	clone.deps = createDepHashMap(orig);
+
+	return clone;
+}
+
+function createDepHashMap (data) {
+	return data.children.reduce(function (hashMap, child) {
+		hashMap[child.name] = child.uid;
+		return hashMap;
+	}, {});
+}
+
+});
+
+
+;define('rave@0.4.3/pipeline/instantiateScript', ['require', 'exports', 'module', 'rave@0.4.3/lib/metadata', 'rave@0.4.3/lib/path'], function (require, exports, module, $cram_r0, $cram_r1, define) {module.exports = instantiateScript;
+
+var metadata = $cram_r0;
+var path = $cram_r1;
+
+function instantiateScript (scriptFactory) {
+	return function (load) {
+		var packages, pkg, deps;
+
+		// find dependencies
+		packages = load.metadata.rave.packages;
+		pkg = metadata.findPackage(packages, load.name);
+		if (pkg && pkg.deps) {
+			deps = pkgMains(packages, pkg.deps)
+		}
+
+		var factory = scriptFactory(this, load);
+		return {
+			deps: deps,
+			execute: function () {
+				factory();
+				return new Module({});
+			}
+		};
+	}
+}
+
+
+function pkgMains (packages, depPkgs) {
+	var main, mains = [];
+	for (var name in depPkgs) {
+		// package-to-package dependency
+		main = packages[depPkgs[name]].name;
+		if (main) {
+			mains.push(main);
+		}
+	}
+	return mains;
+}
+
+});
+
+
+;define('rave@0.4.3/lib/find/cjsEvidence', ['require', 'exports', 'module', 'rave@0.4.3/lib/find/createCodeFinder'], function (require, exports, module, $cram_r0, define) {module.exports = findCjsEvidence;
+
+var createCodeFinder = $cram_r0;
+
+findCjsEvidence.rx = /(\btypeof\s+exports\b|\bmodule\.exports\b|\bexports\.\b|\brequire\s*\(\s*["'][^"']*["']\s*\))/g;
+
+var finder = createCodeFinder(findCjsEvidence.rx);
+
+function findCjsEvidence (source) {
+	var isCjs = false;
+
+	finder(source, function () {
+		isCjs = true;
+		return source.length; // stop searching
+	});
+
+	return { isCjs: isCjs };
+}
+
+});
+
+
+;define('rave@0.4.3/lib/find/amdEvidence', ['require', 'exports', 'module', 'rave@0.4.3/lib/find/createCodeFinder'], function (require, exports, module, $cram_r0, define) {module.exports = findAmdEvidence;
+
+var createCodeFinder = $cram_r0;
+
+findAmdEvidence.rx = /(\bdefine\s*\()|(\bdefine\.amd\b)/g;
+
+var finder = createCodeFinder(findAmdEvidence.rx);
+
+function findAmdEvidence (source) {
+	var isAmd = false;
+
+	finder(source, function () {
+		isAmd = true;
+		return source.length; // stop searching
+	});
+
+	return { isAmd: isAmd };
+}
+
+});
+
+
+;define('rave@0.4.3/lib/createVersionedIdTransform', ['require', 'exports', 'module', 'rave@0.4.3/lib/uid', 'rave@0.4.3/lib/metadata', 'rave@0.4.3/lib/path'], function (require, exports, module, $cram_r0, $cram_r1, $cram_r2, define) {var createUid = $cram_r0.create;
+var metadata = $cram_r1;
+var path = $cram_r2;
+
+module.exports = createVersionedIdTransform;
+
+function createVersionedIdTransform (context) {
+	var packages;
+
+	packages = context.packages;
+
+	return function (normalized, refUid, refUrl) {
+		var refPkg, depPkg;
+
+		refPkg = metadata.findPackage(packages, refUid);
+		depPkg = metadata.findDepPackage(packages, refPkg, normalized);
+
+		if (!depPkg) {
+			depPkg = metadata.findPackage(packages, normalized);
+		}
+
+		if (!depPkg) {
+			throw new Error('Package not found for ' + normalized);
+		}
+
+		// translate package main (e.g. "rest" --> "rest/rest")
+		if (normalized === depPkg.name && depPkg.main) {
+			normalized = depPkg.main.charAt(0) === '.'
+				? path.reduceLeadingDots(depPkg.main, path.ensureEndSlash(depPkg.name))
+				: path.joinPaths(depPkg.name, depPkg.main);
+		}
+
+		if (normalized.indexOf('#') < 0) {
+			// it's not already an uid
+			normalized = createUid(depPkg, normalized);
+		}
+
+		return normalized;
+	};
+}
+
+});
+
+
+;define('rave@0.4.3/pipeline/locatePackage', ['require', 'exports', 'module', 'rave@0.4.3/lib/path', 'rave@0.4.3/lib/uid', 'rave@0.4.3/lib/metadata'], function (require, exports, module, $cram_r0, $cram_r1, $cram_r2, define) {module.exports = locatePackage;
+
+var path = $cram_r0;
+var parseUid = $cram_r1.parse;
+var metadata = $cram_r2;
+
+function locatePackage (load) {
+	var options, parts, packageName, modulePath, moduleName, descriptor,
+		location;
+
+	options = load.metadata.rave;
+
+	if (!options.packages) throw new Error('Packages not provided: ' + load.name);
+
+	parts = parseUid(load.name);
+	packageName = parts.pkgUid || parts.pkgName;
+	modulePath = parts.modulePath;
+
+	descriptor = options.packages[packageName];
+	if (!descriptor) throw new Error('Package not found: ' + load.name);
+
+	moduleName = modulePath || descriptor.main;
+	if (!load.metadata.dontAddExt) {
+		moduleName = path.ensureExt(moduleName, '.js')
+	}
+
+	location = descriptor.location;
+	if (!path.isAbsUrl(location) && options.baseUrl) {
+		// prepend baseUrl
+		location = path.joinPaths(options.baseUrl, location);
+	}
+
+	return path.joinPaths(location, moduleName);
+}
+
+});
+
+
+;define('rave@0.4.3/lib/amd/factory', ['require', 'exports', 'module', 'rave@0.4.3/lib/es5Transform', 'rave@0.4.3/lib/createRequire'], function (require, exports, module, $cram_r0, $cram_r1, define) {module.exports = amdFactory;
+
+var es5Transform = $cram_r0;
+var createRequire = $cram_r1;
+
+function amdFactory (loader, defineArgs, load) {
+	var cjsRequire, require, exports, module, scopedVars;
+
+	cjsRequire = createRequire(loader, load.name);
+	require = amdRequire;
+	require.async = cjsRequire.async;
+	require.named = cjsRequire.named;
+
+	exports = {};
+	module = {
+		exports: exports,
+		id: load.name,
+		uri: load.address,
+		config: function () {
+			return load.metadata.rave;
+		}
+	};
+	scopedVars = {
+		require: require,
+		module: module,
+		exports: exports
+	};
+
+	return function () {
+		var args, len, result;
+
+		args = [];
+		len = defineArgs.depsList ? defineArgs.depsList.length : 0;
+		for (var i = 0; i < len; i++) {
+			args.push(requireSync(defineArgs.depsList[i]));
+		}
+
+		result = defineArgs.factory.apply(null, args);
+
+		// AMD factory result trumps all. if it's undefined, we
+		// may be using CommonJS syntax.
+		if (typeof result !== 'undefined' || !hasCjsExports(defineArgs)) {
+			return es5Transform.toLoader(result); // a single default export
+		}
+		else {
+			return exports === module.exports
+				? exports // a set of named exports
+				: es5Transform.toLoader(module.exports); // a single default export
+		}
+	};
+
+	function amdRequire (id, callback, errback) {
+		if (typeof id === 'string') {
+			return requireSync(id);
+		}
+		else {
+			return Promise.all(id.map(requireOne))
+				.then(applyFactory, errback);
+		}
+		function applyFactory (modules) {
+			return callback.apply(null, modules);
+		}
+	}
+
+	function requireSync (id) {
+		return id in scopedVars
+			? scopedVars[id]
+			: cjsRequire(id);
+	}
+
+	function requireOne (id) {
+		return id in scopedVars
+			? scopedVars[id]
+			: cjsRequire.async(id);
+	}
+}
+
+function hasCjsExports (def) {
+	return def.depsList
+		? hasCommonJSDep(def.depsList)
+		: def.factory.length > 1;
+}
+
+function hasCommonJSDep (deps) {
+	// check if module requires `module` or `exports`
+	for (var i = deps.length - 1; i >= 0; i--) {
+		if (deps[i] === 'exports' || deps[i] === 'module') return true;
+	}
+	return false;
+}
+
+});
+
+
+;define('rave@0.4.3/lib/convert/npm', ['require', 'exports', 'module', 'rave@0.4.3/lib/convert/common', 'rave@0.4.3/lib/path', 'rave@0.4.3/pipeline/normalizeCjs'], function (require, exports, module, $cram_r0, $cram_r1, $cram_r2, define) {var common = $cram_r0;
+var path = $cram_r1;
+var normalize = $cram_r2;
+
+var transform = common.transform;
+var createDeps = common.createDeps;
+
+// main exports
+
+exports.convert = npmConvert;
+
+// exports for testing
+
+exports.npmFixups = npmFixups;
+exports.npmBrowserMap = npmBrowserMap;
+
+function npmConvert (data) {
+	return npmFixups(transform(data));
+}
+
+function npmFixups (data) {
+	var main;
+	main = (typeof data.browser === "string" && data.browser)
+		|| data.main || 'index';
+	data.main = path.removeExt(main);
+	if (typeof data.browser === 'object') {
+		data.mapFunc = npmBrowserMap(normalizeMap(data.browser, path.joinPaths(data.name, data.main)));
+	}
+	if (data.directories && data.directories.lib) {
+		data.location = path.joinPaths(data.rootUrl, data.directories.lib);
+	}
+	return data;
+}
+
+function normalizeMap (map, refId) {
+	var normalized = {}, path;
+	for (path in map) {
+		normalized[normalize(path, refId)] = map[path]
+			? normalize(map[path], refId)
+			: false;
+	}
+	return normalized;
+}
+
+function npmBrowserMap (normalized) {
+	return function (name) {
+		if (name in normalized) {
+			return normalized[name] === false ? false : normalized[name];
+		}
+	};
+}
+
+});
+
+
+;define('rave@0.4.3/lib/convert/bower', ['require', 'exports', 'module', 'rave@0.4.3/lib/convert/common', 'rave@0.4.3/lib/path'], function (require, exports, module, $cram_r0, $cram_r1, define) {var common = $cram_r0;
+var path = $cram_r1;
+
+var transform = common.transform;
+var createDeps = common.createDeps;
+
+// main exports
+
+exports.convert = bowerConvert;
+
+// exports for testing
+
+exports.bowerFixups = bowerFixups;
+
+function bowerConvert (data) {
+	return bowerFixups(transform(data));
+}
+
+function bowerFixups (data) {
+	var metadata = data.getMetadata();
+	if (metadata.moduleType) {
+		data.moduleType = metadata.moduleType;
+	}
+	data.main = path.removeExt(bowerFindJsMain(data));
+	return bowerAdjustLocation(data);
+}
+
+function bowerFindJsMain (data) {
+	var mains, i;
+	mains = data.main;
+	if (mains && typeof mains === 'object') {
+		for (i = 0; i < mains.length; i++) {
+			if (mains[i].slice(-3) === '.js') return mains[i];
+		}
+	}
+	return mains || data.name;
+}
+
+function bowerAdjustLocation (data) {
+	var metadata, mainPath;
+	metadata = data.getMetadata();
+	if (metadata.directories && metadata.directories.lib) {
+		data.location = metadata.directories.lib;
+	}
+	else {
+		mainPath = path.splitDirAndFile(data.main);
+		if (mainPath[0]) {
+			data.location = path.joinPaths(data.location, mainPath[0]);
+			data.main = mainPath[1];
+		}
+	}
+	return data;
+}
+
+});
+
+
+;define('rave@0.4.3/lib/createMapper', ['require', 'exports', 'module', 'rave@0.4.3/lib/metadata', 'rave@0.4.3/lib/path'], function (require, exports, module, $cram_r0, $cram_r1, define) {var metadata = $cram_r0;
+var path = $cram_r1;
+
+module.exports = createMapper;
+
+function createMapper (context) {
+	var packages;
+
+	packages = context.packages;
+
+	return function (normalizedName, refUid) {
+		var refPkg, mappedId;
+
+		refPkg = metadata.findPackage(packages, refUid);
+
+		if (refPkg.mapFunc) {
+			mappedId = refPkg.mapFunc(normalizedName);
+		}
+		else if (refPkg.map) {
+			if (normalizedName in refPkg.map) {
+				mappedId = refPkg.map[normalizedName];
+			}
+		}
+
+		// mappedId can be undefined, false, or a string
+		// undefined === no mapping, return original id
+		// false === do not load a module by this id, use blank module
+		// string === module id was mapped, return mapped id
+		return typeof mappedId === 'undefined'
+			? normalizedName
+			: mappedId === false
+				? 'rave/lib/blank'
+				: mappedId;
+	};
+}
+
+});
+
+
+;define('rave@0.4.3/lib/find/es5ModuleTypes', ['require', 'exports', 'module', 'rave@0.4.3/lib/find/createCodeFinder', 'rave@0.4.3/lib/find/amdEvidence', 'rave@0.4.3/lib/find/cjsEvidence'], function (require, exports, module, $cram_r0, $cram_r1, $cram_r2, define) {module.exports = findEs5ModuleTypes;
+
+var createCodeFinder = $cram_r0;
+var findAmdEvidence = $cram_r1;
+var findCjsEvidence = $cram_r2;
+
+findEs5ModuleTypes.rx = createCodeFinder.composeRx(
+	findAmdEvidence.rx, findCjsEvidence.rx, 'g'
+);
+
+var finder = createCodeFinder(findEs5ModuleTypes.rx);
+
+function findEs5ModuleTypes (source, preferAmd) {
+	var results, foundDefine;
+
+	results = { isCjs: false, isAmd: false };
+
+	finder(source, function (matches) {
+		var amdDefine = matches[1], amdDetect = matches[2], cjs = matches[3];
+		if (cjs) {
+			// only flag as CommonJS if we haven't hit a define
+			// this prevents CommonJS-wrapped AMD from being flagged as cjs
+			if (!foundDefine) results.isCjs = true;
+		}
+		else if (amdDefine || amdDetect) {
+			results.isAmd = true;
+			foundDefine = amdDefine;
+			// optimization: stop searching if we found AMD evidence
+			if (preferAmd) return source.length;
+		}
+	});
+
+	return results;
+}
+
+
+});
+
+
+;define('rave@0.4.3/lib/crawl', ['require', 'exports', 'module', 'rave@0.4.3/lib/crawl/npm', 'rave@0.4.3/lib/convert/npm', 'rave@0.4.3/lib/crawl/bower', 'rave@0.4.3/lib/convert/bower', 'rave@0.4.3/lib/path'], function (require, exports, module, $cram_r0, $cram_r1, $cram_r2, $cram_r3, $cram_r4, define) {var npmCrawl = $cram_r0.crawl;
+var npmConvert = $cram_r1.convert;
+var bowerCrawl = $cram_r2.crawl;
+var bowerConvert = $cram_r3.convert;
+var path = $cram_r4;
+
+module.exports = crawl;
+
+var fileTypeInfo = {
+	'bower.json': {
+		crawl: bowerCrawl,
+		convert: bowerConvert
+	},
+	'package.json': {
+		crawl: npmCrawl,
+		convert: npmConvert
+	}
+};
+
+function crawl (rootUrls) {
+	if (typeof rootUrls === 'string') {
+		rootUrls = rootUrls.split(/\s*,\s*/);
+	}
+	return Promise.all(rootUrls.map(crawlOne))
+		.then(collapseMetadata);
+}
+
+function crawlOne (rootUrl) {
+	var fileParts, info;
+
+	fileParts = path.splitDirAndFile(rootUrl);
+	info = fileTypeInfo[fileParts[1]];
+
+	return info
+		? info.crawl(info.convert, fileParts[0])['catch'](logError)
+		: Promise.reject(new Error('Unknown metadata file: ' + rootUrl));
+}
+
+function collapseMetadata (tuples) {
+	return tuples.reduce(function (result, tuple) {
+		if (!tuple || !tuple.root) return result;
+		result.roots.push(tuple.root);
+		tuple.all.reduce(function (packages, data) {
+			packages[data.name] = packages[data.uid] = data;
+			return packages;
+		}, result.packages);
+		return result;
+	}, { roots: [], packages: {} });
+}
+
+function logError (ex) {
+	console.error(ex);
+}
+
+});
+
+
+;define('rave@0.4.3/lib/createPackageMapper', ['require', 'exports', 'module', 'rave@0.4.3/lib/createMapper', 'rave@0.4.3/lib/uid'], function (require, exports, module, $cram_r0, $cram_r1, define) {var createMapper = $cram_r0;
+var uid = $cram_r1;
+
+module.exports = createPackageMapper;
+
+function createPackageMapper (context) {
+	var mapper = createMapper(context);
+	return function (normalizedName, refUid, refUrl) {
+		return mapper(uid.getName(normalizedName), refUid, refUrl);
+	};
+}
+
+});
+
+
+;define('rave@0.4.3/lib/amd/bundle', ['require', 'exports', 'module', 'rave@0.4.3/lib/metadata', 'rave@0.4.3/lib/uid', 'rave@0.4.3/lib/amd/factory'], function (require, exports, module, $cram_r0, $cram_r1, $cram_r2, define) {var metadata = $cram_r0;
+var createUid = $cram_r1.create;
+var amdFactory = $cram_r2;
+
+exports.process = process;
+
+// TODO: replace this sync algorithm with one that is based on register()
+// if (defines.named.length <= 1) process as before
+// else loop through defines and eval all modules sync,
+//   returning the one whose name matches load.name
+
+// TODO: register-based algorithm
+//if (defines.anon) register(defines.anon, load.name);
+//defines.named.forEach(function (def) {
+// register(def);
+//});
+
+function process (load, defines) {
+	var mainDefine, i;
+
+	for (i = 0; i < defines.length; i++) {
+		mainDefine = processOne(load, defines[i]) || mainDefine;
+	}
+
+	return mainDefine;
+
+}
+
+function processOne (load, define) {
+	var loader, packages, name, uid, defLoad, value;
+
+	loader = load.metadata.rave.loader;
+	packages = load.metadata.rave.packages;
+	name = define.name;
+	uid = getUid(packages, name);
+
+	if (uid === load.name) {
+		return define;
+	}
+	else {
+		defLoad = Object.create(load);
+		defLoad.name = uid;
+		defLoad.address = load.address + '#' + encodeURIComponent(name);
+		value = amdFactory(loader, define, defLoad)();
+		loader.set(uid, new Module(value));
+	}
+}
+
+function getUid (packages, name) {
+	var pkg = metadata.findPackage(packages, name);
+	return createUid(pkg, name);
+}
+
+});
+
+
+;define('rave@0.4.3/lib/debug/moduleType', ['require', 'exports', 'module', 'rave@0.4.3/lib/metadata', 'rave@0.4.3/lib/find/es5ModuleTypes'], function (require, exports, module, $cram_r0, $cram_r1, define) {var metadata = $cram_r0;
+var findEs5ModuleTypes = $cram_r1;
+
+module.exports = moduleType;
+
+function moduleType (load) {
+	var pkg, type;
+
+	pkg = metadata.findPackage(load.metadata.rave.packages, load.name);
+	type = metadata.moduleType(pkg);
+
+	if (type) {
+		return type;
+	}
+	else {
+		pkg.moduleType = guessModuleType(load) || ['globals']; // fix package
+		return metadata.moduleType(pkg); // try again :)
+	}
+}
+
+function guessModuleType (load) {
+	try {
+		var evidence = findEs5ModuleTypes(load.source, true);
+		return evidence.isAmd && ['amd']
+			|| evidence.isCjs && ['node'];
+	}
+	catch (ex) {
+		ex.message += ' ' + load.name + ' ' + load.address;
+		throw ex;
+	}
+}
+
+});
+
+
+;define('rave@0.4.3/lib/hooksFromMetadata', ['require', 'exports', 'module', 'rave@0.4.3/lib/uid', 'rave@0.4.3/lib/createNormalizer', 'rave@0.4.3/lib/createVersionedIdTransform', 'rave@0.4.3/lib/createPackageMapper', 'rave@0.4.3/pipeline/locatePackage'], function (require, exports, module, $cram_r0, $cram_r1, $cram_r2, $cram_r3, $cram_r4, define) {var parseUid = $cram_r0.parse;
+var createNormalizer = $cram_r1;
+var createVersionedIdTransform = $cram_r2;
+var createPackageMapper = $cram_r3;
+var locatePackage = $cram_r4;
+
+module.exports = hooksFromMetadata;
+
+function hooksFromMetadata (hooks, context) {
+	var metadataOverride;
+
+	metadataOverride = {
+		predicate: createIsConfigured(context),
+		hooks: {
+			normalize: createNormalizer(
+				createVersionedIdTransform(context),
+				createPackageMapper(context),
+				hooks.normalize
+			),
+			locate: withContext(context, locatePackage), // hooks.locate not used
+			fetch: hooks.fetch,
+			translate: hooks.translate,
+			instantiate: hooks.instantiate
+		}
+	};
+
+	return [metadataOverride];
+}
+
+function createIsConfigured (context) {
+	var packages = context.packages;
+	return function isConfigured (arg) {
+		return parseUid(arg.name).pkgUid in packages;
+	};
+}
+
+function withContext (context, func) {
+	return function (load) {
+		load.metadata.rave = context;
+		return func.call(this, load);
+	};
+}
+
+});
+
+
+;define('rave@0.4.3/pipeline/instantiateAmd', ['require', 'exports', 'module', 'rave@0.4.3/lib/find/requires', 'rave@0.4.3/lib/amd/captureDefines', 'rave@0.4.3/lib/amd/factory', 'rave@0.4.3/lib/amd/bundle'], function (require, exports, module, $cram_r0, $cram_r1, $cram_r2, $cram_r3, define) {var findRequires = $cram_r0;
+var captureDefines = $cram_r1;
+var amdFactory = $cram_r2;
+var processBundle = $cram_r3.process;
+
+module.exports = instantiateAmd;
+
+var scopedVars = ['require', 'exports', 'module'];
+
+function instantiateAmd (captureDefines) {
+	return function (load) {
+		var loader, defines, mainDefine, arity, factory, deps, i;
+
+		loader = load.metadata.rave.loader;
+
+		// the surest way to capture the many define() variations is to run it
+		defines = captureDefines(load);
+
+		if (defines.named.length <= 1) {
+			mainDefine = defines.anon || defines.named.pop()
+		}
+		else {
+			mainDefine = processBundle(load, defines.named);
+		}
+
+		arity = mainDefine.factory.length;
+
+		// copy deps so we can remove items below!
+		deps = mainDefine.depsList ? mainDefine.depsList.slice() : [];
+
+		if (mainDefine.depsList == null && arity > 0) {
+			mainDefine.requires = findOrThrow(load, mainDefine.factory.toString());
+			mainDefine.depsList = scopedVars.slice(0, arity);
+			deps = deps.concat(mainDefine.requires);
+		}
+
+		factory = amdFactory(loader, mainDefine, load);
+
+		// remove "require", "exports", "module" from loader deps
+		for (i = deps.length - 1; i >= 0; i--) {
+			if (scopedVars.indexOf(deps[i]) >= 0) {
+				deps.splice(i, 1);
+			}
+		}
+
+		return {
+			deps: deps,
+			execute: function () {
+				return new Module(factory.apply(loader, arguments));
+			}
+		};
+	}
+}
+
+function findOrThrow (load, source) {
+	try {
+		return findRequires(source);
+	}
+	catch (ex) {
+		ex.message += ' ' + load.name + ' ' + load.address;
+		throw ex;
+	}
+}
+
+});
+
+
+;define('rave@0.4.3/lib/debug/instantiateJs', ['require', 'exports', 'module', 'rave@0.4.3/lib/debug/moduleType'], function (require, exports, module, $cram_r0, define) {var moduleType = $cram_r0;
+
+module.exports = instantiateJs;
+
+function instantiateJs (instantiator) {
+	return function (load) {
+		var instantiate = instantiator(moduleType(load));
+		if (!instantiate) {
+			throw new Error('No instantiator found for ' + load.name);
+		}
+		return instantiate(load);
+	};
+}
+
+});
+
+
+;define('rave@0.4.3/auto', ['require', 'exports', 'module', 'rave@0.4.3/lib/auto/assembleAppContext', 'rave@0.4.3/lib/metadata', 'rave@0.4.3/lib/hooksFromMetadata', 'rave@0.4.3/pipeline/normalizeCjs', 'rave@0.4.3/pipeline/locateAsIs', 'rave@0.4.3/pipeline/fetchAsText', 'rave@0.4.3/pipeline/translateAsIs', 'rave@0.4.3/pipeline/instantiateNode', 'rave@0.4.3/lib/debug/nodeFactory', 'rave@0.4.3/lib/debug/nodeEval', 'rave@0.4.3/pipeline/instantiateAmd', 'rave@0.4.3/lib/debug/captureDefines', 'rave@0.4.3/lib/debug/amdEval', 'rave@0.4.3/pipeline/instantiateScript', 'rave@0.4.3/lib/debug/scriptFactory', 'rave@0.4.3/lib/debug/scriptEval', 'rave@0.4.3/lib/debug/instantiateJs', 'rave@0.4.3/lib/beget', 'rave@0.4.3/lib/path', 'rave@0.4.3/lib/package', 'rave@0.4.3/load/override', 'rave@0.4.3/lib/crawl'], function (require, exports, module, $cram_r0, $cram_r1, $cram_r2, $cram_r3, $cram_r4, $cram_r5, $cram_r6, $cram_r7, $cram_r8, $cram_r9, $cram_r10, $cram_r11, $cram_r12, $cram_r13, $cram_r14, $cram_r15, $cram_r16, $cram_r17, $cram_r18, $cram_r19, $cram_r20, $cram_r21, define) {var assembleAppContext = $cram_r0;
+var metadata = $cram_r1;
+var fromMetadata = $cram_r2;
+var normalizeCjs = $cram_r3;
+var locateAsIs = $cram_r4;
+var fetchAsText = $cram_r5;
+var translateAsIs = $cram_r6;
+var instantiateNode = $cram_r7;
+var nodeFactory = $cram_r8;
+var nodeEval = $cram_r9;
+var instantiateAmd = $cram_r10;
+var captureDefines = $cram_r11;
+var amdEval = $cram_r12;
+var instantiateScript = $cram_r13;
+var scriptFactory = $cram_r14;
+var scriptEval = $cram_r15;
+var instantiateJs = $cram_r16;
+var beget = $cram_r17;
+var path = $cram_r18;
+var pkg = $cram_r19;
+var override = $cram_r20;
+var crawl = $cram_r21;
+
+module.exports = {
+	main: autoConfigure,
+	applyLoaderHooks: applyLoaderHooks
+};
+
+var defaultMeta = 'bower.json,package.json';
+
+var instantiators = {
+	amd: instantiateAmd(captureDefines(amdEval)),
+	node: instantiateNode(nodeFactory(nodeEval)),
+	globals: instantiateScript(scriptFactory(scriptEval))
+};
+
+function autoConfigure (context) {
+	var urls, applyLoaderHooks;
+
+	if (!context.raveMeta) context.raveMeta = defaultMeta;
+
+//	urls = context.raveMeta.split(/\s*,\s*/);
+
+	context.packages = {};
+
+	applyLoaderHooks = this.applyLoaderHooks;
+
+	return crawl(context.raveMeta)
+		.then(failIfNone)
+		.then(done)
+		['catch'](failHard);
+
+	function done (allMetadata) {
+
+		context.packages = allMetadata.packages;
+		context.metadata = allMetadata.roots;
+		context = assembleAppContext(context, allMetadata);
+		return configureLoader(context)
+			.then(gatherExtensions)
+			.then(function (extensions) {
+				// TODO: remove || [] when Promise shim is fixed
+				return applyLoaderHooks(context, extensions || []);
+			})
+			.then(function (extensions) {
+				// TODO: remove || [] when Promise shim is fixed
+				return applyFirstMain(context, extensions || []);
+			})
+			.then(function (alreadyRanMain) {
+				return !alreadyRanMain && initApplication(context);
+			});
+	}
+}
+
+function failIfNone (allMetadata) {
+	if (allMetadata.roots.length === 0) {
+		throw new Error('No metadata files found: ' + context.raveMeta);
+	}
+	return allMetadata;
+}
+
+function configureLoader (context) {
+	var baseHooks = {
+		normalize: normalizeCjs,
+		locate: locateAsIs,
+		fetch: fetchAsText,
+		translate: translateAsIs,
+		instantiate: instantiateJs(getInstantiator)
+	};
+	var overrides = fromMetadata(baseHooks, context);
+	context.load.overrides = overrides;
+	var hooks = override.hooks(context.load.nativeHooks, overrides);
+	for (var name in hooks) {
+		context.loader[name] = hooks[name];
+	}
+	return Promise.resolve(context);
+}
+
+function getInstantiator (moduleType) {
+	return instantiators[moduleType];
+}
+
+function gatherExtensions (context) {
+	var seen, name, pkg, promises, extensionMeta;
+	seen = {};
+	promises = [];
+	for (name in context.packages) {
+		pkg = context.packages[name];
+		// packages are keyed by versioned and unversioned names
+		if (!(pkg.name in seen)) {
+			seen[pkg.name] = true;
+			if (pkg.rave) {
+				extensionMeta = pkg.rave;
+				if (typeof extensionMeta === 'string') {
+					extensionMeta = { extension: extensionMeta };
+				}
+				if (extensionMeta.extension) {
+					promises.push(initExtension(context, pkg.name, extensionMeta.extension));
+				}
+
+			}
+		}
+	}
+	return Promise.all(promises);
+}
+
+function initExtension (context, packageName, moduleName) {
+	return fetchExtension(path.joinPaths(packageName, moduleName))
+		.then(extractExtensionCtor)
+		.then(function (api) {
+			return createExtensionApi(context, api);
+		})
+		['catch'](function (ex) {
+			ex.message = 'Failed to initialize rave extension, "'
+				+ packageName + '": ' + ex.message;
+			throw ex;
+		})
+		.then(function (api) {
+			return { name: packageName, api: api };
+		});
+}
+
+function fetchExtension (extModuleName) {
+	return require.async(extModuleName);
+}
+
+function extractExtensionCtor (extModule) {
+	var create;
+	if (extModule) {
+		create = typeof extModule === 'function'
+			? extModule
+			: extModule.create;
+	}
+	if (!create) {
+		throw new Error('API not found.');
+	}
+	return create;
+}
+
+function createExtensionApi (context, extension) {
+	return extension(context);
+}
+
+function applyLoaderHooks (context, extensions) {
+	return Promise.all(extensions).then(function (extensions) {
+		return extensions.map(function (extension) {
+			var api = extension.api;
+			if (!api) return;
+			if (api.load) {
+				context.load.overrides = context.load.overrides.concat(api.load);
+			}
+		});
+	}).then(function () {
+		var hooks = override.hooks(context.load.nativeHooks, context.load.overrides);
+		for (var name in hooks) {
+			context.loader[name] = hooks[name];
+		}
+	}).then(function () {
+		return extensions;
+	});
+}
+
+function applyFirstMain (context, extensions) {
+	var appliedMain;
+	extensions.map(function (extension) {
+		var api = extension.api;
+		if (api && api.main) {
+			if (appliedMain) {
+				throw new Error('Found multiple extensions with main().');
+			}
+			appliedMain = Promise.resolve(api.main(beget(context))).then(function () {
+				return true;
+			});
+		}
+	});
+	return Promise.resolve(appliedMain);
+}
+
+function initApplication (context) {
+	var mainModule;
+	mainModule = context.app && context.app.main;
+	if (mainModule) {
+		return runMain(context, mainModule)
+			.then(function () { return context; });
+	}
+	else {
+		return context;
+	}
+}
+
+function runMain (context, mainModule) {
+	return require.async(mainModule)
+		.then(function (main) {
+			if (typeof main === 'function') {
+				main(beget(context));
+			}
+			else if (typeof main.main === 'function') {
+				main.main(beget(context));
+			}
+		});
+}
+
+function failHard (ex) {
+	setTimeout(function () { throw ex; }, 0);
+}
+
+});
+
+
+;define('rave@0.4.3/start', ['require', 'exports', 'module', 'rave@0.4.3/auto', 'rave@0.4.3/lib/uid', 'rave@0.4.3/lib/es5Transform', 'rave@0.4.3/lib/metadata'], function (require, exports, module, $cram_r0, $cram_r1, $cram_r2, $cram_r3, define) {var auto = $cram_r0;
+var uid = $cram_r1;
+var es5Transform = $cram_r2;
+var metadata = $cram_r3;
+
+module.exports = {
+	main: startDebug
+};
+
+var debugging = "\
+┏( ˆ◡ˆ)┛ ┗(ˆ◡ˆ )┓ Welcome to the RaveJS debug party! ┏( ˆ◡ˆ)┛ ┗(ˆ◡ˆ )┓\n\
+\n\
+If you see some 404s for JSON files, that's ok! \
+They'll go away when you build your app.\n\
+If the 404s are spoiling your debug party, the README.md shows how to \
+evict them.\n";
+
+var replCommands = "Available commands:\n\
+-> rave.dump() - returns rave's context to be viewed or manipulated.\n\
+-> rave.version() - shows rave's version.\n\
+-> rave.checkVersions() - checks if extensions are compatible.\n\
+-> rave.restore() - restores any previous global rave variable and returns rave\
+-> rave.help() - shows these commands.\n\
+-> what else should we provide? File a github issue!";
+
+var replEnabled = "Rave REPL enabled! (experimental)\n"
+	+ replCommands;
+
+var multipleRaves = "Warning: multiple versions of rave are installed. \
+Update the app's dependencies or try the rave.checkVersions() REPL function.";
+
+var raveResolution = "Warning: rave conflict indicated in bower.json. \
+Update the app's dependencies or try the rave.checkVersions() REPL function.";
+
+var semverNotInstalled = "Note: rave.checkVersions() requires the npm semver \
+package to verify rave extension semver conflicts. However, the semver \n\
+package isn't needed if you understand semver.\nTry updating your npm or \
+bower dependencies.  If updating doesn't resolve the problem, reload \
+and try rave.checkVersions() again after installing the npm semver package:\n\
+$ npm install --save semver\n";
+
+var updateDepsInstructions = "To update npm dependencies:\n\
+$ npm cache clean && npm update && npm dedupe\n\
+To update bower dependencies:\n\
+$ bower cache clean && bower update";
+
+var semverMissing = "  ?  {extName} does not specify a rave version. \
+Please ask the author to add rave to peerDependencies (npm) or \
+dependencies (bower). {bugsLink}";
+
+var semverValid = "  ✓  {extName} depends on rave {raveSemver}.";
+
+var semverInfo = "  -  {extName} depends on rave {raveSemver}.";
+
+var semverInvalid = " !!! {extName} depends on rave {raveSemver}. \
+If this extension is old, please ask the author to update it. {bugsLink}";
+
+var currRaveVersion = "Rave version is {raveVersion}.";
+
+var unknownPackage = "Unknown package when importing {0} from {1}\n\
+Did you forget to specify `--save` when installing?";
+
+var wrongModuleType = "Possible moduleType mismatch? Module {name} appears \
+to be of type {sourceType}? \nPlease ask the package author to add or update \
+moduleType.";
+
+var overriddenPackage = "Package `{overrider}` overrode metadata properties \
+of package `{overridee}`.";
+
+var defaultedPackage = "Package `{overrider}` provided default metadata for \
+missing properties of package `{overridee}`.";
+
+var uniqueThing = {};
+
+function startDebug (context) {
+	var prev, rave, message;
+
+	console.log(debugging);
+
+	prev = 'rave' in global ? global.rave : uniqueThing;
+	rave = global.rave = {}
+
+	message = render({}, replEnabled);
+
+	// TODO: load a debug REPL module?
+	rave.dump = function () {
+		return context;
+	};
+	rave.version = function () { return findVersion(context); };
+	rave.checkVersions = function () {
+		runSemverOnExtensions(context);
+	};
+	rave.help = function () {
+		console.log(replCommands);
+	};
+	rave.restore = function () {
+		if (prev === uniqueThing) {
+			delete global.rave;
+		}
+		else {
+			global.rave = prev;
+		}
+		return rave;
+	};
+
+	console.log(message);
+
+	var applyHooks = auto.applyLoaderHooks;
+	auto.applyLoaderHooks = function (context, extensions) {
+
+		if (!('rave' in context.packages)) {
+			throw new Error('rave package not found.  Did you forget to use --save when installing?');
+		}
+
+		return applyHooks.call(this, context, extensions).then(function (result) {
+			var normalize = context.loader.normalize;
+			// log an error if rave encounters an unknown package
+			context.loader.normalize = function (name, refName, refUrl) {
+				try {
+					var normalized = normalize(name, refName, refUrl);
+				}
+				catch (ex) {
+					console.error(render(arguments, unknownPackage));
+					throw ex;
+				}
+				return normalized;
+			};
+			// log an error if it looks like an incorrect module type was applied
+			// override instantiate to catch throws of ReferenceError
+			// errors can happen when instantiate hook runs (AMD) or when returned factory runs (node)
+			// if /\bdefine\b/ in message, module is AMD, but was not declared as AMD
+			// if /\brequire\b|\exports\b|\bmodule\b/ in message, module is node, but was not declared as node
+			var instantiate = context.loader.instantiate;
+			context.loader.instantiate = function (load) {
+				try {
+					return Promise.resolve(instantiate(load)).then(createCheckedFactory, checkError);
+				}
+				catch (ex) {
+					checkError(ex);
+					throw ex;
+				}
+				function createCheckedFactory (result) {
+					var execute = result.execute;
+					if (execute) {
+						result.execute = function () {
+							try {
+								return execute.apply(this, arguments);
+							}
+							catch (ex) {
+								checkError(ex);
+								throw ex;
+							}
+						}
+					}
+					return result;
+				}
+				function checkError (ex) {
+					var info = {
+						name: load.name,
+						declaredType: metadata.findPackage(context.packages, load.name).moduleType
+					};
+					if (ex instanceof ReferenceError) {
+						if (!/\bdefine\b/.test(ex.message)) {
+							if (/\brequire\b|\exports\b|\bmodule\b/.test(ex.message)) {
+								info.sourceType = 'node';
+							}
+						}
+						else {
+							info.sourceType = 'AMD';
+						}
+						if (info.sourceType) {
+							console.error(render(info, wrongModuleType));
+						}
+					}
+					return ex;
+				}
+			};
+			return result;
+		});
+	};
+
+	auto.main(context)
+		.then(
+			function (context) {
+				return detectExtensionConflict(context);
+			},
+			function (ex) {
+				detectExtensionConflict(context);
+				throw ex;
+			}
+		)
+		.then(logOverrides);
+}
+
+function findVersion (context) {
+	try {
+		return context.packages.rave.getMetadata().version;
+	}
+	catch (ex) {
+		console.error('Rave metadata not found! Did you forget to install rave with the --save option?');
+		return "(unknown version)";
+	}
+}
+
+function render (values, template) {
+	return template.replace(/\{([^\}]+)\}/g, function (m, key) {
+		return values[key];
+	});
+}
+
+function detectExtensionConflict (context) {
+	// 1. check for more than one rave package. this indicates an npm conflict
+	// caused by using "dependencies" instead of "peerDependencies" and
+	// "devDependencies". it could also indicate that the user has installed
+	// rave via one package manager and extensions via the other.
+	if (hasMultipleRaves(context)) {
+		console.warn(multipleRaves);
+		console.log(updateDepsInstructions);
+	}
+	// 2. check for resolutions.rave in bower.json which indicates a bower conflict.
+	// TODO: how do we detect this if the user hasn't chosen to save the resolution?
+	if (hasRaveResolution(context)) {
+		console.warn(raveResolution);
+		console.log(updateDepsInstructions);
+	}
+	return context;
+}
+
+function hasMultipleRaves (context) {
+	var packages, version;
+	packages = context.packages;
+	for (var name in packages) {
+		if (packages[name].name === 'rave') {
+			if (typeof version === 'undefined') {
+				version = packages[name].version;
+			}
+			else if (version !== packages[name].version) {
+				return true;
+			}
+		}
+	}
+	return false;
+}
+
+function hasRaveResolution (context) {
+	var metadata = context.metadata;
+	for (var i = 0; i < metadata.length; i++) {
+		if (metadata.resolutions && metadata.resolutions.rave) {
+			return true;
+		}
+	}
+	return false;
+}
+
+function runSemverOnExtensions (context) {
+	return require.async('semver').then(runSemver, noSemver);
+	function runSemver (semver) {
+		var packages = context.packages;
+		var seen = {};
+		var name, pkg, raveSemver, currVer, meta, extName, satisfies, info;
+		currVer = findVersion(context);
+		console.log(render({ raveVersion: currVer }, currRaveVersion));
+		for (name in packages) {
+			pkg = packages[name];
+			if (!(pkg.name in seen)) {
+				seen[pkg.name] = true;
+				meta = pkg.getMetadata();
+				extName = meta.rave && (typeof meta.rave === 'string'
+					? meta.rave
+					: meta.rave.extension);
+				if (extName) {
+					raveSemver = meta.dependencies && meta.dependencies.rave
+						|| meta.peerDependencies && meta.peerDependencies.rave;
+					satisfies = semver && semver.satisfies(currVer, raveSemver);
+					info = {
+						extName: meta.name,
+						raveSemver: raveSemver,
+						bugsLink: findBugsLink(meta) || ''
+					};
+					if (!raveSemver) {
+						console.log(render(info, semverMissing));
+					}
+					else if (!semver) {
+						console.log(render(info, semverInfo));
+					}
+					else if (satisfies) {
+						console.log(render(info, semverValid));
+					}
+					else {
+						console.log(render(info, semverInvalid));
+					}
+				}
+			}
+		}
+		console.log('\n' + updateDepsInstructions);
+	}
+	function noSemver () {
+		console.log(semverNotInstalled);
+		runSemver();
+	}
+}
+
+function findBugsLink (meta) {
+	var link = '';
+	if (meta.bugs) {
+		link = typeof meta.bugs === 'string'
+			? meta.bugs
+			: meta.bugs.url || meta.bugs.email;
+	}
+	if (!link && meta.homepage) {
+		link = meta.homepage;
+	}
+	if (!link && meta.maintainers) {
+		link = findPersonLink(meta.maintainers[0]);
+	}
+	if (!link && meta.contributors) {
+		link = findPersonLink(meta.contributors[0]);
+	}
+	if (!link && meta.authors) {
+		link = findPersonLink(meta.authors[0]);
+	}
+	if (!link && meta.author) {
+		link = findPersonLink(meta.author);
+	}
+	return link;
+}
+
+function findPersonLink (person) {
+	if (typeof person === 'string') {
+		return person;
+	}
+	else {
+		return person.url || person.web || person.homepage || person.email;
+	}
+}
+
+function logOverrides (context) {
+	var seen, name, pkg, extMeta, oname;
+	seen = {};
+	for (name in context.packages) {
+		pkg = context.packages[name];
+		// packages are keyed by versioned and unversioned names
+		if (!(pkg.name in seen) && pkg.getMetadata && pkg.getMetadata().rave) {
+			seen[pkg.name] = true;
+			extMeta = pkg.getMetadata().rave;
+			// TODO: ensure that overridee is found
+			if (extMeta.missing) {
+				for (oname in extMeta.missing) {
+					if (oname in context.packages) {
+						console.log(render({ overrider: pkg.name, overridee: oname }, defaultedPackage));
+					}
+				}
+			}
+			if (extMeta.overrides) {
+				for (oname in extMeta.overrides) {
+					if (oname in context.packages) {
+						console.log(render({ overrider: pkg.name, overridee: oname }, overriddenPackage));
+					}
+				}
+			}
+		}
+	}
+	return context;
 }
 
 });

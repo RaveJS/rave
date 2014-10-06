@@ -9,8 +9,8 @@ rave = exports || {};
 doc = global.document;
 location = window.location;
 
-raveMain = 'rave/start';
-hooksName = 'rave/src/hooks';
+raveMain = '/*===raveUid===*//start';
+hooksName = '/*===raveUid===*//src/hooks';
 
 // export testable functions
 rave.boot = boot;
@@ -116,6 +116,11 @@ function simpleDefine (loader) {
 			global: _global
 		};
 		scoped.module = { exports: scoped.exports };
+		scoped.require.async = function (id) {
+			// hack: code needs a refid even though we're using abs ids already
+			var abs = loader.normalize(id, 'rave');
+			return loader.import(abs).then(fromLoader);
+		};
 		modules = [];
 		// if deps has been omitted
 		if (arguments.length === 2) {

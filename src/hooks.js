@@ -1,17 +1,17 @@
 /** @license MIT License (c) copyright 2014 original authors */
 /** @author Brian Cavalier */
 /** @author John Hann */
-var normalizeCjs = require('rave/pipeline/normalizeCjs');
-var locateAsIs = require('rave/pipeline/locateAsIs');
-var fetchAsText = require('rave/pipeline/fetchAsText');
-var translateAsIs = require('rave/pipeline/translateAsIs');
-var instantiateNode = require('rave/pipeline/instantiateNode');
-var nodeFactory = require('rave/lib/debug/nodeFactory');
-var nodeEval = require('rave/lib/debug/nodeEval');
-var instantiateJson = require('rave/pipeline/instantiateJson');
-var path = require('rave/lib/path');
-var beget = require('rave/lib/beget');
-var override = require('rave/load/override');
+var normalizeCjs = require('../pipeline/normalizeCjs');
+var locateAsIs = require('../pipeline/locateAsIs');
+var fetchAsText = require('../pipeline/fetchAsText');
+var translateAsIs = require('../pipeline/translateAsIs');
+var instantiateNode = require('../pipeline/instantiateNode');
+var nodeFactory = require('../lib/debug/nodeFactory');
+var nodeEval = require('../lib/debug/nodeEval');
+var instantiateJson = require('../pipeline/instantiateJson');
+var path = require('../lib/path');
+var beget = require('../lib/beget');
+var override = require('../load/override');
 
 module.exports = baseHooks;
 
