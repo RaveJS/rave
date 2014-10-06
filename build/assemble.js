@@ -2,31 +2,25 @@
 /** @author Brian Cavalier */
 /** @author John Hann */
 
-var fs = require('fs');
-var moduleSource = require('./moduleSource');
 var merge = require('./merge');
 
-module.exports = concat;
+module.exports = assemble;
 
-function concat (resolver, template, dest, files) {
-	var getSource, txt, sources, built;
+function assemble (reader, template, files) {
+	var txt, sources;
 
-	getSource = moduleSource(resolver, fs.readFileSync);
+	txt = reader(template);
 
-	txt = getSource(template);
+	sources = filenamesToSources(reader, files);
 
-	sources = filenamesToSources(getSource, files);
-
-	built = merge(txt, sources);
-
-	fs.writeFileSync(dest, built);
+	return merge(txt, sources);
 }
 
-function filenamesToSources (getter, filenames) {
+function filenamesToSources (reader, filenames) {
 	var sources = {};
 	for (var key in filenames) {
 		if (filenames[key]) {
-			sources[key] = filenameToSource(getter, filenames[key]);
+			sources[key] = filenameToSource(reader, filenames[key]);
 		}
 		else {
 			sources[key] = '';
@@ -39,8 +33,8 @@ function filenamesToSources (getter, filenames) {
 	return sources;
 }
 
-function filenameToSource (getter, filename) {
-	return getter(filename);
+function filenameToSource (reader, filename) {
+	return reader(filename);
 }
 
 function removeLicenses (str) {

@@ -2,12 +2,16 @@
 /** @author Brian Cavalier */
 /** @author John Hann */
 
+var fs = require('fs');
+var moduleSource = require('./moduleSource');
 var assemble = require('./assemble');
 
 responsive();
 
 function responsive () {
-	var dest, template, files;
+	var getSource, dest, template, files, output;
+
+	getSource = moduleSource(require.resolve, fs.readFileSync);
 
 	dest = 'rave.js';
 
@@ -21,7 +25,9 @@ function responsive () {
 		modules: null
 	};
 
-	assemble(require.resolve, template, dest, files);
+	output = assemble(getSource, template, files);
+
+	fs.writeFileSync(dest, output);
 
 	console.log('Built file written to ' + dest);
 }
