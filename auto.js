@@ -3,13 +3,9 @@
 /** @author John Hann */
 
 var crawl = require('./lib/crawl');
-var run = require('./lib/run');
 var assembleAppContext = require('./lib/auto/assembleAppContext');
 
-module.exports = {
-	main: autoConfigure,
-	applyLoaderHooks: run.applyLoaderHooks
-};
+module.exports = autoConfigure;
 
 var defaultMeta = 'bower.json,package.json';
 
@@ -26,7 +22,7 @@ function autoConfigure (context) {
 		context.packages = allMetadata.packages;
 		context.metadata = allMetadata.roots;
 		context = assembleAppContext(context);
-		return run.main(context);
+		return context;
 	}
 }
 
