@@ -18,15 +18,20 @@ responsive(
 );
 
 function responsive (meta, getSource, bundle, merge, write) {
-	var uid, template, buildCfg, raveBoot;
+	var uid, mergeData, template, buildCfg, raveBoot;
 
 	uid = raveUid(meta);
+	mergeData = {
+		raveUid: uid,
+		raveMain: uid + '/start',
+		raveHooks: uid + '/src/hooks'
+	};
 
 	// everything in the src folder should be processed for possible
 	// rave uids
-	template = mergeUid('../src/_template');
-	buildCfg = mergeUid('../src/cram.json');
-	raveBoot = mergeUid('../src/rave');
+	template = mergeUid('../src/_template', mergeData);
+	buildCfg = mergeUid('../src/cram.json', mergeData);
+	raveBoot = mergeUid('../src/rave', mergeData);
 
 	return bundle(buildCfg).then(function (hooks) {
 		var dest, files, output;
@@ -49,8 +54,8 @@ function responsive (meta, getSource, bundle, merge, write) {
 
 	});
 
-	function mergeUid (path) {
-		return merge(getSource(path), { raveUid: uid }, merge.preserveToken);
+	function mergeUid (path, mergeData) {
+		return merge(getSource(path), mergeData, merge.preserveToken);
 	}
 }
 

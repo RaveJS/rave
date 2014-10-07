@@ -9,8 +9,8 @@ rave = exports || {};
 doc = global.document;
 location = window.location;
 
-raveMain = '/*===raveUid===*//start';
-hooksName = '/*===raveUid===*//src/hooks';
+raveMain = '/*===raveMain===*/';
+hooksName = '/*===raveHooks===*/';
 
 // export testable functions
 rave.boot = boot;
