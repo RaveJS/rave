@@ -81,7 +81,7 @@ function startDebug (context) {
 	console.log(debugging);
 
 	prev = 'rave' in global ? global.rave : uniqueThing;
-	rave = global.rave = {}
+	rave = global.rave = {};
 
 	message = render({}, replEnabled);
 
