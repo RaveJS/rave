@@ -3153,6 +3153,23 @@ function getName (uid) {
 });
 
 
+;define('rave@0.4.3/lib/es5Transform', ['require', 'exports', 'module'], function (require, exports, module, define) {module.exports = {
+	fromLoader: function (value) {
+		return value && value.__es5Module ? value.__es5Module : value;
+	},
+	toLoader: function (module) {
+		return {
+			// for real ES6 modules to consume this module
+			'default': module,
+			// for modules transpiled from ES5
+			__es5Module: module
+		};
+	}
+};
+
+});
+
+
 ;define('rave@0.4.3/lib/find/createCodeFinder', ['require', 'exports', 'module'], function (require, exports, module, define) {module.exports = createCodeFinder;
 
 // Export private functions for testing
@@ -3264,40 +3281,10 @@ function composeRx (rx1, rx2, flags) {
 });
 
 
-;define('rave@0.4.3/lib/es5Transform', ['require', 'exports', 'module'], function (require, exports, module, define) {module.exports = {
-	fromLoader: function (value) {
-		return value && value.__es5Module ? value.__es5Module : value;
-	},
-	toLoader: function (module) {
-		return {
-			// for real ES6 modules to consume this module
-			'default': module,
-			// for modules transpiled from ES5
-			__es5Module: module
-		};
-	}
-};
-
-});
-
-
 ;define('rave@0.4.3/lib/json/eval', ['require', 'exports', 'module'], function (require, exports, module, define) {module.exports = jsonEval;
 
 function jsonEval (source) {
 	return eval('(' + source + ')');
-}
-
-});
-
-
-;define('rave@0.4.3/pipeline/normalizeCjs', ['require', 'exports', 'module', 'rave@0.4.3/lib/path'], function (require, exports, module, $cram_r0, define) {var path = $cram_r0;
-
-module.exports = normalizeCjs;
-
-var reduceLeadingDots = path.reduceLeadingDots;
-
-function normalizeCjs (name, refererName, refererUrl) {
-	return reduceLeadingDots(String(name), refererName || '');
 }
 
 });
@@ -3312,6 +3299,19 @@ function fetchAsText (load) {
 		fetchText(load.address, resolve, reject);
 	});
 
+}
+
+});
+
+
+;define('rave@0.4.3/pipeline/normalizeCjs', ['require', 'exports', 'module', 'rave@0.4.3/lib/path'], function (require, exports, module, $cram_r0, define) {var path = $cram_r0;
+
+module.exports = normalizeCjs;
+
+var reduceLeadingDots = path.reduceLeadingDots;
+
+function normalizeCjs (name, refererName, refererUrl) {
+	return reduceLeadingDots(String(name), refererName || '');
 }
 
 });
@@ -3759,7 +3759,7 @@ function locateRaveWithContext (context) {
 });
 
 
-;define('rave@0.4.3/lib/auto/applyFirstMain', ['require', 'exports', 'module'], function (require, exports, module, define) {module.exports = applyFirstMain;
+;define('rave@0.4.3/lib/run/applyFirstMain', ['require', 'exports', 'module'], function (require, exports, module, define) {module.exports = applyFirstMain;
 
 function applyFirstMain (context, extensions) {
 	var appliedMain;
@@ -3780,7 +3780,7 @@ function applyFirstMain (context, extensions) {
 });
 
 
-;define('rave@0.4.3/lib/auto/initApplication', ['require', 'exports', 'module'], function (require, exports, module, define) {module.exports = initApplication;
+;define('rave@0.4.3/lib/run/initApplication', ['require', 'exports', 'module'], function (require, exports, module, define) {module.exports = initApplication;
 
 function initApplication (context) {
 	var mainModule;
@@ -3804,6 +3804,67 @@ function runMain (context, mainModule) {
 				main.main(Object.create(context));
 			}
 		});
+}
+
+});
+
+
+;define('rave@0.4.3/lib/metadata', ['require', 'exports', 'module', 'rave@0.4.3/lib/uid', 'rave@0.4.3/lib/path', 'rave@0.4.3/lib/beget'], function (require, exports, module, $cram_r0, $cram_r1, $cram_r2, define) {var parseUid = $cram_r0.parse;
+var path = $cram_r1;
+var beget = $cram_r2;
+
+module.exports = {
+	findPackage: findPackageDescriptor,
+	findDepPackage: findDependentPackage,
+	moduleType: moduleType
+};
+
+function findPackageDescriptor (descriptors, fromModule) {
+	var parts, pkgName;
+	parts = parseUid(fromModule);
+	pkgName = parts.pkgUid || parts.pkgName;
+	return descriptors[pkgName];
+}
+
+function findDependentPackage (descriptors, fromPkg, depName) {
+	var parts, pkgName, depPkgUid;
+
+	// ensure we have a package descriptor, not a uid
+	if (typeof fromPkg === 'string') fromPkg = descriptors[fromPkg];
+
+	parts = parseUid(depName);
+	pkgName = parts.pkgUid || parts.pkgName;
+
+	if (fromPkg && (pkgName === fromPkg.name || pkgName === fromPkg.uid)) {
+		// this is the same the package
+		return fromPkg;
+	}
+	else {
+		// get dep pkg uid
+		depPkgUid = fromPkg ? fromPkg.deps[pkgName] : pkgName;
+		return depPkgUid && descriptors[depPkgUid];
+	}
+}
+
+function moduleType (descriptor) {
+	var moduleTypes;
+
+	moduleTypes = descriptor.moduleType;
+
+	if (hasModuleType(moduleTypes, 'amd')) {
+		return 'amd';
+	}
+	else if (hasModuleType(moduleTypes, 'node')) {
+		return 'node';
+	}
+	else if (hasModuleType(moduleTypes, 'globals')) {
+		return 'globals';
+	}
+
+}
+
+function hasModuleType (moduleTypes, type) {
+	return moduleTypes && moduleTypes.indexOf(type) >= 0;
 }
 
 });
@@ -3933,62 +3994,41 @@ function resolveStateAndValue (func, state, value) {
 });
 
 
-;define('rave@0.4.3/lib/metadata', ['require', 'exports', 'module', 'rave@0.4.3/lib/uid', 'rave@0.4.3/lib/path', 'rave@0.4.3/lib/beget'], function (require, exports, module, $cram_r0, $cram_r1, $cram_r2, define) {var parseUid = $cram_r0.parse;
-var path = $cram_r1;
-var beget = $cram_r2;
+;define('rave@0.4.3/lib/auto/assembleAppContext', ['require', 'exports', 'module', 'rave@0.4.3/lib/path'], function (require, exports, module, $cram_r0, define) {var join = $cram_r0.joinPaths;
 
-module.exports = {
-	findPackage: findPackageDescriptor,
-	findDepPackage: findDependentPackage,
-	moduleType: moduleType
-};
+module.exports = assembleAppContext;
 
-function findPackageDescriptor (descriptors, fromModule) {
-	var parts, pkgName;
-	parts = parseUid(fromModule);
-	pkgName = parts.pkgUid || parts.pkgName;
-	return descriptors[pkgName];
+function assembleAppContext (context) {
+	// TODO: if no main modules found, look for one in a conventional place
+	// TODO: warn if multiple main modules were found, but only the first was run
+	var first;
+
+	first = context.metadata[0]; // precondition: must be at least one
+
+	context.app = {
+		name: first.name,
+		main: join(first.name, first.main),
+		metadata: first
+	};
+
+	return createEnv(context, first);
 }
 
-function findDependentPackage (descriptors, fromPkg, depName) {
-	var parts, pkgName, depPkgUid;
+function createEnv (context, metadata) {
+	var metaEnv, key;
 
-	// ensure we have a package descriptor, not a uid
-	if (typeof fromPkg === 'string') fromPkg = descriptors[fromPkg];
+	if (!context.ev) context.env = {};
 
-	parts = parseUid(depName);
-	pkgName = parts.pkgUid || parts.pkgName;
+	metaEnv = metadata.getMetadata().rave;
+	metaEnv = metaEnv && metaEnv.env || {};
 
-	if (fromPkg && (pkgName === fromPkg.name || pkgName === fromPkg.uid)) {
-		// this is the same the package
-		return fromPkg;
-	}
-	else {
-		// get dep pkg uid
-		depPkgUid = fromPkg ? fromPkg.deps[pkgName] : pkgName;
-		return depPkgUid && descriptors[depPkgUid];
-	}
-}
-
-function moduleType (descriptor) {
-	var moduleTypes;
-
-	moduleTypes = descriptor.moduleType;
-
-	if (hasModuleType(moduleTypes, 'amd')) {
-		return 'amd';
-	}
-	else if (hasModuleType(moduleTypes, 'node')) {
-		return 'node';
-	}
-	else if (hasModuleType(moduleTypes, 'globals')) {
-		return 'globals';
+	for (key in metaEnv) {
+		context.env[key] = metaEnv[key];
 	}
 
-}
+	if (!('debug' in context.env)) context.env.debug = true;
 
-function hasModuleType (moduleTypes, type) {
-	return moduleTypes && moduleTypes.indexOf(type) >= 0;
+	return context;
 }
 
 });
@@ -4112,47 +4152,7 @@ function createNormalizer (idTransform, map, normalize) {
 });
 
 
-;define('rave@0.4.3/lib/auto/assembleAppContext', ['require', 'exports', 'module', 'rave@0.4.3/lib/path'], function (require, exports, module, $cram_r0, define) {var join = $cram_r0.joinPaths;
-
-module.exports = assembleAppContext;
-
-function assembleAppContext (context) {
-	// TODO: if no main modules found, look for one in a conventional place
-	// TODO: warn if multiple main modules were found, but only the first was run
-	var first;
-
-	first = context.metadata[0]; // precondition: must be at least one
-
-	context.app = {
-		name: first.name,
-		main: join(first.name, first.main),
-		metadata: first
-	};
-
-	return createEnv(context, first);
-}
-
-function createEnv (context, metadata) {
-	var metaEnv, key;
-
-	if (!context.ev) context.env = {};
-
-	metaEnv = metadata.getMetadata().rave;
-	metaEnv = metaEnv && metaEnv.env || {};
-
-	for (key in metaEnv) {
-		context.env[key] = metaEnv[key];
-	}
-
-	if (!('debug' in context.env)) context.env.debug = true;
-
-	return context;
-}
-
-});
-
-
-;define('rave@0.4.3/lib/auto/gatherExtensions', ['require', 'exports', 'module', 'rave@0.4.3/lib/path'], function (require, exports, module, $cram_r0, define) {var path = $cram_r0;
+;define('rave@0.4.3/lib/run/gatherExtensions', ['require', 'exports', 'module', 'rave@0.4.3/lib/path'], function (require, exports, module, $cram_r0, define) {var path = $cram_r0;
 
 module.exports = gatherExtensions;
 
@@ -4408,78 +4408,6 @@ function bowerDependencies (context, data) {
 });
 
 
-;define('rave@0.4.3/lib/debug/captureDefines', ['require', 'exports', 'module', 'rave@0.4.3/lib/addSourceUrl', 'rave@0.4.3/lib/amd/captureDefines'], function (require, exports, module, $cram_r0, $cram_r1, define) {var addSourceUrl = $cram_r0;
-var origCaptureDefines = $cram_r1;
-
-module.exports = captureDefines;
-
-function captureDefines (amdEval) {
-	return function (load) {
-		return origCaptureDefines(_eval)(load);
-		function _eval (global, define, source) {
-			return amdEval(global, define, addSourceUrl(load.address, source));
-		}
-	};
-}
-
-});
-
-
-;define('rave@0.4.3/lib/debug/amdEval', ['require', 'exports', 'module', 'rave@0.4.3/lib/debug/injectScript'], function (require, exports, module, $cram_r0, define) {var injectScript = $cram_r0;
-
-module.exports = amdEval;
-
-var noDefine = {};
-
-function amdEval (global, define, source) {
-	var prevDefine = 'define' in global ? global.define : noDefine;
-	global.define = define;
-	try {
-		injectScript(source);
-	}
-	finally {
-		if (global.define === noDefine) {
-			delete global.define;
-		}
-		else {
-			global.define = prevDefine;
-		}
-	}
-}
-
-});
-
-
-;define('rave@0.4.3/lib/debug/scriptFactory', ['require', 'exports', 'module', 'rave@0.4.3/lib/script/factory', 'rave@0.4.3/lib/addSourceUrl'], function (require, exports, module, $cram_r0, $cram_r1, define) {var factory = $cram_r0;
-var addSourceUrl = $cram_r1;
-
-module.exports = scriptFactory;
-
-function scriptFactory (scriptEval) {
-	return function (loader, load) {
-		var address = load.address;
-		return factory(debugEval)(loader, load);
-		function debugEval (source) {
-			var debugSrc = addSourceUrl(address, source);
-			scriptEval(debugSrc);
-		}
-	};
-}
-
-});
-
-
-;define('rave@0.4.3/lib/debug/scriptEval', ['require', 'exports', 'module', 'rave@0.4.3/lib/debug/injectScript'], function (require, exports, module, $cram_r0, define) {var injectScript = $cram_r0;
-
-module.exports = scriptEval;
-
-function scriptEval (source) {
-	injectScript(source);
-}
-
-});
-
-
 ;define('rave@0.4.3/lib/convert/common', ['require', 'exports', 'module', 'rave@0.4.3/lib/uid'], function (require, exports, module, $cram_r0, define) {var createUid = $cram_r0.create;
 
 // main exports
@@ -4526,7 +4454,79 @@ function createDepHashMap (data) {
 });
 
 
-;define('rave@0.4.3/lib/auto/applyLoaderHooks', ['require', 'exports', 'module', 'rave@0.4.3/load/override'], function (require, exports, module, $cram_r0, define) {var override = $cram_r0;
+;define('rave@0.4.3/lib/debug/amdEval', ['require', 'exports', 'module', 'rave@0.4.3/lib/debug/injectScript'], function (require, exports, module, $cram_r0, define) {var injectScript = $cram_r0;
+
+module.exports = amdEval;
+
+var noDefine = {};
+
+function amdEval (global, define, source) {
+	var prevDefine = 'define' in global ? global.define : noDefine;
+	global.define = define;
+	try {
+		injectScript(source);
+	}
+	finally {
+		if (global.define === noDefine) {
+			delete global.define;
+		}
+		else {
+			global.define = prevDefine;
+		}
+	}
+}
+
+});
+
+
+;define('rave@0.4.3/lib/debug/captureDefines', ['require', 'exports', 'module', 'rave@0.4.3/lib/addSourceUrl', 'rave@0.4.3/lib/amd/captureDefines'], function (require, exports, module, $cram_r0, $cram_r1, define) {var addSourceUrl = $cram_r0;
+var origCaptureDefines = $cram_r1;
+
+module.exports = captureDefines;
+
+function captureDefines (amdEval) {
+	return function (load) {
+		return origCaptureDefines(_eval)(load);
+		function _eval (global, define, source) {
+			return amdEval(global, define, addSourceUrl(load.address, source));
+		}
+	};
+}
+
+});
+
+
+;define('rave@0.4.3/lib/debug/scriptFactory', ['require', 'exports', 'module', 'rave@0.4.3/lib/script/factory', 'rave@0.4.3/lib/addSourceUrl'], function (require, exports, module, $cram_r0, $cram_r1, define) {var factory = $cram_r0;
+var addSourceUrl = $cram_r1;
+
+module.exports = scriptFactory;
+
+function scriptFactory (scriptEval) {
+	return function (loader, load) {
+		var address = load.address;
+		return factory(debugEval)(loader, load);
+		function debugEval (source) {
+			var debugSrc = addSourceUrl(address, source);
+			scriptEval(debugSrc);
+		}
+	};
+}
+
+});
+
+
+;define('rave@0.4.3/lib/debug/scriptEval', ['require', 'exports', 'module', 'rave@0.4.3/lib/debug/injectScript'], function (require, exports, module, $cram_r0, define) {var injectScript = $cram_r0;
+
+module.exports = scriptEval;
+
+function scriptEval (source) {
+	injectScript(source);
+}
+
+});
+
+
+;define('rave@0.4.3/lib/run/applyLoaderHooks', ['require', 'exports', 'module', 'rave@0.4.3/load/override'], function (require, exports, module, $cram_r0, define) {var override = $cram_r0;
 
 module.exports = applyLoaderHooks;
 
@@ -4547,49 +4547,6 @@ function applyLoaderHooks (context, extensions) {
 	}).then(function () {
 		return extensions;
 	});
-}
-
-});
-
-
-;define('rave@0.4.3/pipeline/instantiateScript', ['require', 'exports', 'module', 'rave@0.4.3/lib/metadata', 'rave@0.4.3/lib/path'], function (require, exports, module, $cram_r0, $cram_r1, define) {module.exports = instantiateScript;
-
-var metadata = $cram_r0;
-var path = $cram_r1;
-
-function instantiateScript (scriptFactory) {
-	return function (load) {
-		var packages, pkg, deps;
-
-		// find dependencies
-		packages = load.metadata.rave.packages;
-		pkg = metadata.findPackage(packages, load.name);
-		if (pkg && pkg.deps) {
-			deps = pkgMains(packages, pkg.deps)
-		}
-
-		var factory = scriptFactory(this, load);
-		return {
-			deps: deps,
-			execute: function () {
-				factory();
-				return new Module({});
-			}
-		};
-	}
-}
-
-
-function pkgMains (packages, depPkgs) {
-	var main, mains = [];
-	for (var name in depPkgs) {
-		// package-to-package dependency
-		main = packages[depPkgs[name]].name;
-		if (main) {
-			mains.push(main);
-		}
-	}
-	return mains;
 }
 
 });
@@ -4702,6 +4659,49 @@ function bowerAdjustLocation (data) {
 		}
 	}
 	return data;
+}
+
+});
+
+
+;define('rave@0.4.3/pipeline/instantiateScript', ['require', 'exports', 'module', 'rave@0.4.3/lib/metadata', 'rave@0.4.3/lib/path'], function (require, exports, module, $cram_r0, $cram_r1, define) {module.exports = instantiateScript;
+
+var metadata = $cram_r0;
+var path = $cram_r1;
+
+function instantiateScript (scriptFactory) {
+	return function (load) {
+		var packages, pkg, deps;
+
+		// find dependencies
+		packages = load.metadata.rave.packages;
+		pkg = metadata.findPackage(packages, load.name);
+		if (pkg && pkg.deps) {
+			deps = pkgMains(packages, pkg.deps)
+		}
+
+		var factory = scriptFactory(this, load);
+		return {
+			deps: deps,
+			execute: function () {
+				factory();
+				return new Module({});
+			}
+		};
+	}
+}
+
+
+function pkgMains (packages, depPkgs) {
+	var main, mains = [];
+	for (var name in depPkgs) {
+		// package-to-package dependency
+		main = packages[depPkgs[name]].name;
+		if (main) {
+			mains.push(main);
+		}
+	}
+	return mains;
 }
 
 });
@@ -4845,44 +4845,6 @@ function hasCommonJSDep (deps) {
 });
 
 
-;define('rave@0.4.3/pipeline/locatePackage', ['require', 'exports', 'module', 'rave@0.4.3/lib/path', 'rave@0.4.3/lib/uid', 'rave@0.4.3/lib/metadata'], function (require, exports, module, $cram_r0, $cram_r1, $cram_r2, define) {module.exports = locatePackage;
-
-var path = $cram_r0;
-var parseUid = $cram_r1.parse;
-var metadata = $cram_r2;
-
-function locatePackage (load) {
-	var options, parts, packageName, modulePath, moduleName, descriptor,
-		location;
-
-	options = load.metadata.rave;
-
-	if (!options.packages) throw new Error('Packages not provided: ' + load.name);
-
-	parts = parseUid(load.name);
-	packageName = parts.pkgUid || parts.pkgName;
-	modulePath = parts.modulePath;
-
-	descriptor = options.packages[packageName];
-	if (!descriptor) throw new Error('Package not found: ' + load.name);
-
-	moduleName = modulePath || descriptor.main;
-	if (!load.metadata.dontAddExt) {
-		moduleName = path.ensureExt(moduleName, '.js')
-	}
-
-	location = descriptor.location;
-	if (!path.isAbsUrl(location) && options.baseUrl) {
-		// prepend baseUrl
-		location = path.joinPaths(options.baseUrl, location);
-	}
-
-	return path.joinPaths(location, moduleName);
-}
-
-});
-
-
 ;define('rave@0.4.3/lib/createVersionedIdTransform', ['require', 'exports', 'module', 'rave@0.4.3/lib/uid', 'rave@0.4.3/lib/metadata', 'rave@0.4.3/lib/path'], function (require, exports, module, $cram_r0, $cram_r1, $cram_r2, define) {var createUid = $cram_r0.create;
 var metadata = $cram_r1;
 var path = $cram_r2;
@@ -4927,40 +4889,39 @@ function createVersionedIdTransform (context) {
 });
 
 
-;define('rave@0.4.3/lib/createMapper', ['require', 'exports', 'module', 'rave@0.4.3/lib/metadata', 'rave@0.4.3/lib/path'], function (require, exports, module, $cram_r0, $cram_r1, define) {var metadata = $cram_r0;
-var path = $cram_r1;
+;define('rave@0.4.3/pipeline/locatePackage', ['require', 'exports', 'module', 'rave@0.4.3/lib/path', 'rave@0.4.3/lib/uid', 'rave@0.4.3/lib/metadata'], function (require, exports, module, $cram_r0, $cram_r1, $cram_r2, define) {module.exports = locatePackage;
 
-module.exports = createMapper;
+var path = $cram_r0;
+var parseUid = $cram_r1.parse;
+var metadata = $cram_r2;
 
-function createMapper (context) {
-	var packages;
+function locatePackage (load) {
+	var options, parts, packageName, modulePath, moduleName, descriptor,
+		location;
 
-	packages = context.packages;
+	options = load.metadata.rave;
 
-	return function (normalizedName, refUid) {
-		var refPkg, mappedId;
+	if (!options.packages) throw new Error('Packages not provided: ' + load.name);
 
-		refPkg = metadata.findPackage(packages, refUid);
+	parts = parseUid(load.name);
+	packageName = parts.pkgUid || parts.pkgName;
+	modulePath = parts.modulePath;
 
-		if (refPkg.mapFunc) {
-			mappedId = refPkg.mapFunc(normalizedName);
-		}
-		else if (refPkg.map) {
-			if (normalizedName in refPkg.map) {
-				mappedId = refPkg.map[normalizedName];
-			}
-		}
+	descriptor = options.packages[packageName];
+	if (!descriptor) throw new Error('Package not found: ' + load.name);
 
-		// mappedId can be undefined, false, or a string
-		// undefined === no mapping, return original id
-		// false === do not load a module by this id, use blank module
-		// string === module id was mapped, return mapped id
-		return typeof mappedId === 'undefined'
-			? normalizedName
-			: mappedId === false
-				? 'rave/lib/blank'
-				: mappedId;
-	};
+	moduleName = modulePath || descriptor.main;
+	if (!load.metadata.dontAddExt) {
+		moduleName = path.ensureExt(moduleName, '.js')
+	}
+
+	location = descriptor.location;
+	if (!path.isAbsUrl(location) && options.baseUrl) {
+		// prepend baseUrl
+		location = path.joinPaths(options.baseUrl, location);
+	}
+
+	return path.joinPaths(location, moduleName);
 }
 
 });
@@ -5018,6 +4979,45 @@ function collapseMetadata (tuples) {
 
 function logError (ex) {
 	console.error(ex);
+}
+
+});
+
+
+;define('rave@0.4.3/lib/createMapper', ['require', 'exports', 'module', 'rave@0.4.3/lib/metadata', 'rave@0.4.3/lib/path'], function (require, exports, module, $cram_r0, $cram_r1, define) {var metadata = $cram_r0;
+var path = $cram_r1;
+
+module.exports = createMapper;
+
+function createMapper (context) {
+	var packages;
+
+	packages = context.packages;
+
+	return function (normalizedName, refUid) {
+		var refPkg, mappedId;
+
+		refPkg = metadata.findPackage(packages, refUid);
+
+		if (refPkg.mapFunc) {
+			mappedId = refPkg.mapFunc(normalizedName);
+		}
+		else if (refPkg.map) {
+			if (normalizedName in refPkg.map) {
+				mappedId = refPkg.map[normalizedName];
+			}
+		}
+
+		// mappedId can be undefined, false, or a string
+		// undefined === no mapping, return original id
+		// false === do not load a module by this id, use blank module
+		// string === module id was mapped, return mapped id
+		return typeof mappedId === 'undefined'
+			? normalizedName
+			: mappedId === false
+				? 'rave/lib/blank'
+				: mappedId;
+	};
 }
 
 });
@@ -5281,7 +5281,7 @@ function findOrThrow (load, source) {
 });
 
 
-;define('rave@0.4.3/lib/debug/instantiateJs', ['require', 'exports', 'module', 'rave@0.4.3/lib/debug/moduleType'], function (require, exports, module, $cram_r0, define) {var moduleType = $cram_r0;
+;define('rave@0.4.3/lib/debug/instantiateJS', ['require', 'exports', 'module', 'rave@0.4.3/lib/debug/moduleType'], function (require, exports, module, $cram_r0, define) {var moduleType = $cram_r0;
 
 module.exports = instantiateJs;
 
@@ -5316,7 +5316,7 @@ exports.globals = instantiateScript(scriptFactory(scriptEval));
 });
 
 
-;define('rave@0.4.3/lib/auto/configureLoader', ['require', 'exports', 'module', 'rave@0.4.3/lib/hooksFromMetadata', 'rave@0.4.3/pipeline/normalizeCjs', 'rave@0.4.3/pipeline/locateAsIs', 'rave@0.4.3/pipeline/fetchAsText', 'rave@0.4.3/pipeline/translateAsIs', 'rave@0.4.3/lib/debug/instantiateJs', 'rave@0.4.3/load/override'], function (require, exports, module, $cram_r0, $cram_r1, $cram_r2, $cram_r3, $cram_r4, $cram_r5, $cram_r6, define) {var fromMetadata = $cram_r0;
+;define('rave@0.4.3/lib/run/configureLoader', ['require', 'exports', 'module', 'rave@0.4.3/lib/hooksFromMetadata', 'rave@0.4.3/pipeline/normalizeCjs', 'rave@0.4.3/pipeline/locateAsIs', 'rave@0.4.3/pipeline/fetchAsText', 'rave@0.4.3/pipeline/translateAsIs', 'rave@0.4.3/lib/debug/instantiateJS', 'rave@0.4.3/load/override'], function (require, exports, module, $cram_r0, $cram_r1, $cram_r2, $cram_r3, $cram_r4, $cram_r5, $cram_r6, define) {var fromMetadata = $cram_r0;
 var normalizeCjs = $cram_r1;
 var locateAsIs = $cram_r2;
 var fetchAsText = $cram_r3;
@@ -5348,14 +5348,12 @@ function configureLoader (getInstantiator) {
 });
 
 
-;define('rave@0.4.3/auto', ['require', 'exports', 'module', 'rave@0.4.3/lib/crawl', 'rave@0.4.3/lib/debug/instantiators', 'rave@0.4.3/lib/auto/assembleAppContext', 'rave@0.4.3/lib/auto/applyLoaderHooks', 'rave@0.4.3/lib/auto/configureLoader', 'rave@0.4.3/lib/auto/gatherExtensions', 'rave@0.4.3/lib/auto/applyFirstMain', 'rave@0.4.3/lib/auto/initApplication'], function (require, exports, module, $cram_r0, $cram_r1, $cram_r2, $cram_r3, $cram_r4, $cram_r5, $cram_r6, $cram_r7, define) {var crawl = $cram_r0;
-var instantiators = $cram_r1;
-var assembleAppContext = $cram_r2;
-var applyLoaderHooks = $cram_r3;
-var configureLoader = $cram_r4;
-var gatherExtensions = $cram_r5;
-var applyFirstMain = $cram_r6;
-var initApplication = $cram_r7;
+;define('rave@0.4.3/lib/run', ['require', 'exports', 'module', 'rave@0.4.3/lib/debug/instantiators', 'rave@0.4.3/lib/run/applyLoaderHooks', 'rave@0.4.3/lib/run/configureLoader', 'rave@0.4.3/lib/run/gatherExtensions', 'rave@0.4.3/lib/run/applyFirstMain', 'rave@0.4.3/lib/run/initApplication'], function (require, exports, module, $cram_r0, $cram_r1, $cram_r2, $cram_r3, $cram_r4, $cram_r5, define) {var instantiators = $cram_r0;
+var applyLoaderHooks = $cram_r1;
+var configureLoader = $cram_r2;
+var gatherExtensions = $cram_r3;
+var applyFirstMain = $cram_r4;
+var initApplication = $cram_r5;
 
 module.exports = {
 	main: autoConfigure,
@@ -5367,31 +5365,20 @@ var defaultMeta = 'bower.json,package.json';
 function autoConfigure (context) {
 	var applyLoaderHooks;
 
-	if (!context.raveMeta) context.raveMeta = defaultMeta;
-
-	context.packages = {};
-
 	applyLoaderHooks = this.applyLoaderHooks;
 
-	return crawl(context.raveMeta)
-		.then(failIfNone)
-		.then(done)
+	return done(context)
 		['catch'](failHard);
 
-	function done (allMetadata) {
+	function done (context) {
 
-		context.packages = allMetadata.packages;
-		context.metadata = allMetadata.roots;
-		context = assembleAppContext(context);
 		return configureLoader(getInstantiator)(context)
 			.then(gatherExtensions)
 			.then(function (extensions) {
-				// TODO: remove || [] when Promise shim is fixed
-				return applyLoaderHooks(context, extensions || []);
+				return applyLoaderHooks(context, extensions);
 			})
 			.then(function (extensions) {
-				// TODO: remove || [] when Promise shim is fixed
-				return applyFirstMain(context, extensions || []);
+				return applyFirstMain(context, extensions);
 			})
 			.then(function (alreadyRanMain) {
 				return !alreadyRanMain && initApplication(context);
@@ -5412,6 +5399,44 @@ function getInstantiator (moduleType) {
 
 function failHard (ex) {
 	setTimeout(function () { throw ex; }, 0);
+}
+
+});
+
+
+;define('rave@0.4.3/auto', ['require', 'exports', 'module', 'rave@0.4.3/lib/crawl', 'rave@0.4.3/lib/run', 'rave@0.4.3/lib/auto/assembleAppContext'], function (require, exports, module, $cram_r0, $cram_r1, $cram_r2, define) {var crawl = $cram_r0;
+var run = $cram_r1;
+var assembleAppContext = $cram_r2;
+
+module.exports = {
+	main: autoConfigure,
+	applyLoaderHooks: run.applyLoaderHooks
+};
+
+var defaultMeta = 'bower.json,package.json';
+
+function autoConfigure (context) {
+	if (!context.raveMeta) context.raveMeta = defaultMeta;
+
+	context.packages = {};
+
+	return crawl(context.raveMeta)
+		.then(failIfNone)
+		.then(done);
+
+	function done (allMetadata) {
+		context.packages = allMetadata.packages;
+		context.metadata = allMetadata.roots;
+		context = assembleAppContext(context);
+		return run.main(context);
+	}
+}
+
+function failIfNone (allMetadata) {
+	if (allMetadata.roots.length === 0) {
+		throw new Error('No metadata files found: ' + context.raveMeta);
+	}
+	return allMetadata;
 }
 
 });
