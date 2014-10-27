@@ -2772,6 +2772,15 @@ function locateAsIs (load) {
 });
 
 
+;define('rave@0.4.3/pipeline/translateAsIs', ['require', 'exports', 'module'], function (require, exports, module, define) {module.exports = translateAsIs;
+
+function translateAsIs (load) {
+	return load.source;
+}
+
+});
+
+
 ;define('rave@0.4.3/lib/path', ['require', 'exports', 'module'], function (require, exports, module, define) {var absUrlRx, findDotsRx;
 
 absUrlRx = /^\/|^[^:]+:\/\//;
@@ -2928,10 +2937,28 @@ function beget (base) {
 });
 
 
-;define('rave@0.4.3/pipeline/translateAsIs', ['require', 'exports', 'module'], function (require, exports, module, define) {module.exports = translateAsIs;
+;define('rave@0.4.3/lib/fetchText', ['require', 'exports', 'module'], function (require, exports, module, define) {module.exports = fetchText;
 
-function translateAsIs (load) {
-	return load.source;
+function fetchText (url, callback, errback) {
+	var xhr;
+	xhr = new XMLHttpRequest();
+	xhr.open('GET', url, true);
+	xhr.onreadystatechange = function () {
+		if (xhr.readyState === 4) {
+			if (xhr.status < 400) {
+				callback(xhr.responseText);
+			}
+			else {
+				errback(
+					new Error(
+						'fetchText() failed. url: "' + url
+						+ '" status: ' + xhr.status + ' - ' + xhr.statusText
+					)
+				);
+			}
+		}
+	};
+	xhr.send(null);
 }
 
 });
@@ -2974,28 +3001,12 @@ function isSafari () {
 });
 
 
-;define('rave@0.4.3/lib/fetchText', ['require', 'exports', 'module'], function (require, exports, module, define) {module.exports = fetchText;
+;define('rave@0.4.3/lib/debug/injectScript', ['require', 'exports', 'module'], function (require, exports, module, define) {module.exports = injectScript;
 
-function fetchText (url, callback, errback) {
-	var xhr;
-	xhr = new XMLHttpRequest();
-	xhr.open('GET', url, true);
-	xhr.onreadystatechange = function () {
-		if (xhr.readyState === 4) {
-			if (xhr.status < 400) {
-				callback(xhr.responseText);
-			}
-			else {
-				errback(
-					new Error(
-						'fetchText() failed. url: "' + url
-						+ '" status: ' + xhr.status + ' - ' + xhr.statusText
-					)
-				);
-			}
-		}
-	};
-	xhr.send(null);
+// This used to be a script injection routine, but indirect eval seems
+// to work just as well in major browsers.
+function injectScript (source) {
+	(1, eval)(source);
 }
 
 });
@@ -3138,17 +3149,6 @@ function getName (uid) {
 	return uid.split("#").pop();
 }
 
-
-});
-
-
-;define('rave@0.4.3/lib/debug/injectScript', ['require', 'exports', 'module'], function (require, exports, module, define) {module.exports = injectScript;
-
-// This used to be a script injection routine, but indirect eval seems
-// to work just as well in major browsers.
-function injectScript (source) {
-	(1, eval)(source);
-}
 
 });
 
@@ -4024,18 +4024,6 @@ function ensureFactory (thing) {
 });
 
 
-;define('rave@0.4.3/lib/createNormalizer', ['require', 'exports', 'module'], function (require, exports, module, define) {module.exports = createNormalizer;
-
-function createNormalizer (idTransform, map, normalize) {
-	return function (name, refererName, refererUrl) {
-		var normalized = normalize(name, refererName, refererUrl);
-		return idTransform(map(normalized, refererName), refererName, refererUrl);
-	};
-}
-
-});
-
-
 ;define('rave@0.4.3/lib/script/factory', ['require', 'exports', 'module'], function (require, exports, module, define) {module.exports = scriptFactory;
 
 function scriptFactory (scriptEval) {
@@ -4046,6 +4034,18 @@ function scriptFactory (scriptEval) {
 
 function create (scriptEval, source) {
 	return function () { scriptEval(source); };
+}
+
+});
+
+
+;define('rave@0.4.3/lib/createNormalizer', ['require', 'exports', 'module'], function (require, exports, module, define) {module.exports = createNormalizer;
+
+function createNormalizer (idTransform, map, normalize) {
+	return function (name, refererName, refererUrl) {
+		var normalized = normalize(name, refererName, refererUrl);
+		return idTransform(map(normalized, refererName), refererName, refererUrl);
+	};
 }
 
 });
@@ -4074,7 +4074,7 @@ function assembleAppContext (context) {
 function createEnv (context, metadata) {
 	var metaEnv, key;
 
-	if (!context.ev) context.env = {};
+	if (!context.env) context.env = {};
 
 	metaEnv = metadata.getMetadata().rave;
 	metaEnv = metaEnv && metaEnv.env || {};
@@ -4086,67 +4086,6 @@ function createEnv (context, metadata) {
 	if (!('debug' in context.env)) context.env.debug = true;
 
 	return context;
-}
-
-});
-
-
-;define('rave@0.4.3/lib/metadata', ['require', 'exports', 'module', 'rave@0.4.3/lib/uid', 'rave@0.4.3/lib/path', 'rave@0.4.3/lib/beget'], function (require, exports, module, $cram_r0, $cram_r1, $cram_r2, define) {var parseUid = $cram_r0.parse;
-var path = $cram_r1;
-var beget = $cram_r2;
-
-module.exports = {
-	findPackage: findPackageDescriptor,
-	findDepPackage: findDependentPackage,
-	moduleType: moduleType
-};
-
-function findPackageDescriptor (descriptors, fromModule) {
-	var parts, pkgName;
-	parts = parseUid(fromModule);
-	pkgName = parts.pkgUid || parts.pkgName;
-	return descriptors[pkgName];
-}
-
-function findDependentPackage (descriptors, fromPkg, depName) {
-	var parts, pkgName, depPkgUid;
-
-	// ensure we have a package descriptor, not a uid
-	if (typeof fromPkg === 'string') fromPkg = descriptors[fromPkg];
-
-	parts = parseUid(depName);
-	pkgName = parts.pkgUid || parts.pkgName;
-
-	if (fromPkg && (pkgName === fromPkg.name || pkgName === fromPkg.uid)) {
-		// this is the same the package
-		return fromPkg;
-	}
-	else {
-		// get dep pkg uid
-		depPkgUid = fromPkg ? fromPkg.deps[pkgName] : pkgName;
-		return depPkgUid && descriptors[depPkgUid];
-	}
-}
-
-function moduleType (descriptor) {
-	var moduleTypes;
-
-	moduleTypes = descriptor.moduleType;
-
-	if (hasModuleType(moduleTypes, 'amd')) {
-		return 'amd';
-	}
-	else if (hasModuleType(moduleTypes, 'node')) {
-		return 'node';
-	}
-	else if (hasModuleType(moduleTypes, 'globals')) {
-		return 'globals';
-	}
-
-}
-
-function hasModuleType (moduleTypes, type) {
-	return moduleTypes && moduleTypes.indexOf(type) >= 0;
 }
 
 });
@@ -4215,6 +4154,67 @@ function extractExtensionCtor (extModule) {
 
 function createExtensionApi (context, extension) {
 	return extension(context);
+}
+
+});
+
+
+;define('rave@0.4.3/lib/metadata', ['require', 'exports', 'module', 'rave@0.4.3/lib/uid', 'rave@0.4.3/lib/path', 'rave@0.4.3/lib/beget'], function (require, exports, module, $cram_r0, $cram_r1, $cram_r2, define) {var parseUid = $cram_r0.parse;
+var path = $cram_r1;
+var beget = $cram_r2;
+
+module.exports = {
+	findPackage: findPackageDescriptor,
+	findDepPackage: findDependentPackage,
+	moduleType: moduleType
+};
+
+function findPackageDescriptor (descriptors, fromModule) {
+	var parts, pkgName;
+	parts = parseUid(fromModule);
+	pkgName = parts.pkgUid || parts.pkgName;
+	return descriptors[pkgName];
+}
+
+function findDependentPackage (descriptors, fromPkg, depName) {
+	var parts, pkgName, depPkgUid;
+
+	// ensure we have a package descriptor, not a uid
+	if (typeof fromPkg === 'string') fromPkg = descriptors[fromPkg];
+
+	parts = parseUid(depName);
+	pkgName = parts.pkgUid || parts.pkgName;
+
+	if (fromPkg && (pkgName === fromPkg.name || pkgName === fromPkg.uid)) {
+		// this is the same the package
+		return fromPkg;
+	}
+	else {
+		// get dep pkg uid
+		depPkgUid = fromPkg ? fromPkg.deps[pkgName] : pkgName;
+		return depPkgUid && descriptors[depPkgUid];
+	}
+}
+
+function moduleType (descriptor) {
+	var moduleTypes;
+
+	moduleTypes = descriptor.moduleType;
+
+	if (hasModuleType(moduleTypes, 'amd')) {
+		return 'amd';
+	}
+	else if (hasModuleType(moduleTypes, 'node')) {
+		return 'node';
+	}
+	else if (hasModuleType(moduleTypes, 'globals')) {
+		return 'globals';
+	}
+
+}
+
+function hasModuleType (moduleTypes, type) {
+	return moduleTypes && moduleTypes.indexOf(type) >= 0;
 }
 
 });
@@ -4317,78 +4317,6 @@ function npmTraverseUp (context, fileUrl) {
 });
 
 
-;define('rave@0.4.3/lib/debug/captureDefines', ['require', 'exports', 'module', 'rave@0.4.3/lib/addSourceUrl', 'rave@0.4.3/lib/amd/captureDefines'], function (require, exports, module, $cram_r0, $cram_r1, define) {var addSourceUrl = $cram_r0;
-var origCaptureDefines = $cram_r1;
-
-module.exports = captureDefines;
-
-function captureDefines (amdEval) {
-	return function (load) {
-		return origCaptureDefines(_eval)(load);
-		function _eval (global, define, source) {
-			return amdEval(global, define, addSourceUrl(load.address, source));
-		}
-	};
-}
-
-});
-
-
-;define('rave@0.4.3/lib/debug/amdEval', ['require', 'exports', 'module', 'rave@0.4.3/lib/debug/injectScript'], function (require, exports, module, $cram_r0, define) {var injectScript = $cram_r0;
-
-module.exports = amdEval;
-
-var noDefine = {};
-
-function amdEval (global, define, source) {
-	var prevDefine = 'define' in global ? global.define : noDefine;
-	global.define = define;
-	try {
-		injectScript(source);
-	}
-	finally {
-		if (global.define === noDefine) {
-			delete global.define;
-		}
-		else {
-			global.define = prevDefine;
-		}
-	}
-}
-
-});
-
-
-;define('rave@0.4.3/lib/debug/scriptEval', ['require', 'exports', 'module', 'rave@0.4.3/lib/debug/injectScript'], function (require, exports, module, $cram_r0, define) {var injectScript = $cram_r0;
-
-module.exports = scriptEval;
-
-function scriptEval (source) {
-	injectScript(source);
-}
-
-});
-
-
-;define('rave@0.4.3/lib/debug/scriptFactory', ['require', 'exports', 'module', 'rave@0.4.3/lib/script/factory', 'rave@0.4.3/lib/addSourceUrl'], function (require, exports, module, $cram_r0, $cram_r1, define) {var factory = $cram_r0;
-var addSourceUrl = $cram_r1;
-
-module.exports = scriptFactory;
-
-function scriptFactory (scriptEval) {
-	return function (loader, load) {
-		var address = load.address;
-		return factory(debugEval)(loader, load);
-		function debugEval (source) {
-			var debugSrc = addSourceUrl(address, source);
-			scriptEval(debugSrc);
-		}
-	};
-}
-
-});
-
-
 ;define('rave@0.4.3/lib/crawl/bower', ['require', 'exports', 'module', 'rave@0.4.3/lib/path', 'rave@0.4.3/lib/crawl/common'], function (require, exports, module, $cram_r0, $cram_r1, define) {var join = $cram_r0.joinPaths;
 var common = $cram_r1;
 
@@ -4476,6 +4404,124 @@ function bowerDependencies (context, data) {
 		: [];
 }
 
+
+});
+
+
+;define('rave@0.4.3/lib/debug/amdEval', ['require', 'exports', 'module', 'rave@0.4.3/lib/debug/injectScript'], function (require, exports, module, $cram_r0, define) {var injectScript = $cram_r0;
+
+module.exports = amdEval;
+
+var noDefine = {};
+
+function amdEval (global, define, source) {
+	var prevDefine = 'define' in global ? global.define : noDefine;
+	global.define = define;
+	try {
+		injectScript(source);
+	}
+	finally {
+		if (global.define === noDefine) {
+			delete global.define;
+		}
+		else {
+			global.define = prevDefine;
+		}
+	}
+}
+
+});
+
+
+;define('rave@0.4.3/lib/debug/captureDefines', ['require', 'exports', 'module', 'rave@0.4.3/lib/addSourceUrl', 'rave@0.4.3/lib/amd/captureDefines'], function (require, exports, module, $cram_r0, $cram_r1, define) {var addSourceUrl = $cram_r0;
+var origCaptureDefines = $cram_r1;
+
+module.exports = captureDefines;
+
+function captureDefines (amdEval) {
+	return function (load) {
+		return origCaptureDefines(_eval)(load);
+		function _eval (global, define, source) {
+			return amdEval(global, define, addSourceUrl(load.address, source));
+		}
+	};
+}
+
+});
+
+
+;define('rave@0.4.3/lib/debug/scriptFactory', ['require', 'exports', 'module', 'rave@0.4.3/lib/script/factory', 'rave@0.4.3/lib/addSourceUrl'], function (require, exports, module, $cram_r0, $cram_r1, define) {var factory = $cram_r0;
+var addSourceUrl = $cram_r1;
+
+module.exports = scriptFactory;
+
+function scriptFactory (scriptEval) {
+	return function (loader, load) {
+		var address = load.address;
+		return factory(debugEval)(loader, load);
+		function debugEval (source) {
+			var debugSrc = addSourceUrl(address, source);
+			scriptEval(debugSrc);
+		}
+	};
+}
+
+});
+
+
+;define('rave@0.4.3/lib/debug/scriptEval', ['require', 'exports', 'module', 'rave@0.4.3/lib/debug/injectScript'], function (require, exports, module, $cram_r0, define) {var injectScript = $cram_r0;
+
+module.exports = scriptEval;
+
+function scriptEval (source) {
+	injectScript(source);
+}
+
+});
+
+
+;define('rave@0.4.3/lib/convert/common', ['require', 'exports', 'module', 'rave@0.4.3/lib/uid'], function (require, exports, module, $cram_r0, define) {var createUid = $cram_r0.create;
+
+// main exports
+
+exports.transform = transformData;
+
+// exports for testing
+
+exports.createDepHashMap = createDepHashMap;
+
+function transformData (orig) {
+	var metadata, clone;
+
+	// create overridable copy of metadata
+	metadata = orig.metadata;
+	clone = Object.create(metadata);
+
+	// copy some useful crawling data
+	clone.pmType = orig.pmType;
+	clone.fileType = orig.fileType;
+	clone.location = orig.rootUrl;
+	clone.depFolder = orig.depFolder;
+
+	// add uid
+	if (!clone.name) clone.name = orig.name;
+	if (!clone.version) clone.version = '0.0.0';
+	clone.uid = createUid(clone);
+
+	clone.getMetadata = function () { return metadata || {}; };
+
+	// convert children array to deps hashmap
+	clone.deps = createDepHashMap(orig);
+
+	return clone;
+}
+
+function createDepHashMap (data) {
+	return data.children.reduce(function (hashMap, child) {
+		hashMap[child.name] = child.uid;
+		return hashMap;
+	}, {});
+}
 
 });
 
@@ -4839,52 +4885,6 @@ function logOverrides (context) {
 });
 
 
-;define('rave@0.4.3/lib/convert/common', ['require', 'exports', 'module', 'rave@0.4.3/lib/uid'], function (require, exports, module, $cram_r0, define) {var createUid = $cram_r0.create;
-
-// main exports
-
-exports.transform = transformData;
-
-// exports for testing
-
-exports.createDepHashMap = createDepHashMap;
-
-function transformData (orig) {
-	var metadata, clone;
-
-	// create overridable copy of metadata
-	metadata = orig.metadata;
-	clone = Object.create(metadata);
-
-	// copy some useful crawling data
-	clone.pmType = orig.pmType;
-	clone.fileType = orig.fileType;
-	clone.location = orig.rootUrl;
-	clone.depFolder = orig.depFolder;
-
-	// add uid
-	if (!clone.name) clone.name = orig.name;
-	if (!clone.version) clone.version = '0.0.0';
-	clone.uid = createUid(clone);
-
-	clone.getMetadata = function () { return metadata || {}; };
-
-	// convert children array to deps hashmap
-	clone.deps = createDepHashMap(orig);
-
-	return clone;
-}
-
-function createDepHashMap (data) {
-	return data.children.reduce(function (hashMap, child) {
-		hashMap[child.name] = child.uid;
-		return hashMap;
-	}, {});
-}
-
-});
-
-
 ;define('rave@0.4.3/lib/run/applyLoaderHooks', ['require', 'exports', 'module', 'rave@0.4.3/load/override'], function (require, exports, module, $cram_r0, define) {var override = $cram_r0;
 
 module.exports = applyLoaderHooks;
@@ -4906,6 +4906,93 @@ function applyLoaderHooks (context, extensions) {
 	}).then(function () {
 		return extensions;
 	});
+}
+
+});
+
+
+;define('rave@0.4.3/lib/find/amdEvidence', ['require', 'exports', 'module', 'rave@0.4.3/lib/find/createCodeFinder'], function (require, exports, module, $cram_r0, define) {module.exports = findAmdEvidence;
+
+var createCodeFinder = $cram_r0;
+
+findAmdEvidence.rx = /(\bdefine\s*\()|(\bdefine\.amd\b)/g;
+
+var finder = createCodeFinder(findAmdEvidence.rx);
+
+function findAmdEvidence (source) {
+	var isAmd = false;
+
+	finder(source, function () {
+		isAmd = true;
+		return source.length; // stop searching
+	});
+
+	return { isAmd: isAmd };
+}
+
+});
+
+
+;define('rave@0.4.3/lib/find/cjsEvidence', ['require', 'exports', 'module', 'rave@0.4.3/lib/find/createCodeFinder'], function (require, exports, module, $cram_r0, define) {module.exports = findCjsEvidence;
+
+var createCodeFinder = $cram_r0;
+
+findCjsEvidence.rx = /(\btypeof\s+exports\b|\bmodule\.exports\b|\bexports\.\b|\brequire\s*\(\s*["'][^"']*["']\s*\))/g;
+
+var finder = createCodeFinder(findCjsEvidence.rx);
+
+function findCjsEvidence (source) {
+	var isCjs = false;
+
+	finder(source, function () {
+		isCjs = true;
+		return source.length; // stop searching
+	});
+
+	return { isCjs: isCjs };
+}
+
+});
+
+
+;define('rave@0.4.3/pipeline/instantiateScript', ['require', 'exports', 'module', 'rave@0.4.3/lib/metadata', 'rave@0.4.3/lib/path'], function (require, exports, module, $cram_r0, $cram_r1, define) {module.exports = instantiateScript;
+
+var metadata = $cram_r0;
+var path = $cram_r1;
+
+function instantiateScript (scriptFactory) {
+	return function (load) {
+		var packages, pkg, deps;
+
+		// find dependencies
+		packages = load.metadata.rave.packages;
+		pkg = metadata.findPackage(packages, load.name);
+		if (pkg && pkg.deps) {
+			deps = pkgMains(packages, pkg.deps)
+		}
+
+		var factory = scriptFactory(this, load);
+		return {
+			deps: deps,
+			execute: function () {
+				factory();
+				return new Module({});
+			}
+		};
+	}
+}
+
+
+function pkgMains (packages, depPkgs) {
+	var main, mains = [];
+	for (var name in depPkgs) {
+		// package-to-package dependency
+		main = packages[depPkgs[name]].name;
+		if (main) {
+			mains.push(main);
+		}
+	}
+	return mains;
 }
 
 });
@@ -5023,175 +5110,6 @@ function bowerAdjustLocation (data) {
 });
 
 
-;define('rave@0.4.3/pipeline/instantiateScript', ['require', 'exports', 'module', 'rave@0.4.3/lib/metadata', 'rave@0.4.3/lib/path'], function (require, exports, module, $cram_r0, $cram_r1, define) {module.exports = instantiateScript;
-
-var metadata = $cram_r0;
-var path = $cram_r1;
-
-function instantiateScript (scriptFactory) {
-	return function (load) {
-		var packages, pkg, deps;
-
-		// find dependencies
-		packages = load.metadata.rave.packages;
-		pkg = metadata.findPackage(packages, load.name);
-		if (pkg && pkg.deps) {
-			deps = pkgMains(packages, pkg.deps)
-		}
-
-		var factory = scriptFactory(this, load);
-		return {
-			deps: deps,
-			execute: function () {
-				factory();
-				return new Module({});
-			}
-		};
-	}
-}
-
-
-function pkgMains (packages, depPkgs) {
-	var main, mains = [];
-	for (var name in depPkgs) {
-		// package-to-package dependency
-		main = packages[depPkgs[name]].name;
-		if (main) {
-			mains.push(main);
-		}
-	}
-	return mains;
-}
-
-});
-
-
-;define('rave@0.4.3/lib/find/amdEvidence', ['require', 'exports', 'module', 'rave@0.4.3/lib/find/createCodeFinder'], function (require, exports, module, $cram_r0, define) {module.exports = findAmdEvidence;
-
-var createCodeFinder = $cram_r0;
-
-findAmdEvidence.rx = /(\bdefine\s*\()|(\bdefine\.amd\b)/g;
-
-var finder = createCodeFinder(findAmdEvidence.rx);
-
-function findAmdEvidence (source) {
-	var isAmd = false;
-
-	finder(source, function () {
-		isAmd = true;
-		return source.length; // stop searching
-	});
-
-	return { isAmd: isAmd };
-}
-
-});
-
-
-;define('rave@0.4.3/lib/find/cjsEvidence', ['require', 'exports', 'module', 'rave@0.4.3/lib/find/createCodeFinder'], function (require, exports, module, $cram_r0, define) {module.exports = findCjsEvidence;
-
-var createCodeFinder = $cram_r0;
-
-findCjsEvidence.rx = /(\btypeof\s+exports\b|\bmodule\.exports\b|\bexports\.\b|\brequire\s*\(\s*["'][^"']*["']\s*\))/g;
-
-var finder = createCodeFinder(findCjsEvidence.rx);
-
-function findCjsEvidence (source) {
-	var isCjs = false;
-
-	finder(source, function () {
-		isCjs = true;
-		return source.length; // stop searching
-	});
-
-	return { isCjs: isCjs };
-}
-
-});
-
-
-;define('rave@0.4.3/lib/createVersionedIdTransform', ['require', 'exports', 'module', 'rave@0.4.3/lib/uid', 'rave@0.4.3/lib/metadata', 'rave@0.4.3/lib/path'], function (require, exports, module, $cram_r0, $cram_r1, $cram_r2, define) {var createUid = $cram_r0.create;
-var metadata = $cram_r1;
-var path = $cram_r2;
-
-module.exports = createVersionedIdTransform;
-
-function createVersionedIdTransform (context) {
-	var packages;
-
-	packages = context.packages;
-
-	return function (normalized, refUid, refUrl) {
-		var refPkg, depPkg;
-
-		refPkg = metadata.findPackage(packages, refUid);
-		depPkg = metadata.findDepPackage(packages, refPkg, normalized);
-
-		if (!depPkg) {
-			depPkg = metadata.findPackage(packages, normalized);
-		}
-
-		if (!depPkg) {
-			throw new Error('Package not found for ' + normalized);
-		}
-
-		// translate package main (e.g. "rest" --> "rest/rest")
-		if (normalized === depPkg.name && depPkg.main) {
-			normalized = depPkg.main.charAt(0) === '.'
-				? path.reduceLeadingDots(depPkg.main, path.ensureEndSlash(depPkg.name))
-				: path.joinPaths(depPkg.name, depPkg.main);
-		}
-
-		if (normalized.indexOf('#') < 0) {
-			// it's not already an uid
-			normalized = createUid(depPkg, normalized);
-		}
-
-		return normalized;
-	};
-}
-
-});
-
-
-;define('rave@0.4.3/pipeline/locatePackage', ['require', 'exports', 'module', 'rave@0.4.3/lib/path', 'rave@0.4.3/lib/uid', 'rave@0.4.3/lib/metadata'], function (require, exports, module, $cram_r0, $cram_r1, $cram_r2, define) {module.exports = locatePackage;
-
-var path = $cram_r0;
-var parseUid = $cram_r1.parse;
-var metadata = $cram_r2;
-
-function locatePackage (load) {
-	var options, parts, packageName, modulePath, moduleName, descriptor,
-		location;
-
-	options = load.metadata.rave;
-
-	if (!options.packages) throw new Error('Packages not provided: ' + load.name);
-
-	parts = parseUid(load.name);
-	packageName = parts.pkgUid || parts.pkgName;
-	modulePath = parts.modulePath;
-
-	descriptor = options.packages[packageName];
-	if (!descriptor) throw new Error('Package not found: ' + load.name);
-
-	moduleName = modulePath || descriptor.main;
-	if (!load.metadata.dontAddExt) {
-		moduleName = path.ensureExt(moduleName, '.js')
-	}
-
-	location = descriptor.location;
-	if (!path.isAbsUrl(location) && options.baseUrl) {
-		// prepend baseUrl
-		location = path.joinPaths(options.baseUrl, location);
-	}
-
-	return path.joinPaths(location, moduleName);
-}
-
-});
-
-
 ;define('rave@0.4.3/lib/amd/factory', ['require', 'exports', 'module', 'rave@0.4.3/lib/es5Transform', 'rave@0.4.3/lib/createRequire'], function (require, exports, module, $cram_r0, $cram_r1, define) {module.exports = amdFactory;
 
 var es5Transform = $cram_r0;
@@ -5282,6 +5200,127 @@ function hasCommonJSDep (deps) {
 	}
 	return false;
 }
+
+});
+
+
+;define('rave@0.4.3/lib/createVersionedIdTransform', ['require', 'exports', 'module', 'rave@0.4.3/lib/uid', 'rave@0.4.3/lib/metadata', 'rave@0.4.3/lib/path'], function (require, exports, module, $cram_r0, $cram_r1, $cram_r2, define) {var createUid = $cram_r0.create;
+var metadata = $cram_r1;
+var path = $cram_r2;
+
+module.exports = createVersionedIdTransform;
+
+function createVersionedIdTransform (context) {
+	var packages;
+
+	packages = context.packages;
+
+	return function (normalized, refUid, refUrl) {
+		var refPkg, depPkg;
+
+		refPkg = metadata.findPackage(packages, refUid);
+		depPkg = metadata.findDepPackage(packages, refPkg, normalized);
+
+		if (!depPkg) {
+			depPkg = metadata.findPackage(packages, normalized);
+		}
+
+		if (!depPkg) {
+			throw new Error('Package not found for ' + normalized);
+		}
+
+		// translate package main (e.g. "rest" --> "rest/rest")
+		if (normalized === depPkg.name && depPkg.main) {
+			normalized = depPkg.main.charAt(0) === '.'
+				? path.reduceLeadingDots(depPkg.main, path.ensureEndSlash(depPkg.name))
+				: path.joinPaths(depPkg.name, depPkg.main);
+		}
+
+		if (normalized.indexOf('#') < 0) {
+			// it's not already an uid
+			normalized = createUid(depPkg, normalized);
+		}
+
+		return normalized;
+	};
+}
+
+});
+
+
+;define('rave@0.4.3/pipeline/locatePackage', ['require', 'exports', 'module', 'rave@0.4.3/lib/path', 'rave@0.4.3/lib/uid', 'rave@0.4.3/lib/metadata'], function (require, exports, module, $cram_r0, $cram_r1, $cram_r2, define) {module.exports = locatePackage;
+
+var path = $cram_r0;
+var parseUid = $cram_r1.parse;
+var metadata = $cram_r2;
+
+function locatePackage (load) {
+	var options, parts, packageName, modulePath, moduleName, descriptor,
+		location;
+
+	options = load.metadata.rave;
+
+	if (!options.packages) throw new Error('Packages not provided: ' + load.name);
+
+	parts = parseUid(load.name);
+	packageName = parts.pkgUid || parts.pkgName;
+	modulePath = parts.modulePath;
+
+	descriptor = options.packages[packageName];
+	if (!descriptor) throw new Error('Package not found: ' + load.name);
+
+	moduleName = modulePath || descriptor.main;
+	if (!load.metadata.dontAddExt) {
+		moduleName = path.ensureExt(moduleName, '.js')
+	}
+
+	location = descriptor.location;
+	if (!path.isAbsUrl(location) && options.baseUrl) {
+		// prepend baseUrl
+		location = path.joinPaths(options.baseUrl, location);
+	}
+
+	return path.joinPaths(location, moduleName);
+}
+
+});
+
+
+;define('rave@0.4.3/lib/find/es5ModuleTypes', ['require', 'exports', 'module', 'rave@0.4.3/lib/find/createCodeFinder', 'rave@0.4.3/lib/find/amdEvidence', 'rave@0.4.3/lib/find/cjsEvidence'], function (require, exports, module, $cram_r0, $cram_r1, $cram_r2, define) {module.exports = findEs5ModuleTypes;
+
+var createCodeFinder = $cram_r0;
+var findAmdEvidence = $cram_r1;
+var findCjsEvidence = $cram_r2;
+
+findEs5ModuleTypes.rx = createCodeFinder.composeRx(
+	findAmdEvidence.rx, findCjsEvidence.rx, 'g'
+);
+
+var finder = createCodeFinder(findEs5ModuleTypes.rx);
+
+function findEs5ModuleTypes (source, preferAmd) {
+	var results, foundDefine;
+
+	results = { isCjs: false, isAmd: false };
+
+	finder(source, function (matches) {
+		var amdDefine = matches[1], amdDetect = matches[2], cjs = matches[3];
+		if (cjs) {
+			// only flag as CommonJS if we haven't hit a define
+			// this prevents CommonJS-wrapped AMD from being flagged as cjs
+			if (!foundDefine) results.isCjs = true;
+		}
+		else if (amdDefine || amdDetect) {
+			results.isAmd = true;
+			foundDefine = amdDefine;
+			// optimization: stop searching if we found AMD evidence
+			if (preferAmd) return source.length;
+		}
+	});
+
+	return results;
+}
+
 
 });
 
@@ -5382,45 +5421,6 @@ function logError (ex) {
 });
 
 
-;define('rave@0.4.3/lib/find/es5ModuleTypes', ['require', 'exports', 'module', 'rave@0.4.3/lib/find/createCodeFinder', 'rave@0.4.3/lib/find/amdEvidence', 'rave@0.4.3/lib/find/cjsEvidence'], function (require, exports, module, $cram_r0, $cram_r1, $cram_r2, define) {module.exports = findEs5ModuleTypes;
-
-var createCodeFinder = $cram_r0;
-var findAmdEvidence = $cram_r1;
-var findCjsEvidence = $cram_r2;
-
-findEs5ModuleTypes.rx = createCodeFinder.composeRx(
-	findAmdEvidence.rx, findCjsEvidence.rx, 'g'
-);
-
-var finder = createCodeFinder(findEs5ModuleTypes.rx);
-
-function findEs5ModuleTypes (source, preferAmd) {
-	var results, foundDefine;
-
-	results = { isCjs: false, isAmd: false };
-
-	finder(source, function (matches) {
-		var amdDefine = matches[1], amdDetect = matches[2], cjs = matches[3];
-		if (cjs) {
-			// only flag as CommonJS if we haven't hit a define
-			// this prevents CommonJS-wrapped AMD from being flagged as cjs
-			if (!foundDefine) results.isCjs = true;
-		}
-		else if (amdDefine || amdDetect) {
-			results.isAmd = true;
-			foundDefine = amdDefine;
-			// optimization: stop searching if we found AMD evidence
-			if (preferAmd) return source.length;
-		}
-	});
-
-	return results;
-}
-
-
-});
-
-
 ;define('rave@0.4.3/lib/createPackageMapper', ['require', 'exports', 'module', 'rave@0.4.3/lib/createMapper', 'rave@0.4.3/lib/uid'], function (require, exports, module, $cram_r0, $cram_r1, define) {var createMapper = $cram_r0;
 var uid = $cram_r1;
 
@@ -5431,6 +5431,41 @@ function createPackageMapper (context) {
 	return function (normalizedName, refUid, refUrl) {
 		return mapper(uid.getName(normalizedName), refUid, refUrl);
 	};
+}
+
+});
+
+
+;define('rave@0.4.3/lib/debug/moduleType', ['require', 'exports', 'module', 'rave@0.4.3/lib/metadata', 'rave@0.4.3/lib/find/es5ModuleTypes'], function (require, exports, module, $cram_r0, $cram_r1, define) {var metadata = $cram_r0;
+var findEs5ModuleTypes = $cram_r1;
+
+module.exports = moduleType;
+
+function moduleType (load) {
+	var pkg, type;
+
+	pkg = metadata.findPackage(load.metadata.rave.packages, load.name);
+	type = metadata.moduleType(pkg);
+
+	if (type) {
+		return type;
+	}
+	else {
+		pkg.moduleType = guessModuleType(load) || ['globals']; // fix package
+		return metadata.moduleType(pkg); // try again :)
+	}
+}
+
+function guessModuleType (load) {
+	try {
+		var evidence = findEs5ModuleTypes(load.source, true);
+		return evidence.isAmd && ['amd']
+			|| evidence.isCjs && ['node'];
+	}
+	catch (ex) {
+		ex.message += ' ' + load.name + ' ' + load.address;
+		throw ex;
+	}
 }
 
 });
@@ -5526,41 +5561,6 @@ function getUid (packages, name) {
 });
 
 
-;define('rave@0.4.3/lib/debug/moduleType', ['require', 'exports', 'module', 'rave@0.4.3/lib/metadata', 'rave@0.4.3/lib/find/es5ModuleTypes'], function (require, exports, module, $cram_r0, $cram_r1, define) {var metadata = $cram_r0;
-var findEs5ModuleTypes = $cram_r1;
-
-module.exports = moduleType;
-
-function moduleType (load) {
-	var pkg, type;
-
-	pkg = metadata.findPackage(load.metadata.rave.packages, load.name);
-	type = metadata.moduleType(pkg);
-
-	if (type) {
-		return type;
-	}
-	else {
-		pkg.moduleType = guessModuleType(load) || ['globals']; // fix package
-		return metadata.moduleType(pkg); // try again :)
-	}
-}
-
-function guessModuleType (load) {
-	try {
-		var evidence = findEs5ModuleTypes(load.source, true);
-		return evidence.isAmd && ['amd']
-			|| evidence.isCjs && ['node'];
-	}
-	catch (ex) {
-		ex.message += ' ' + load.name + ' ' + load.address;
-		throw ex;
-	}
-}
-
-});
-
-
 ;define('rave@0.4.3/lib/hooksFromMetadata', ['require', 'exports', 'module', 'rave@0.4.3/lib/uid', 'rave@0.4.3/lib/createNormalizer', 'rave@0.4.3/lib/createVersionedIdTransform', 'rave@0.4.3/lib/createPackageMapper', 'rave@0.4.3/pipeline/locatePackage'], function (require, exports, module, $cram_r0, $cram_r1, $cram_r2, $cram_r3, $cram_r4, define) {var parseUid = $cram_r0.parse;
 var createNormalizer = $cram_r1;
 var createVersionedIdTransform = $cram_r2;
@@ -5601,6 +5601,23 @@ function withContext (context, func) {
 	return function (load) {
 		load.metadata.rave = context;
 		return func.call(this, load);
+	};
+}
+
+});
+
+
+;define('rave@0.4.3/lib/debug/instantiateJS', ['require', 'exports', 'module', 'rave@0.4.3/lib/debug/moduleType'], function (require, exports, module, $cram_r0, define) {var moduleType = $cram_r0;
+
+module.exports = instantiateJs;
+
+function instantiateJs (instantiator) {
+	return function (load) {
+		var instantiate = instantiator(moduleType(load));
+		if (!instantiate) {
+			throw new Error('No instantiator found for ' + load.name);
+		}
+		return instantiate(load);
 	};
 }
 
@@ -5674,17 +5691,20 @@ function findOrThrow (load, source) {
 });
 
 
-;define('rave@0.4.3/lib/debug/instantiateJS', ['require', 'exports', 'module', 'rave@0.4.3/lib/debug/moduleType'], function (require, exports, module, $cram_r0, define) {var moduleType = $cram_r0;
+;define('rave@0.4.3/lib/run/configureLoader', ['require', 'exports', 'module', 'rave@0.4.3/lib/hooksFromMetadata', 'rave@0.4.3/load/override'], function (require, exports, module, $cram_r0, $cram_r1, define) {var fromMetadata = $cram_r0;
+var override = $cram_r1;
 
-module.exports = instantiateJs;
+module.exports = configureLoader;
 
-function instantiateJs (instantiator) {
-	return function (load) {
-		var instantiate = instantiator(moduleType(load));
-		if (!instantiate) {
-			throw new Error('No instantiator found for ' + load.name);
+function configureLoader (baseHooks) {
+	return function (context) {
+		var overrides = fromMetadata(baseHooks, context);
+		context.load.overrides = overrides;
+		var hooks = override.hooks(context.load.nativeHooks, overrides);
+		for (var name in hooks) {
+			context.loader[name] = hooks[name];
 		}
-		return instantiate(load);
+		return Promise.resolve(context);
 	};
 }
 
@@ -5709,44 +5729,17 @@ exports.globals = instantiateScript(scriptFactory(scriptEval));
 });
 
 
-;define('rave@0.4.3/lib/run/configureLoader', ['require', 'exports', 'module', 'rave@0.4.3/lib/hooksFromMetadata', 'rave@0.4.3/pipeline/normalizeCjs', 'rave@0.4.3/pipeline/locateAsIs', 'rave@0.4.3/pipeline/fetchAsText', 'rave@0.4.3/pipeline/translateAsIs', 'rave@0.4.3/lib/debug/instantiateJS', 'rave@0.4.3/load/override'], function (require, exports, module, $cram_r0, $cram_r1, $cram_r2, $cram_r3, $cram_r4, $cram_r5, $cram_r6, define) {var fromMetadata = $cram_r0;
-var normalizeCjs = $cram_r1;
-var locateAsIs = $cram_r2;
-var fetchAsText = $cram_r3;
-var translateAsIs = $cram_r4;
-var instantiateJs = $cram_r5;
-var override = $cram_r6;
-
-module.exports = configureLoader;
-
-function configureLoader (getInstantiator) {
-	return function (context) {
-		var baseHooks = {
-			normalize: normalizeCjs,
-			locate: locateAsIs,
-			fetch: fetchAsText,
-			translate: translateAsIs,
-			instantiate: instantiateJs(getInstantiator)
-		};
-		var overrides = fromMetadata(baseHooks, context);
-		context.load.overrides = overrides;
-		var hooks = override.hooks(context.load.nativeHooks, overrides);
-		for (var name in hooks) {
-			context.loader[name] = hooks[name];
-		}
-		return Promise.resolve(context);
-	};
-}
-
-});
-
-
-;define('rave@0.4.3/lib/run', ['require', 'exports', 'module', 'rave@0.4.3/lib/debug/instantiators', 'rave@0.4.3/lib/run/applyLoaderHooks', 'rave@0.4.3/lib/run/configureLoader', 'rave@0.4.3/lib/run/gatherExtensions', 'rave@0.4.3/lib/run/applyFirstMain', 'rave@0.4.3/lib/run/initApplication'], function (require, exports, module, $cram_r0, $cram_r1, $cram_r2, $cram_r3, $cram_r4, $cram_r5, define) {var instantiators = $cram_r0;
-var applyLoaderHooks = $cram_r1;
-var configureLoader = $cram_r2;
-var gatherExtensions = $cram_r3;
-var applyFirstMain = $cram_r4;
-var initApplication = $cram_r5;
+;define('rave@0.4.3/lib/run', ['require', 'exports', 'module', 'rave@0.4.3/pipeline/normalizeCjs', 'rave@0.4.3/pipeline/locateAsIs', 'rave@0.4.3/pipeline/fetchAsText', 'rave@0.4.3/pipeline/translateAsIs', 'rave@0.4.3/lib/debug/instantiateJS', 'rave@0.4.3/lib/debug/instantiators', 'rave@0.4.3/lib/run/applyLoaderHooks', 'rave@0.4.3/lib/run/configureLoader', 'rave@0.4.3/lib/run/gatherExtensions', 'rave@0.4.3/lib/run/applyFirstMain', 'rave@0.4.3/lib/run/initApplication'], function (require, exports, module, $cram_r0, $cram_r1, $cram_r2, $cram_r3, $cram_r4, $cram_r5, $cram_r6, $cram_r7, $cram_r8, $cram_r9, $cram_r10, define) {var normalizeCjs = $cram_r0;
+var locateAsIs = $cram_r1;
+var fetchAsText = $cram_r2;
+var translateAsIs = $cram_r3;
+var instantiateJs = $cram_r4;
+var instantiators = $cram_r5;
+var applyLoaderHooks = $cram_r6;
+var configureLoader = $cram_r7;
+var gatherExtensions = $cram_r8;
+var applyFirstMain = $cram_r9;
+var initApplication = $cram_r10;
 
 module.exports = {
 	main: main,
@@ -5757,6 +5750,13 @@ var defaultMeta = 'bower.json,package.json';
 
 function main (context) {
 	var applyLoaderHooks;
+	var baseHooks = {
+		normalize: normalizeCjs,
+		locate: locateAsIs,
+		fetch: fetchAsText,
+		translate: translateAsIs,
+		instantiate: instantiateJs(getInstantiator)
+	};
 
 	applyLoaderHooks = this.applyLoaderHooks;
 
@@ -5765,7 +5765,7 @@ function main (context) {
 
 	function done (context) {
 
-		return configureLoader(getInstantiator)(context)
+		return configureLoader(baseHooks)(context)
 			.then(gatherExtensions)
 			.then(function (extensions) {
 				return applyLoaderHooks(context, extensions);
@@ -5777,13 +5777,6 @@ function main (context) {
 				return !alreadyRanMain && initApplication(context);
 			});
 	}
-}
-
-function failIfNone (allMetadata) {
-	if (allMetadata.roots.length === 0) {
-		throw new Error('No metadata files found: ' + context.raveMeta);
-	}
-	return allMetadata;
 }
 
 function getInstantiator (moduleType) {
@@ -5842,9 +5835,8 @@ run.applyLoaderHooks = function (context, extensions) {
 
 function getContextModule (context) {
 	var loader = context.loader;
-	var name = loader.normalize(contextModuleName);
-	if (loader.has(name)) {
-		return loader.get(name);
+	if (loader.has(contextModuleName)) {
+		return loader.get(contextModuleName);
 	}
 }
 
