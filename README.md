@@ -2,11 +2,12 @@
 
 ┏( ˆ◡ˆ)┛ ┗(ˆ◡ˆ )┓ RaveJS rocks! ┏( ˆ◡ˆ)┛ ┗(ˆ◡ˆ )┓
 
-## What is RaveJS?
-
-> **Note**: RaveJS is still under development.  Many parts are incomplete at
-this time.  Please give it a try, though, and let us know what you think.
+> **Note**: RaveJS is still under development.  You can run your apps in
+*dev mode*, but you cannot build your application for production, yet.
+Please give it a try, though, and let us know what you think.
 Or check out the open issues, if you'd like to contribute.
+
+## What is RaveJS?
 
 Rave eliminates configuration, machinery, and complexity.  Stop configuring
 and tweaking complicated machinery such as file watchers, minifiers, and
@@ -18,6 +19,25 @@ by installing *Rave Extension* and *Rave Integration* packages from
 [Bower](http://bower.io/search/?q=rave-extension). Finally, install additional
 *Rave Extension* packages to apply your favorite build, deploy, and testing
 patterns.
+
+Rave incorporates an ES6-style loader that **auto-detects** module format, 
+allowing you to intermix packages authored in AMD, node, and (soon) ES6 
+formats.  It also easily loads JSON, CSS, JSX, text, or virtually any other 
+format just by installing a Rave Extension.
+
+Rave **auto-detects** your project's packages regardless of whether you
+installed them via Bower or npm.  There's no need to configure a loader
+or create an application manifest file.
+
+*In progress:* rave also intelligently and effortlessly builds your app
+according to your preferences by inspecting the gulp or grunt plugins
+you've installed.
+
+*In progress:* Rave provides a smart command-line tool that you can 
+*optionally* use to simplify tasks and reduce common errors.  Rave CLI doesn't 
+replace the tools you already love, such as `bower` or `npm`, `gulp` or 
+`grunt`. Rave CLI just makes them much easier to use in a rave app.
+
 
 ## Why should I use RaveJS?
 
@@ -36,9 +56,6 @@ patterns.
 No.  If you can do `npm install` or `bower install` and if you can add
 a single script element to an HTML page, you can master Rave!  If that's
 too much work, clone a *Rave Starter* for a head start.
-
-Rave doesn't replace the tools you already love, such as gulp or grunt.
-Rave just makes them much easier to use.
 
 Rave is the absolute easiest way to get started with modules.  Author AMD,
 CommonJS, or (soon) ES6 modules without futzing with transpilers, file watchers,
