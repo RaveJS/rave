@@ -261,4 +261,4 @@ define(['myGlobalLibrary'], function () {
 
 At this point, you should be able to run your application.  Go ahead and try it.  Be sure to open the browser console, of course.  If you get nothing but 404s, check that the `<script>` url paths are correct, as usual.  Also, check that your package.json is accessible to the browser, and that its "main" property is correct.
 
-One of the most common errors is to forget to specify `--save` when installing packages.  Continue on to the [debugging][./debugging.md] document for further help.
+One of the most common errors is to forget to specify `--save` when installing packages.  Continue on to the [debugging](./debugging.md) document for further help.
