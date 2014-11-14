@@ -7,29 +7,23 @@ var npm = require('../../../lib/convert/npm');
 
 buster.testCase('lib/convert/npm', {
 
-	convert: {
-		'//should be tested': function () {
-			assert(false);
-		}
-	},
-
 	npmFixups: {
 		'should use browser property, main property, or "index" as main': function () {
 			var npmFixups = npm.npmFixups;
 			var data = createData();
 			delete data.main;
 			data = npmFixups(data);
-			assert.same(data.main, 'index');
+			assert.same(data.main, 'index', 'test1');
 			data.main = "main";
 			data = npmFixups(data);
-			assert.same(data.main, 'main');
-			data.browser = "browser";
+			assert.same(data.main, 'main', 'test2');
+			data.metadata.browser = "browser";
 			data = npmFixups(data);
-			assert.same(data.main, 'browser');
-			data.browser = {}; // only if browser is a string
+			assert.same(data.main, 'browser', 'test3');
+			data.metadata.browser = {}; // only if browser is a string
 			data.main = "main";
 			data = npmFixups(data);
-			assert.same(data.main, 'main');
+			assert.same(data.main, 'main', 'test4');
 		},
 		'should remove extension from main property': function () {
 			var npmFixups = npm.npmFixups;
@@ -41,16 +35,16 @@ buster.testCase('lib/convert/npm', {
 		'create a mapFunc if browser is an object': function () {
 			var npmFixups = npm.npmFixups;
 			var data = createData();
-			data.browser = {};
+			data.metadata.browser = {};
 			data = npmFixups(data);
 			assert.isFunction(data.mapFunc);
 		},
 		'should adopt directories.lib of metadata as location': function () {
 			var npmFixups = npm.npmFixups;
 			var data = createData();
-			data.directories = { lib: "root" };
+			data.metadata.directories = { lib: "root" };
 			data = npmFixups(data);
-			assert.equals(data.location, "root");
+			assert.equals(data.location, "location/root");
 		}
 	}
 

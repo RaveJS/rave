@@ -19,9 +19,6 @@ buster.testCase('lib/convert/common', {
 			orig.name = 'foo';
 			var data = transform(orig);
 			assert(data.name);
-		},
-		'//should be tested': function () {
-			assert(false);
 		}
 	}
 
