@@ -25,7 +25,6 @@ function build (context, modules) {
 		raveUid: uid,
 		raveMain: uid + '/start',
 		raveHooks: uid + '/src/hooks',
-		raveBundledContext: 'rave/_/context',
 		raveAmdBundle: uid + '/lib/amd/bundle'
 	};
 

@@ -2,7 +2,7 @@
 /** @author Brian Cavalier */
 /** @author John Hann */
 var global, doc, location,
-	raveMain, hooksName, bundledContextName, amdBundleModuleName;
+	raveMain, hooksName, amdBundleModuleName;
 
 global = typeof self !== 'undefined' && self
 	|| typeof global !== 'undefined' && global;
@@ -12,7 +12,6 @@ location = window.location;
 
 raveMain = '/*===raveMain===*/';
 hooksName = '/*===raveHooks===*/';
-bundledContextName = '/*===raveBundledContext===*/';
 amdBundleModuleName = '/*===raveAmdBundle===*/';
 
 // export public functions
