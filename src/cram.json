@@ -1,0 +1,10 @@
+{
+	"packages": {
+		"/*===raveUid===*/": {
+			"location": "./",
+			"config": { "loader": "curl/loader/cjsm11" }
+		}
+	},
+	"preloads": [ "/*===raveUid===*//src/hooks" ],
+	"main": "/*===raveUid===*//start"
+}

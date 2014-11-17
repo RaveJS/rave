@@ -1,28 +1,37 @@
 /*===promise===*/
-/*===loader===*/
 
-// es6-module-loader doesn't export to the current scope in node
-var Loader, Module;
-if (typeof exports !== 'undefined') {
-	if (typeof Loader === 'undefined') Loader = exports.Loader;
-	if (typeof Module === 'undefined') Module = exports.Module;
-}
+/*===loader===*/
 
 /** RaveJS */
 /** @license MIT License (c) copyright 2014 original authors */
 /** @author Brian Cavalier */
 /** @author John Hann */
-(function (exports, global) {
+(function (bundle) {
+var exports = {}, context = {}, define;
+
 /*===rave===*/
+
+// initialize rave boot sequence
+exports.init(context);
+
+// eval rave's minimal set of startup modules ("hooks")
+define = exports.simpleDefine(context);
 
 /*===hooks===*/
 
-// start!
-rave.boot(context);
+// eval any bundled context (e.g. from a rave build)
+define = exports.contextDefine(context);
 
-}(
-	typeof exports !== 'undefined' ? exports : void 0,
-	typeof global !== 'undefined' && global
-		|| typeof window !== 'undefined' && window
-		|| typeof self !== 'undefined' && self
-));
+/*===context===*/
+
+// pass forward any predefined modules (e.g. from a rave build)
+context.evalPredefines = exports.evalPredefines(bundle);
+
+// go!
+exports.boot(context);
+
+}(function (define) {
+
+/*===modules===*/
+
+}.bind(this)));

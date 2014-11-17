@@ -1,9 +1,0 @@
-{
-	"packages": {
-		"rave": {
-			"location": "./",
-			"config": { "loader": "curl/loader/cjsm11" }
-		}
-	},
-	"main": "rave/src/hooks"
-}

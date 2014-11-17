@@ -7,12 +7,6 @@ var bower = require('../../../lib/convert/bower');
 
 buster.testCase('lib/convert/bower', {
 
-	convert: {
-		'//should be tested': function () {
-			assert(false);
-		}
-	},
-
 	bowerFixups: {
 		'should provide a main property if missing': function () {
 			var bowerFixups = bower.bowerFixups;
@@ -71,13 +65,8 @@ buster.testCase('lib/convert/bower', {
 
 function createData () {
 	return {
-		getMetadata: getMetadata,
 		metadata: {},
 		location: "location",
 		name: "name"
 	};
-}
-
-function getMetadata () {
-	return this.metadata;
 }

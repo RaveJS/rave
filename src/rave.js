@@ -1,55 +1,60 @@
 /** @license MIT License (c) copyright 2014 original authors */
 /** @author Brian Cavalier */
 /** @author John Hann */
-var rave, doc, location, defaultMain, hooksName,
-	context, loader, define;
+var global, doc, location,
+	raveMain, hooksName, amdBundleModuleName;
 
-rave = exports || {};
+global = typeof self !== 'undefined' && self
+	|| typeof global !== 'undefined' && global;
 
 doc = global.document;
 location = window.location;
 
-defaultMain = 'rave/debug';
-hooksName = 'rave/src/hooks';
+raveMain = '/*===raveMain===*/';
+hooksName = '/*===raveHooks===*/';
+amdBundleModuleName = '/*===raveAmdBundle===*/';
+
+// export public functions
+exports.init = init;
+exports.boot = boot;
+exports.simpleDefine = simpleDefine;
+exports.contextDefine = contextDefine;
+exports.evalPredefines = evalPredefines;
 
 // export testable functions
-rave.boot = boot;
-rave.getCurrentScript = getCurrentScript;
-rave.mergeBrowserOptions = mergeBrowserOptions;
-rave.mergeNodeOptions = mergeNodeOptions;
-rave.simpleDefine = simpleDefine;
+exports.getCurrentScript = getCurrentScript;
+exports.getPathFromUrl = getPathFromUrl;
+exports.mergeGlobalOptions = mergeGlobalOptions;
+exports.fromLoader = fromLoader;
+exports.toLoader = toLoader;
+exports.autoModules = autoModules;
+exports.ensureFactory = ensureFactory;
 
 // initialize
-rave.scriptUrl = getCurrentScript();
-rave.scriptPath = getPathFromUrl(rave.scriptUrl);
-rave.baseUrl = doc
-	? getPathFromUrl(
-		// Opera has no location.origin, so we have to build it
-		location.protocol + '//'
-			+ location.host
-			+ location.pathname
-	)
-	: __dirname;
+function init (context) {
+	var scriptUrl = getCurrentScript();
+	var baseUrl = doc
+		? getPathFromUrl(
+			// Opera has no location.origin, so we have to build it
+			location.protocol + '//' + location.host + location.pathname
+		)
+		: __dirname;
 
-context = (doc ? mergeBrowserOptions : mergeNodeOptions)({
-	raveMain: defaultMain,
-	raveScript: rave.scriptUrl,
-	baseUrl: rave.baseUrl,
-	loader: new Loader({})
-});
+	context.raveScript = scriptUrl;
+	context.baseUrl = baseUrl;
+	context.loader = new Loader({});
 
-loader = context.loader;
-define = simpleDefine(loader);
-define.amd = {};
+	return mergeGlobalOptions(context);
+}
 
 function boot (context) {
-	var main = context.raveMain;
+	var loader = context.loader;
 	try {
-		// apply hooks overrides to loader
 		var hooks = fromLoader(loader.get(hooksName));
-		// extend loader
+		// extend loader enough to load rave
 		hooks(context);
-		loader.import(context.raveMain).then(go, failLoudly);
+		// launch rave
+		loader.import(raveMain).then(go, failLoudly);
 	}
 	catch (ex) {
 		failLoudly(ex);
@@ -88,8 +93,9 @@ function getPathFromUrl (url) {
 	return url.slice(0, last) + '/';
 }
 
-function mergeBrowserOptions (context) {
-	var el = doc.documentElement, i, attr, prop;
+function mergeGlobalOptions (context) {
+	if (!doc) return context;
+	var el = doc.documentElement;
 	var meta = el.getAttribute('data-rave-meta');
 	if (meta) {
 		context.raveMeta = meta;
@@ -97,16 +103,13 @@ function mergeBrowserOptions (context) {
 	return context;
 }
 
-function mergeNodeOptions (context) {
-	// TODO
-	return context;
-}
-
-function simpleDefine (loader) {
-	var _global;
+function simpleDefine (context) {
+	var loader, _global;
+	loader = context.loader;
 	// temporary work-around for es6-module-loader which throws when
 	// accessing loader.global
 	try { _global = loader.global } catch (ex) { _global = global; }
+	global.global = global; // TODO: remove this when we are able to supply a 'global' to crammed node modules
 	return function (id, deps, factory) {
 		var scoped, modules, i, len, isCjs = false, value;
 		scoped = {
@@ -115,11 +118,16 @@ function simpleDefine (loader) {
 			global: _global
 		};
 		scoped.module = { exports: scoped.exports };
+		scoped.require.async = function (id) {
+			// hack: code needs a refid even though we're using abs ids already
+			var abs = loader.normalize(id, 'rave');
+			return loader.import(abs).then(fromLoader);
+		};
 		modules = [];
 		// if deps has been omitted
 		if (arguments.length === 2) {
 			factory = deps;
-			deps = ['require', 'exports', 'module'].slice(factory.length);
+			deps = autoModules(factory);
 		}
 		for (i = 0, len = deps.length; i < len; i++) {
 			modules[i] = deps[i] in scoped
@@ -144,6 +152,61 @@ function simpleDefine (loader) {
 		}
 		loader.set(id, new Module(value));
 	};
+}
+
+function contextDefine (context) {
+	return function () {
+		var bctx;
+		bctx = arguments[arguments.length - 1];
+		if (typeof bctx === 'function') bctx = bctx();
+		context.app = bctx.app;
+		context.env = bctx.env;
+		context.metadata = bctx.metadata;
+		context.packages = bctx.packages;
+	};
+}
+
+function evalPredefines (bundle) {
+	var defines = [];
+	return function (context) {
+		var loader, process, load;
+
+		define.amd = { jQuery: true };
+		bundle(define);
+		if (!defines.length) return context;
+
+		loader = context.loader;
+		process = loader.get(amdBundleModuleName).process;
+		load = {
+			address: context.raveScript,
+			metadata: { rave: context }
+		};
+
+		process(load, defines);
+
+		return context;
+	};
+	function define (id, deps, factory) {
+		if (arguments.length === 2) {
+			factory = deps;
+			deps = autoModules(factory);
+		}
+		defines.push({
+			name: id,
+			depsList: deps,
+			factory: ensureFactory(factory)
+		});
+	}
+}
+
+function autoModules (factory) {
+	return ['require', 'exports', 'module'].slice(0, factory.length);
+}
+
+function ensureFactory (factory) {
+	return typeof factory === 'function'
+		? factory
+		: function () { return factory; }
 }
 
 function fromLoader (value) {

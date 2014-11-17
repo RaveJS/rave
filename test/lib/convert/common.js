@@ -19,9 +19,6 @@ buster.testCase('lib/convert/common', {
 			orig.name = 'foo';
 			var data = transform(orig);
 			assert(data.name);
-		},
-		'//should be tested': function () {
-			assert(false);
 		}
 	}
 
@@ -29,14 +26,9 @@ buster.testCase('lib/convert/common', {
 
 function createData () {
 	return {
-		getMetadata: getMetadata,
 		metadata: {},
 		location: "location",
 		name: "name",
 		children: []
 	};
-}
-
-function getMetadata () {
-	return this.metadata;
 }

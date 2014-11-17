@@ -1,13 +1,16 @@
 /** @license MIT License (c) copyright 2014 original authors */
 /** @author Brian Cavalier */
 /** @author John Hann */
-var auto = require('./auto');
 var uid = require('./lib/uid');
 var es5Transform = require('./lib/es5Transform');
 var metadata = require('./lib/metadata');
 
 module.exports = {
-	main: startDebug
+	start: startDebug,
+	assertNoConflicts: detectExtensionConflict,
+	assertRavePackage: assertRavePackage,
+	installDebugHooks: installDebugHooks,
+	logOverrides: logOverrides
 };
 
 var debugging = "\
@@ -81,7 +84,7 @@ function startDebug (context) {
 	console.log(debugging);
 
 	prev = 'rave' in global ? global.rave : uniqueThing;
-	rave = global.rave = {}
+	rave = global.rave = {};
 
 	message = render({}, replEnabled);
 
@@ -108,96 +111,84 @@ function startDebug (context) {
 
 	console.log(message);
 
-	var applyHooks = auto.applyLoaderHooks;
-	auto.applyLoaderHooks = function (context, extensions) {
+}
 
-		if (!('rave' in context.packages)) {
-			throw new Error('rave package not found.  Did you forget to use --save when installing?');
+function assertRavePackage (context) {
+	if (!('rave' in context.packages)) {
+		throw new Error('rave package not found.  Did you forget to use --save when installing?');
+	}
+	return context;
+}
+
+function installDebugHooks (context) {
+	var normalize = context.loader.normalize;
+	// log an error if rave encounters an unknown package
+	context.loader.normalize = function (name, refName, refUrl) {
+		try {
+			var normalized = normalize(name, refName, refUrl);
 		}
-
-		return applyHooks.call(this, context, extensions).then(function (result) {
-			var normalize = context.loader.normalize;
-			// log an error if rave encounters an unknown package
-			context.loader.normalize = function (name, refName, refUrl) {
-				try {
-					var normalized = normalize(name, refName, refUrl);
-				}
-				catch (ex) {
-					console.error(render(arguments, unknownPackage));
-					throw ex;
-				}
-				return normalized;
-			};
-			// log an error if it looks like an incorrect module type was applied
-			// override instantiate to catch throws of ReferenceError
-			// errors can happen when instantiate hook runs (AMD) or when returned factory runs (node)
-			// if /\bdefine\b/ in message, module is AMD, but was not declared as AMD
-			// if /\brequire\b|\exports\b|\bmodule\b/ in message, module is node, but was not declared as node
-			var instantiate = context.loader.instantiate;
-			context.loader.instantiate = function (load) {
-				try {
-					return Promise.resolve(instantiate(load)).then(createCheckedFactory, checkError);
-				}
-				catch (ex) {
-					checkError(ex);
-					throw ex;
-				}
-				function createCheckedFactory (result) {
-					var execute = result.execute;
-					if (execute) {
-						result.execute = function () {
-							try {
-								return execute.apply(this, arguments);
-							}
-							catch (ex) {
-								checkError(ex);
-								throw ex;
-							}
-						}
-					}
-					return result;
-				}
-				function checkError (ex) {
-					var info = {
-						name: load.name,
-						declaredType: metadata.findPackage(context.packages, load.name).moduleType
-					};
-					if (ex instanceof ReferenceError) {
-						if (!/\bdefine\b/.test(ex.message)) {
-							if (/\brequire\b|\exports\b|\bmodule\b/.test(ex.message)) {
-								info.sourceType = 'node';
-							}
-						}
-						else {
-							info.sourceType = 'AMD';
-						}
-						if (info.sourceType) {
-							console.error(render(info, wrongModuleType));
-						}
-					}
-					return ex;
-				}
-			};
-			return result;
-		});
+		catch (ex) {
+			console.error(render(arguments, unknownPackage));
+			throw ex;
+		}
+		return normalized;
 	};
-
-	auto.main(context)
-		.then(
-			function (context) {
-				return detectExtensionConflict(context);
-			},
-			function (ex) {
-				detectExtensionConflict(context);
-				throw ex;
+	// log an error if it looks like an incorrect module type was applied
+	// override instantiate to catch throws of ReferenceError
+	// errors can happen when instantiate hook runs (AMD) or when returned factory runs (node)
+	// if /\bdefine\b/ in message, module is AMD, but was not declared as AMD
+	// if /\brequire\b|\exports\b|\bmodule\b/ in message, module is node, but was not declared as node
+	var instantiate = context.loader.instantiate;
+	context.loader.instantiate = function (load) {
+		try {
+			return Promise.resolve(instantiate(load)).then(createCheckedFactory, checkError);
+		}
+		catch (ex) {
+			checkError(ex);
+			throw ex;
+		}
+		function createCheckedFactory (result) {
+			var execute = result.execute;
+			if (execute) {
+				result.execute = function () {
+					try {
+						return execute.apply(this, arguments);
+					}
+					catch (ex) {
+						checkError(ex);
+						throw ex;
+					}
+				}
 			}
-		)
-		.then(logOverrides);
+			return result;
+		}
+		function checkError (ex) {
+			var info = {
+				name: load.name,
+				declaredType: metadata.findPackage(context.packages, load.name).moduleType
+			};
+			if (ex instanceof ReferenceError) {
+				if (!/\bdefine\b/.test(ex.message)) {
+					if (/\brequire\b|\exports\b|\bmodule\b/.test(ex.message)) {
+						info.sourceType = 'node';
+					}
+				}
+				else {
+					info.sourceType = 'AMD';
+				}
+				if (info.sourceType) {
+					console.error(render(info, wrongModuleType));
+				}
+			}
+			return ex;
+		}
+	};
+	return context;
 }
 
 function findVersion (context) {
 	try {
-		return context.packages.rave.getMetadata().version;
+		return context.packages.rave.metadata.version;
 	}
 	catch (ex) {
 		console.error('Rave metadata not found! Did you forget to install rave with the --save option?');
@@ -247,9 +238,11 @@ function hasMultipleRaves (context) {
 
 function hasRaveResolution (context) {
 	var metadata = context.metadata;
-	for (var i = 0; i < metadata.length; i++) {
-		if (metadata.resolutions && metadata.resolutions.rave) {
-			return true;
+	if (metadata) {
+		for (var i = 0; i < metadata.length; i++) {
+			if (metadata.resolutions && metadata.resolutions.rave) {
+				return true;
+			}
 		}
 	}
 	return false;
@@ -267,7 +260,7 @@ function runSemverOnExtensions (context) {
 			pkg = packages[name];
 			if (!(pkg.name in seen)) {
 				seen[pkg.name] = true;
-				meta = pkg.getMetadata();
+				meta = pkg.metadata;
 				extName = meta.rave && (typeof meta.rave === 'string'
 					? meta.rave
 					: meta.rave.extension);
@@ -343,9 +336,9 @@ function logOverrides (context) {
 	for (name in context.packages) {
 		pkg = context.packages[name];
 		// packages are keyed by versioned and unversioned names
-		if (!(pkg.name in seen) && pkg.getMetadata && pkg.getMetadata().rave) {
+		if (!(pkg.name in seen) && pkg.metadata && pkg.metadata.rave) {
 			seen[pkg.name] = true;
-			extMeta = pkg.getMetadata().rave;
+			extMeta = pkg.metadata.rave;
 			// TODO: ensure that overridee is found
 			if (extMeta.missing) {
 				for (oname in extMeta.missing) {
