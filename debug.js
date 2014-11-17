@@ -188,7 +188,7 @@ function installDebugHooks (context) {
 
 function findVersion (context) {
 	try {
-		return context.packages.rave.getMetadata().version;
+		return context.packages.rave.metadata.version;
 	}
 	catch (ex) {
 		console.error('Rave metadata not found! Did you forget to install rave with the --save option?');
@@ -238,9 +238,11 @@ function hasMultipleRaves (context) {
 
 function hasRaveResolution (context) {
 	var metadata = context.metadata;
-	for (var i = 0; i < metadata.length; i++) {
-		if (metadata.resolutions && metadata.resolutions.rave) {
-			return true;
+	if (metadata) {
+		for (var i = 0; i < metadata.length; i++) {
+			if (metadata.resolutions && metadata.resolutions.rave) {
+				return true;
+			}
 		}
 	}
 	return false;
@@ -258,7 +260,7 @@ function runSemverOnExtensions (context) {
 			pkg = packages[name];
 			if (!(pkg.name in seen)) {
 				seen[pkg.name] = true;
-				meta = pkg.getMetadata();
+				meta = pkg.metadata;
 				extName = meta.rave && (typeof meta.rave === 'string'
 					? meta.rave
 					: meta.rave.extension);
@@ -334,9 +336,9 @@ function logOverrides (context) {
 	for (name in context.packages) {
 		pkg = context.packages[name];
 		// packages are keyed by versioned and unversioned names
-		if (!(pkg.name in seen) && pkg.getMetadata && pkg.getMetadata().rave) {
+		if (!(pkg.name in seen) && pkg.metadata && pkg.metadata.rave) {
 			seen[pkg.name] = true;
-			extMeta = pkg.getMetadata().rave;
+			extMeta = pkg.metadata.rave;
 			// TODO: ensure that overridee is found
 			if (extMeta.missing) {
 				for (oname in extMeta.missing) {
