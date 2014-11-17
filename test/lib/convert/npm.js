@@ -52,13 +52,8 @@ buster.testCase('lib/convert/npm', {
 
 function createData () {
 	return {
-		getMetadata: getMetadata,
 		metadata: {},
 		location: "location",
 		name: "name"
 	};
-}
-
-function getMetadata () {
-	return this.metadata;
 }

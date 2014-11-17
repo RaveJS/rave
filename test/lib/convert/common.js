@@ -26,14 +26,9 @@ buster.testCase('lib/convert/common', {
 
 function createData () {
 	return {
-		getMetadata: getMetadata,
 		metadata: {},
 		location: "location",
 		name: "name",
 		children: []
 	};
-}
-
-function getMetadata () {
-	return this.metadata;
 }
