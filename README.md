@@ -10,19 +10,24 @@ Or check out the open issues, if you'd like to contribute.
 ## What is RaveJS?
 
 Rave eliminates configuration, machinery, and complexity.  Stop configuring
-and tweaking complicated machinery such as file watchers, minifiers, and
-transpilers just to get to a runnable app.  Instead, go from zero to "hello
-world" in 30 seconds without touching a configuration file.  In the next 30
-seconds, easily add capabilities and frameworks to your application simply
-by installing *Rave Extension* and *Rave Integration* packages from
-[npm](http://www.npmjs.org/search?q=rave-extension) or
-[Bower](http://bower.io/search/?q=rave-extension). Finally, install additional
-*Rave Extension* packages to apply your favorite build, deploy, and testing
-patterns.
+and tweaking module loaders, file watchers, minifiers, and transpilers just
+to get to a runnable app. Instead, go from zero to "hello world" in less
+than 30 seconds. In the next 30 seconds, use npm or Bower to install your
+favorite frameworks and libraries.  Start coding instantly *without configuring
+anything*.
 
-Rave incorporates an ES6-style loader that **auto-detects** module format, 
-allowing you to intermix packages authored in AMD, node, and (soon) ES6 
-formats.  It also easily loads JSON, CSS, JSX, text, or virtually any other 
+With the help of *Rave Extensions*:
+
+* Extend the module loader to load CSS, templates, JSON, JSX, etc.
+* Use gulp or grunt plugins to build your app for production
+* Integrate with your favorite testing framework
+
+Again, with zero configuration in most cases.
+
+
+Rave incorporates an ES6-style loader that **auto-detects** module format,
+allowing you to intermix packages authored in AMD, node, and (soon) ES6
+formats.  It also easily loads JSON, CSS, JSX, text, or virtually any other
 format just by installing a Rave Extension.
 
 Rave **auto-detects** your project's packages regardless of whether you
@@ -33,9 +38,9 @@ or create an application manifest file.
 according to your preferences by inspecting the gulp or grunt plugins
 you've installed.
 
-*In progress:* Rave provides a smart command-line tool that you can 
-*optionally* use to simplify tasks and reduce common errors.  Rave CLI doesn't 
-replace the tools you already love, such as `bower` or `npm`, `gulp` or 
+*In progress:* Rave provides a smart command-line tool that you can
+*optionally* use to simplify tasks and reduce common errors.  Rave CLI doesn't
+replace the tools you already love, such as `bower` or `npm`, `gulp` or
 `grunt`. Rave CLI just makes them much easier to use in a rave app.
 
 
