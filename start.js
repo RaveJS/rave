@@ -5,16 +5,10 @@ var autoConfigure = require('./auto');
 var run = require('./lib/run');
 var debug = require('./debug');
 
-var contextModuleName = 'rave/_/context';
-
 exports.main = function (context) {
-	var bundledContext = getContextModule(context);
-	if (bundledContext) {
-		// TODO: merge some things?
-		context = bundledContext;
-	}
 	debug.start(context);
-	return Promise.resolve(bundledContext || autoConfigure(context))
+	// Temporary way to not autoConfigure if it has been done already (e.g. in a build)
+	return Promise.resolve(context.packages ? context : autoConfigure(context))
 		.then(
 			function (context) {
 				debug.assertNoConflicts(context);
@@ -43,10 +37,3 @@ run.applyLoaderHooks = function (context, extensions) {
 			return result;
 		});
 };
-
-function getContextModule (context) {
-	var loader = context.loader;
-	if (loader.has(contextModuleName)) {
-		return loader.get(contextModuleName);
-	}
-}

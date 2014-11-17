@@ -10,12 +10,11 @@ var cram = require('cram');
 
 module.exports = bundle;
 
-function bundle (cramCfg) {
-	var root, tempDir, uid, tempCfgFile, tempOutFile;
+function bundle (cramCfg, root) {
+	var tempDir, tempCfgFile, tempOutFile;
 
-	root = raveDir(__dirname);
 	// tempDir = os.tmpdir();
-	tempDir = path.join(root, 'build/temp');
+	tempDir = mkdir('.cram/temp');
 
 	tempCfgFile = path.join(tempDir, 'cram.json');
 	tempOutFile = path.join(tempDir, 'hooks.js');
@@ -24,24 +23,27 @@ function bundle (cramCfg) {
 
 	return when(cram({
 		appRoot: root,
-		// oof. cram needs a relative path
-		configFiles: [ path.relative(root, tempCfgFile) ],
+		configFiles: [ tempCfgFile ],
 		output: tempOutFile
 	})).then(function () {
+		// clean up after cram
+		delete global.define;
 		// return bundle
 		return '' + fs.readFileSync(tempOutFile);
 	});
 
 }
 
-function raveDir (currdir) {
-	var parts, i;
-	parts = currdir.split(path.sep);
-	i = parts.length;
-	while (--i > 0) {
-		if (parts[i] === 'rave') {
-			return parts.slice(0, i + 1).join(path.sep);
+function mkdir (dirname) {
+	var folders = path.relative(process.cwd(), dirname).split(path.sep);
+	return folders.reduce(function (pathSoFar, folder) {
+		pathSoFar = path.join(pathSoFar, folder);
+		try {
+			fs.mkdirSync(pathSoFar);
 		}
-	}
-	throw new Error('Unable to find rave directory.');
+		catch (ex) {
+			if (ex.code !== 'EEXIST') throw ex;
+		}
+		return pathSoFar;
+	}, '');
 }
