@@ -1,6 +1,6 @@
 /bower_components/
 /src/
-/build/
+/build/temp/
 /test/
 /tests/
 /docs/
