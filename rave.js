@@ -3944,6 +3944,10 @@ function applyOverrides (context, data) {
 		_applyOverrides(false, context.overrides, data);
 		_applyOverrides(true, context.missing, data);
 	}
+	else if (context.name in context.missing){
+		data = Object.create(context.missing[context.name]);
+		_applyOverrides(false, context.overrides, data);
+	}
 	return data;
 }
 
